@@ -3,6 +3,7 @@ import { AudioManager } from '../utils/AudioManager.js';
 import {
   TOOL_UPGRADES,
   PERK_UPGRADES,
+  TEST_UPGRADES,
   LAB_UPGRADES,
   getToolCost,
   getPerkCost
@@ -11,7 +12,7 @@ import {
 export class UpgradeScene extends Phaser.Scene {
   constructor() {
     super('UpgradeScene');
-    this.activeTab = 'tools'; // 'tools' | 'perks'
+    this.activeTab = 'tests'; // 'tests' | 'tools' | 'perks'
   }
 
   create() {
@@ -115,18 +116,21 @@ export class UpgradeScene extends Phaser.Scene {
       this.listContainer.add(maxTxt);
     }
 
-    // 2. Переключатель вкладок: СТАНКИ | ИНТЕРЬЕР И ПЕРСОНАЛ
+    // 2. Переключатель 3 вкладок: СТЕНДЫ | СТАНКИ | ИНТЕРЬЕР
     const tabY = 182;
-    const tabW = (width - 44) / 2;
+    const gap = 8;
+    const tabW = (width - 36 - gap * 2) / 3;
 
-    const makeTab = (x, label, isSelected, onSelect) => {
+    const makeTab = (idx, label, tabKey) => {
+      const x = 18 + tabW / 2 + idx * (tabW + gap);
+      const isSelected = this.activeTab === tabKey;
       const btn = this.add.text(x, tabY, label, {
         fontFamily: '"Rubik", sans-serif',
-        fontSize: '13px',
+        fontSize: '12px',
         fontWeight: '700',
         color: isSelected ? '#1c1917' : '#e7e5e4',
         backgroundColor: isSelected ? '#facc15' : '#292524',
-        padding: { x: 14, y: 8 },
+        padding: { x: 6, y: 8 },
         fixedWidth: tabW,
         align: 'center'
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
@@ -134,24 +138,48 @@ export class UpgradeScene extends Phaser.Scene {
       btn.on('pointerdown', () => {
         if (!isSelected) {
           AudioManager.playClick();
-          onSelect();
+          this.activeTab = tabKey;
+          this.refreshUI();
         }
       });
       this.listContainer.add(btn);
     };
 
-    makeTab(18 + tabW / 2, '⚙️ СТАНКИ И ПРИБОРЫ', this.activeTab === 'tools', () => {
-      this.activeTab = 'tools';
-      this.refreshUI();
-    });
-
-    makeTab(width - 18 - tabW / 2, '🏢 ИНТЕРЬЕР И СТАЖЁР', this.activeTab === 'perks', () => {
-      this.activeTab = 'perks';
-      this.refreshUI();
-    });
+    makeTab(0, '🧪 СТЕНДЫ', 'tests');
+    makeTab(1, '⚙️ СТАНКИ', 'tools');
+    makeTab(2, '🏢 ИНТЕРЬЕР', 'perks');
 
     // 3. Отрисовка выбранной вкладки
-    if (this.activeTab === 'tools') {
+    if (this.activeTab === 'tests') {
+      TEST_UPGRADES.forEach((item, idx) => {
+        const y = 212 + idx * 124;
+        const unlocked = Storage.isTestUnlocked(item.key);
+        const labOk = labLvl >= item.reqLab;
+        const canBuy = !unlocked && labOk && money >= item.cost;
+
+        let btnText = `КУПИТЬ · ${item.cost} ₽`;
+        if (unlocked) btnText = '✅ АКТИВЕН В ЛАБЕ';
+        else if (!labOk) btnText = `НУЖНА ЛАБА Ур. ${item.reqLab}`;
+
+        this.renderItemCard(
+          y,
+          item.name,
+          item.desc,
+          unlocked,
+          item.cost,
+          canBuy,
+          () => {
+            if (Storage.spendMoney(item.cost)) {
+              Storage.unlockTest(item.key);
+              AudioManager.playStamp();
+              this.refreshUI();
+            }
+          },
+          112,
+          btnText
+        );
+      });
+    } else if (this.activeTab === 'tools') {
       TOOL_UPGRADES.forEach((tool, idx) => {
         const y = 212 + idx * 95;
         const lvl = Storage.getUpgradeLevel(tool.key);
@@ -186,12 +214,12 @@ export class UpgradeScene extends Phaser.Scene {
     }
   }
 
-  renderItemCard(y, titleStr, descStr, isMax, cost, canBuy, onBuy, cardH = 86) {
+  renderItemCard(y, titleStr, descStr, isMax, cost, canBuy, onBuy, cardH = 86, customBtnLabel = null) {
     const { width } = this.scale;
     const card = this.add.graphics();
     card.fillStyle(0x292524, 1);
     card.fillRoundedRect(18, y, width - 36, cardH, 10);
-    card.lineStyle(2, 0x57534e, 0.9);
+    card.lineStyle(2, isMax ? 0x22c55e : 0x57534e, 0.9);
     card.strokeRoundedRect(18, y, width - 36, cardH, 10);
 
     const title = this.add.text(30, y + 10, titleStr, {
@@ -208,12 +236,12 @@ export class UpgradeScene extends Phaser.Scene {
       wordWrap: { width: width - 64 }
     });
 
-    const btnLabel = isMax ? 'МАКС.' : `КУПИТЬ · ${cost} ₽`;
+    const btnLabel = customBtnLabel || (isMax ? 'МАКС.' : `КУПИТЬ · ${cost} ₽`);
     const btn = this.add.text(width - 30, y + cardH - 20, btnLabel, {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '12px',
       fontWeight: '700',
-      color: canBuy ? '#ffffff' : '#a8a29e',
+      color: canBuy ? '#ffffff' : isMax ? '#4ade80' : '#a8a29e',
       backgroundColor: canBuy ? '#d97706' : '#44403c',
       padding: { x: 12, y: 5 }
     }).setOrigin(1, 0.5).setInteractive({ useHandCursor: canBuy });
