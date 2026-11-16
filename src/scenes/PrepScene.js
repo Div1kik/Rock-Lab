@@ -24,7 +24,7 @@ export class PrepScene extends Phaser.Scene {
     const needsSplit = tests.includes('shear_crack');
 
     if (needsCylinder) {
-      // Цилиндр лежит горизонтально: ширина на экране = Высота H (100 мм), высота на экране = Диаметр D (50 мм)
+      // Цилиндр: длина (высота H = 100 мм) по горизонтали, диаметр (D = 50 мм) по вертикали
       specs.push({
         mode: 'cylinder',
         label: 'Цилиндр (H=100 × D=50 мм)',
@@ -32,13 +32,13 @@ export class PrepScene extends Phaser.Scene {
         targetD: 50.0,
         sawKeepW: 165,
         sawCoreH: 62,
-        calCoreW: 150,
-        calCoreH: 75
+        calCoreW: 156,
+        calCoreH: 78
       });
     }
 
     if (needsTwoDiscs) {
-      // Шайба сдвига: толщина H = 35 мм (узкая по горизонтали), диаметр D = 70 мм (широкая по вертикали)
+      // Шайба сдвига: толщина (высота H = 35 мм) по горизонтали, диаметр (D = 70 мм) по вертикали
       specs.push({
         mode: 'two_discs',
         label: 'Две шайбы (H=35 × D=70 мм)',
@@ -46,8 +46,8 @@ export class PrepScene extends Phaser.Scene {
         targetD: 70.0,
         sawKeepW: 68,
         sawCoreH: 88,
-        calCoreW: 54,
-        calCoreH: 108
+        calCoreW: 56,
+        calCoreH: 112
       });
     }
 
@@ -57,8 +57,8 @@ export class PrepScene extends Phaser.Scene {
         label: 'Раскол керна (H=70 × D=70 мм)',
         targetH: 70.0,
         targetD: 70.0,
-        calCoreW: 105,
-        calCoreH: 105
+        calCoreW: 104,
+        calCoreH: 104
       });
     }
 
@@ -70,8 +70,8 @@ export class PrepScene extends Phaser.Scene {
         targetD: 50.0,
         sawKeepW: 165,
         sawCoreH: 62,
-        calCoreW: 150,
-        calCoreH: 75
+        calCoreW: 156,
+        calCoreH: 78
       });
     }
 
@@ -416,7 +416,7 @@ export class PrepScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // ФАЗА 2: ЗАМЕР ГАБАРИТОВ (Строгое соответствие осей: Горизонталь = H, Вертикаль = D)
+  // ФАЗА 2: ЗАМЕР ГАБАРИТОВ ШТАНГЕНЦИРКУЛЕМ (без наложения на дисплей!)
   // =========================================================================
   startMeasurePhase(spec) {
     const { width, height } = this.scale;
@@ -426,8 +426,8 @@ export class PrepScene extends Phaser.Scene {
 
     const hint = this.add.text(
       width / 2,
-      128,
-      `Шаг 1: Замерь высоту H (${spec.targetH} мм) по горизонтали\nШаг 2: Замерь диаметр D (${spec.targetD} мм) по вертикали`,
+      126,
+      `1) Замерь высоту H (↔ норма ${spec.targetH} мм)\n2) Замерь диаметр D (↕ норма ${spec.targetD} мм)`,
       {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
@@ -437,7 +437,7 @@ export class PrepScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     const cx = width / 2;
-    const cy = 310;
+    const cy = 278; // Поднято выше, чтобы штанга не задевала дисплей на y=455
 
     const calThemes = [
       { bar: 0x94a3b8, slider: 0x475569, accent: 0x38bdf8 },
@@ -449,79 +449,87 @@ export class PrepScene extends Phaser.Scene {
     ];
     const theme = calThemes[Math.min(calThemes.length - 1, calLvl - 1)];
 
-    // Образец лежит горизонтально: ширина = H, высота = D
     const coreW = spec.calCoreW;
     const coreH = spec.calCoreH;
-    const core = this.add.rectangle(cx, cy + 16, coreW, coreH, this.contract.rock.color)
+    const core = this.add.rectangle(cx, cy, coreW, coreH, this.contract.rock.color)
       .setStrokeStyle(2, 0x1c1917);
 
-    // 1. Горизонтальный штангенциркуль -> замеряет длину/высоту H
+    // 1. Горизонтальный штангенциркуль (замер высоты H по горизонтали)
     const hCaliperGroup = this.add.container(0, 0);
-    const beamY = cy + 16 - coreH / 2 - 22;
+    const beamY = cy - coreH / 2 - 22;
     const beamStartX = cx - coreW / 2 - 12;
+    const hBeamLen = Math.min(340, coreW + 165);
 
     const hBeam = this.add.graphics();
     hBeam.fillStyle(theme.bar, 1);
-    hBeam.fillRoundedRect(beamStartX, beamY - 12, 310, 24, 4);
-    hBeam.fillRect(beamStartX, beamY - 12, 12, coreH + 34);
+    hBeam.fillRoundedRect(beamStartX, beamY - 11, hBeamLen, 22, 4);
+    hBeam.fillRect(beamStartX, beamY - 11, 12, coreH + 34);
     hBeam.lineStyle(1, 0x0f172a, 0.7);
-    for (let x = beamStartX + 18; x < beamStartX + 300; x += 8) {
+    for (let x = beamStartX + 18; x < beamStartX + hBeamLen - 8; x += 8) {
       const tickH = (x - beamStartX) % 24 === 0 ? 10 : 5;
-      hBeam.lineBetween(x, beamY + 12 - tickH, x, beamY + 12);
+      hBeam.lineBetween(x, beamY + 11 - tickH, x, beamY + 11);
     }
 
-    const hSlider = this.add.container(cx - coreW / 2 + coreW + 115, beamY);
+    const hMaxTravel = 80;
+    const hSlider = this.add.container(cx + coreW / 2 + hMaxTravel, beamY);
     const hSliderG = this.add.graphics();
     hSliderG.fillStyle(theme.slider, 1);
-    hSliderG.fillRoundedRect(-6, -18, 68, 36, 6);
+    hSliderG.fillRoundedRect(-6, -16, 62, 32, 6);
     hSliderG.lineStyle(2, theme.accent, 0.9);
-    hSliderG.strokeRoundedRect(-6, -18, 68, 36, 6);
+    hSliderG.strokeRoundedRect(-6, -16, 62, 32, 6);
     hSliderG.fillStyle(theme.bar, 1);
-    hSliderG.fillRect(0, 12, 10, coreH + 10);
+    hSliderG.fillRect(0, 11, 10, coreH + 12);
     hSlider.add(hSliderG);
     hCaliperGroup.add([hBeam, hSlider]);
 
-    // 2. Вертикальный штангенциркуль -> замеряет диаметр D
+    // 2. Вертикальный штангенциркуль (замер диаметра D по вертикали)
     const vCaliperGroup = this.add.container(0, 0).setVisible(false);
-    const vBeamX = cx - coreW / 2 - 26;
-    const vBeamTopY = cy + 16 - coreH / 2 - 12;
+    const vBeamX = cx - coreW / 2 - 24;
+    const vBeamTopY = cy - coreH / 2 - 12;
+    const vBeamLen = Math.min(205, coreH + 85);
 
     const vBeam = this.add.graphics();
     vBeam.fillStyle(theme.bar, 1);
-    vBeam.fillRoundedRect(vBeamX - 12, vBeamTopY, 24, 225, 4);
-    vBeam.fillRect(vBeamX - 12, vBeamTopY, coreW + 46, 12);
+    vBeam.fillRoundedRect(vBeamX - 11, vBeamTopY, 22, vBeamLen, 4);
+    vBeam.fillRect(vBeamX - 11, vBeamTopY, coreW + 46, 12);
     vBeam.lineStyle(1, 0x0f172a, 0.7);
-    for (let y = vBeamTopY + 18; y < vBeamTopY + 215; y += 8) {
+    for (let y = vBeamTopY + 18; y < vBeamTopY + vBeamLen - 8; y += 8) {
       const tickW = (y - vBeamTopY) % 24 === 0 ? 10 : 5;
-      vBeam.lineBetween(vBeamX + 12 - tickW, y, vBeamX + 12, y);
+      vBeam.lineBetween(vBeamX + 11 - tickW, y, vBeamX + 11, y);
     }
 
-    const vSlider = this.add.container(vBeamX, cy + 16 + coreH / 2 + 80);
+    const vMaxTravel = 52;
+    const vSlider = this.add.container(vBeamX, cy + coreH / 2 + vMaxTravel);
     const vSliderG = this.add.graphics();
     vSliderG.fillStyle(theme.slider, 1);
-    vSliderG.fillRoundedRect(-18, -6, 36, 54, 6);
+    vSliderG.fillRoundedRect(-16, -6, 32, 44, 6);
     vSliderG.lineStyle(2, theme.accent, 0.9);
-    vSliderG.strokeRoundedRect(-18, -6, 36, 54, 6);
+    vSliderG.strokeRoundedRect(-16, -6, 32, 44, 6);
     vSliderG.fillStyle(theme.bar, 1);
-    vSliderG.fillRect(12, 0, coreW + 22, 10);
+    vSliderG.fillRect(11, 0, coreW + 24, 10);
     vSlider.add(vSliderG);
     vCaliperGroup.add([vBeam, vSlider]);
 
-    // Цифровой дисплей
+    // Цифровой дисплей (строго ниже максимального хода штанги!)
     const lcdBg = this.add.graphics();
     lcdBg.fillStyle(0x0f172a, 1);
-    lcdBg.fillRoundedRect(cx - 145, 448, 290, 54, 10);
+    lcdBg.fillRoundedRect(cx - 165, 456, 330, 54, 10);
     lcdBg.lineStyle(2, theme.accent, 0.9);
-    lcdBg.strokeRoundedRect(cx - 145, 448, 290, 54, 10);
+    lcdBg.strokeRoundedRect(cx - 165, 456, 330, 54, 10);
 
-    const lcdText = this.add.text(cx, 475, `ВЫСОТА H (↔): ${(spec.targetH + 35).toFixed(1)} мм`, {
-      fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '17px',
-      fontWeight: '700',
-      color: '#38bdf8'
-    }).setOrigin(0.5);
+    const lcdText = this.add.text(
+      cx,
+      483,
+      `ВЫСОТА H: ${(spec.targetH + 25).toFixed(1)} мм (норма ${spec.targetH})`,
+      {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '15px',
+        fontWeight: '700',
+        color: '#38bdf8'
+      }
+    ).setOrigin(0.5);
 
-    const resultSummary = this.add.text(width / 2, 518, '', {
+    const resultSummary = this.add.text(width / 2, 526, '', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '13px',
       fontWeight: '600',
@@ -534,13 +542,13 @@ export class PrepScene extends Phaser.Scene {
       hint, core, hCaliperGroup, vCaliperGroup, lcdBg, lcdText, resultSummary, btn.container
     ]);
 
-    let step = 'height_axis'; // 1: горизонтальный замер H, 2: вертикальный замер D
-    let gap = 1.0;
+    let step = 'height_axis';
+    let gap = 1.0; // 1.0 (открыто на +25 мм) -> 0.0 (упор в торец) -> -0.2 (пережим)
     let holding = false;
     let measuredH = spec.targetH;
     let measuredD = spec.targetD;
 
-    const jawSpeed = Math.max(0.42, 0.75 - (calLvl - 1) * 0.06);
+    const jawSpeed = Math.max(0.42, 0.72 - (calLvl - 1) * 0.06);
 
     btn.zone.on('pointerdown', () => {
       if (step !== 'done') holding = true;
@@ -556,20 +564,20 @@ export class PrepScene extends Phaser.Scene {
       this.prepScores.push(stepAcc);
 
       if (step === 'height_axis') {
-        measuredH = (spec.targetH + gap * 35).toFixed(1);
-        resultSummary.setText(`✓ Высота H: ${measuredH} мм (норма ${spec.targetH})`);
+        measuredH = (spec.targetH + gap * 25).toFixed(1);
+        resultSummary.setText(`✓ Высота H: ${measuredH} мм (норма ${spec.targetH} мм)`);
         step = 'diameter_axis';
         gap = 1.0;
         hCaliperGroup.setVisible(false);
         vCaliperGroup.setVisible(true);
-        lcdText.setText(`ДИАМЕТР D (↕): ${(spec.targetD + 20).toFixed(1)} мм`);
+        lcdText.setText(`ДИАМЕТР D: ${(spec.targetD + 20).toFixed(1)} мм (норма ${spec.targetD})`);
         lcdText.setColor('#38bdf8');
         btn.setLabel('УДЕРЖИВАТЬ: ЗАМЕР ДИАМЕТРА D (↕)');
       } else if (step === 'diameter_axis') {
         measuredD = (spec.targetD + gap * 20).toFixed(1);
         step = 'done';
-        resultSummary.setText(`✓ H = ${measuredH} мм  |  D = ${measuredD} мм — Образец готов!`);
-        this.particles.emitParticleAt(cx, cy + 16, 14);
+        resultSummary.setText(`✓ H = ${measuredH} мм  |  D = ${measuredD} мм — Готово!`);
+        this.particles.emitParticleAt(cx, cy, 14);
 
         this.time.delayedCall(800, () => {
           this.currentSpecIdx += 1;
@@ -585,23 +593,21 @@ export class PrepScene extends Phaser.Scene {
       if (!holding || step === 'done') return;
 
       gap -= jawSpeed * dt;
-      if (gap < -0.25) {
-        gap = -0.25;
+      if (gap < -0.22) {
+        gap = -0.22;
         releaseJaw();
         return;
       }
 
       if (step === 'height_axis') {
-        const currentSpan = coreW + gap * 115;
-        hSlider.x = cx - coreW / 2 + currentSpan;
-        const mm = (spec.targetH + gap * 35).toFixed(1);
-        lcdText.setText(`ВЫСОТА H (↔): ${mm} мм`);
+        hSlider.x = cx + coreW / 2 + gap * hMaxTravel;
+        const mm = (spec.targetH + gap * 25).toFixed(1);
+        lcdText.setText(`ВЫСОТА H: ${mm} мм (норма ${spec.targetH})`);
         lcdText.setColor(Math.abs(gap) <= 0.08 ? '#4ade80' : '#38bdf8');
       } else {
-        const currentSpan = coreH + gap * 80;
-        vSlider.y = cy + 16 - coreH / 2 + currentSpan;
+        vSlider.y = cy + coreH / 2 + gap * vMaxTravel;
         const mm = (spec.targetD + gap * 20).toFixed(1);
-        lcdText.setText(`ДИАМЕТР D (↕): ${mm} мм`);
+        lcdText.setText(`ДИАМЕТР D: ${mm} мм (норма ${spec.targetD})`);
         lcdText.setColor(Math.abs(gap) <= 0.08 ? '#4ade80' : '#38bdf8');
       }
     };
