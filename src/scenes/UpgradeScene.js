@@ -168,7 +168,8 @@ export class UpgradeScene extends Phaser.Scene {
             }
           },
           88,
-          btnText
+          btnText,
+          item.key // Ключ для кнопки [? ГОСТ]
         );
       });
     } else if (this.activeTab === 'tools') {
@@ -226,7 +227,7 @@ export class UpgradeScene extends Phaser.Scene {
     }
   }
 
-  renderItemCard(y, titleStr, descStr, isMax, cost, canBuy, onBuy, cardH = 88, customBtnLabel = null) {
+  renderItemCard(y, titleStr, descStr, isMax, cost, canBuy, onBuy, cardH = 88, customBtnLabel = null, guideKey = null) {
     const { width } = this.scale;
     const card = this.add.graphics();
     card.fillStyle(0x292524, 1);
@@ -247,6 +248,24 @@ export class UpgradeScene extends Phaser.Scene {
       color: '#a8a29e',
       wordWrap: { width: width - 64 }
     });
+
+    // Кнопка [? ГОСТ] слева внизу карточки (если передан guideKey стенда)
+    if (guideKey) {
+      const infoBtn = this.add.text(30, y + cardH - 16, '? ГОСТ', {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '11px',
+        fontWeight: '700',
+        color: '#38bdf8',
+        backgroundColor: '#0f172a',
+        padding: { x: 8, y: 4 }
+      }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
+
+      infoBtn.on('pointerdown', () => {
+        AudioManager.playClick();
+        this.scene.start('GuideScene', { returnScene: 'UpgradeScene', guideKey });
+      });
+      this.listContainer.add(infoBtn);
+    }
 
     const btnLabel = customBtnLabel || (isMax ? 'МАКС.' : `КУПИТЬ · ${cost} ₽`);
     const btn = this.add.text(width - 30, y + cardH - 16, btnLabel, {
