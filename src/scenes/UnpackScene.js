@@ -15,7 +15,7 @@ export class UnpackScene extends Phaser.Scene {
     this.lidOpened = false;
     this.coresCollected = 0;
     this.drillTickTimer = 0;
-    this.boxMode = 'screws'; // 'screws' (шуруповёрт) | 'crowbar' (ломик)
+    this.boxMode = 'screws';
     this.pryProgress = 0;
     this.isPrying = false;
   }
@@ -72,25 +72,21 @@ export class UnpackScene extends Phaser.Scene {
     this.drillSprite = this.add.container(0, 0).setDepth(45).setVisible(false);
 
     const g = this.add.graphics();
-    // Бита и быстрозажимной патрон
     g.fillStyle(0x94a3b8, 1);
     g.fillRect(-3, -24, 6, 24);
     g.fillStyle(0x1e293b, 1);
     g.fillRoundedRect(-10, -44, 20, 22, 4);
     if (drillLvl >= 3) {
-      // Кольцо LED-подсветки на продвинутых шуруповёртах
       g.fillStyle(0x38bdf8, 1);
       g.fillRect(-10, -26, 20, 3);
     }
 
-    // Моторный блок
     g.fillStyle(bodyColor, 1);
     g.fillRoundedRect(-17, -88, 38, 46, 8);
     g.fillStyle(0x1c1917, 0.85);
     g.fillRect(-12, -76, 24, 6);
     g.fillRect(-12, -64, 24, 6);
 
-    // Рукоятка и аккумулятор увеличенной ёмкости на старших уровнях
     g.fillStyle(0x27272a, 1);
     g.fillRoundedRect(12, -78, 46, 18, 6);
     g.fillStyle(bodyColor, 1);
@@ -108,18 +104,37 @@ export class UnpackScene extends Phaser.Scene {
     this.crowbarSprite = this.add.container(0, 0).setDepth(45).setVisible(false);
     const g = this.add.graphics();
 
-    // Изогнутая лапа гвоздодёра, уходящая под крышку в точке (0,0)
     g.fillStyle(0x94a3b8, 1);
     g.fillRoundedRect(-6, -12, 16, 24, 4);
-    // Длинный рычаг ломика вправо-вверх
     g.fillStyle(barColor, 1);
     g.fillRoundedRect(4, -8, 130, 14, 6);
-    // Прорезиненная рукоятка на конце
     g.fillStyle(0x1c1917, 1);
     g.fillRoundedRect(85, -10, 48, 18, 6);
 
     this.crowbarSprite.add(g);
     this.crowbarSprite.setAngle(-28);
+  }
+
+  getCoreLayout(testsCount) {
+    if (testsCount <= 1) {
+      return [
+        { x: -65, y: 0 },
+        { x: 65, y: 0 }
+      ];
+    }
+    if (testsCount === 2) {
+      return [
+        { x: -65, y: -88 },
+        { x: 65, y: -88 },
+        { x: 0, y: 88 }
+      ];
+    }
+    return [
+      { x: -65, y: -88 },
+      { x: 65, y: -88 },
+      { x: -65, y: 88 },
+      { x: 65, y: 88 }
+    ];
   }
 
   buildCrate() {
@@ -133,15 +148,18 @@ export class UnpackScene extends Phaser.Scene {
     this.drillSprite.setVisible(false);
     this.crowbarSprite.setVisible(false);
 
-    // Чередуем ящики: на болтах (шуруповёрт) и заколоченные гвоздями (ломик)
     this.boxMode = Math.random() < 0.45 ? 'crowbar' : 'screws';
+    const testsCount = this.contract?.tests?.length || 1;
+    const corePositions = this.getCoreLayout(testsCount);
 
-    this.subTxt.setText(`${this.contract.title} · Ящик ${this.currentBox} из ${this.totalBoxes}`);
+    this.subTxt.setText(
+      `${this.contract.title} · Ящик ${this.currentBox}/${this.totalBoxes} (Проб: ${corePositions.length})`
+    );
 
     const boxW = 310;
     const boxH = 380;
 
-    // Внутренний лоток с кернами
+    // Внутренний лоток с ячейками под количество кернов
     const tray = this.add.graphics();
     tray.fillStyle(0x1c1917, 1);
     tray.fillRoundedRect(-boxW / 2, -boxH / 2, boxW, boxH, 12);
@@ -149,17 +167,15 @@ export class UnpackScene extends Phaser.Scene {
     tray.strokeRoundedRect(-boxW / 2, -boxH / 2, boxW, boxH, 12);
 
     tray.fillStyle(0x27272a, 1);
-    tray.fillRoundedRect(-boxW / 2 + 18, -boxH / 2 + 24, boxW - 36, 145, 8);
-    tray.fillRoundedRect(-boxW / 2 + 18, 16, boxW - 36, 145, 8);
+    if (corePositions.length === 2) {
+      tray.fillRoundedRect(-boxW / 2 + 18, -90, boxW - 36, 180, 10);
+    } else {
+      tray.fillRoundedRect(-boxW / 2 + 18, -boxH / 2 + 24, boxW - 36, 145, 8);
+      tray.fillRoundedRect(-boxW / 2 + 18, 16, boxW - 36, 145, 8);
+    }
     this.crateContainer.add(tray);
 
     this.coreSprites = [];
-    const corePositions = [
-      { x: -65, y: -92 },
-      { x: 65, y: -92 },
-      { x: 0, y: 88 }
-    ];
-
     corePositions.forEach((pos) => {
       const core = this.add.image(pos.x, pos.y, 'rock_core')
         .setScale(1.15)
@@ -210,15 +226,20 @@ export class UnpackScene extends Phaser.Scene {
     }
 
     const modeTag = this.boxMode === 'crowbar' ? 'ЗАКОЛОЧЕНО ГВОЗДЯМИ' : 'НА САМОРЕЗАХ';
-    const stamp = this.add.text(0, 0, `ПРОБА: ${this.contract.rock.name.toUpperCase()}\n${modeTag}`, {
-      fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '13px',
-      fontWeight: '700',
-      color: '#fef3c7',
-      align: 'center',
-      backgroundColor: '#451a03bb',
-      padding: { x: 10, y: 6 }
-    }).setOrigin(0.5);
+    const stamp = this.add.text(
+      0,
+      0,
+      `ПРОБА: ${this.contract.rock.name.toUpperCase()}\nОБРАЗЦОВ: ${corePositions.length} ШТ.\n${modeTag}`,
+      {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '12px',
+        fontWeight: '700',
+        color: '#fef3c7',
+        align: 'center',
+        backgroundColor: '#451a03cc',
+        padding: { x: 10, y: 7 }
+      }
+    ).setOrigin(0.5);
 
     this.lidContainer.add([lid, stamp]);
     this.crateContainer.add(this.lidContainer);
@@ -251,7 +272,6 @@ export class UnpackScene extends Phaser.Scene {
         this.bolts.push(bolt);
       });
     } else {
-      // Режим ломика: точка поддева сбоку крышки
       this.hintTxt.setText('Зажми или быстро тапай по скобе сбоку,\nчтобы поддеть и сорвать крышку ломиком!');
 
       const pryX = boxW / 2 - 14;
@@ -277,7 +297,6 @@ export class UnpackScene extends Phaser.Scene {
       pryZone.on('pointerdown', () => {
         if (this.lidOpened) return;
         this.isPrying = true;
-        // Каждый тап даёт резкий рывок ломиком
         const drillLvl = Storage.getUpgradeLevel('drill');
         this.pryProgress = Math.min(1, this.pryProgress + 0.16 + (drillLvl - 1) * 0.03);
         AudioManager.playCrowbarPry();
@@ -326,7 +345,6 @@ export class UnpackScene extends Phaser.Scene {
         this.pryProgress = Math.min(1, this.pryProgress + (0.55 + (drillLvl - 1) * 0.12) * (delta / 1000));
         this.crowbarSprite.setVisible(true);
         this.crowbarSprite.setPosition(pryWorldX, pryWorldY);
-        // Ломик давит вниз как рычаг, а крышка приподнимается
         this.crowbarSprite.setAngle(-28 + this.pryProgress * 34);
         this.lidContainer.x = -this.pryProgress * 18;
         this.lidContainer.angle = -this.pryProgress * 4;
@@ -344,7 +362,6 @@ export class UnpackScene extends Phaser.Scene {
       return;
     }
 
-    // Режим шуруповёрта
     const speed = (0.95 + (drillLvl - 1) * 0.35) * (delta / 1000);
     let activeBolt = null;
 
