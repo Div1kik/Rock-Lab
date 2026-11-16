@@ -63,9 +63,9 @@ export class UpgradeScene extends Phaser.Scene {
     const nextLab = LAB_UPGRADES.find((l) => l.level === labLvl + 1);
     const labCard = this.add.graphics();
     labCard.fillStyle(0x292524, 1);
-    labCard.fillRoundedRect(18, 64, width - 36, 86, 12);
+    labCard.fillRoundedRect(18, 64, width - 36, 84, 12);
     labCard.lineStyle(2, 0x38bdf8, 0.85);
-    labCard.strokeRoundedRect(18, 64, width - 36, 86, 12);
+    labCard.strokeRoundedRect(18, 64, width - 36, 84, 12);
     this.listContainer.add(labCard);
 
     if (nextLab) {
@@ -78,7 +78,7 @@ export class UpgradeScene extends Phaser.Scene {
       });
       const buyLabBtn = this.add.text(
         width - 30,
-        126,
+        124,
         `РАСШИРИТЬ: ${nextLab.cost} ₽ (нужно ★${nextLab.reqRep})`,
         {
           fontFamily: '"JetBrains Mono", monospace',
@@ -101,7 +101,7 @@ export class UpgradeScene extends Phaser.Scene {
       }
       this.listContainer.add([t1, buyLabBtn]);
     } else {
-      const maxTxt = this.add.text(width / 2, 107, '🏆 МАКСИМАЛЬНЫЙ УРОВЕНЬ ЛАБОРАТОРИИ (Ур. 5)', {
+      const maxTxt = this.add.text(width / 2, 106, '🏆 МАКСИМАЛЬНЫЙ УРОВЕНЬ ЛАБОРАТОРИИ (Ур. 5)', {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
         fontWeight: '700',
@@ -110,7 +110,7 @@ export class UpgradeScene extends Phaser.Scene {
       this.listContainer.add(maxTxt);
     }
 
-    const tabY = 170;
+    const tabY = 166;
     const gap = 8;
     const tabW = (width - 36 - gap * 2) / 3;
 
@@ -144,7 +144,7 @@ export class UpgradeScene extends Phaser.Scene {
 
     if (this.activeTab === 'tests') {
       TEST_UPGRADES.forEach((item, idx) => {
-        const y = 196 + idx * 96;
+        const y = 190 + idx * 96;
         const unlocked = Storage.isTestUnlocked(item.key);
         const labOk = labLvl >= item.reqLab;
         const canBuy = !unlocked && labOk && money >= item.cost;
@@ -173,23 +173,43 @@ export class UpgradeScene extends Phaser.Scene {
       });
     } else if (this.activeTab === 'tools') {
       TOOL_UPGRADES.forEach((tool, idx) => {
-        const y = 196 + idx * 96;
+        const y = 190 + idx * 84;
         const lvl = Storage.getUpgradeLevel(tool.key);
         const isMax = lvl >= tool.maxLevel;
         const cost = getToolCost(tool, lvl);
         const canBuy = !isMax && money >= cost;
 
-        this.renderItemCard(y, `${tool.name} [Ур. ${lvl}/${tool.maxLevel}]`, tool.desc, isMax, cost, canBuy, () => {
-          if (Storage.spendMoney(cost)) {
-            Storage.upgradeTool(tool.key);
-            AudioManager.playLatchSnap();
-            this.refreshUI();
-          }
-        }, 88);
+        const isNotBought = tool.isPurchaseFirst && lvl === 0;
+        const titleStr = isNotBought
+          ? `${tool.name} [НЕ КУПЛЕН]`
+          : `${tool.name} [Ур. ${lvl}/${tool.maxLevel}]`;
+        const btnLabel = isMax
+          ? 'МАКС.'
+          : isNotBought
+            ? `КУПИТЬ · ${cost} ₽`
+            : `УЛУЧШИТЬ · ${cost} ₽`;
+
+        this.renderItemCard(
+          y,
+          titleStr,
+          tool.desc,
+          isMax,
+          cost,
+          canBuy,
+          () => {
+            if (Storage.spendMoney(cost)) {
+              Storage.upgradeTool(tool.key);
+              AudioManager.playLatchSnap();
+              this.refreshUI();
+            }
+          },
+          77,
+          btnLabel
+        );
       });
     } else {
       PERK_UPGRADES.forEach((perk, idx) => {
-        const y = 196 + idx * 112;
+        const y = 190 + idx * 112;
         const lvl = Storage.getPerkLevel(perk.key);
         const isMax = lvl >= perk.maxLevel;
         const cost = getPerkCost(perk, lvl);
@@ -214,28 +234,28 @@ export class UpgradeScene extends Phaser.Scene {
     card.lineStyle(2, isMax ? 0x22c55e : 0x57534e, 0.9);
     card.strokeRoundedRect(18, y, width - 36, cardH, 10);
 
-    const title = this.add.text(30, y + 9, titleStr, {
+    const title = this.add.text(30, y + 8, titleStr, {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '13px',
+      fontSize: '12px',
       fontWeight: '700',
       color: '#fef3c7'
     });
 
-    const desc = this.add.text(30, y + 28, descStr, {
+    const desc = this.add.text(30, y + 25, descStr, {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '11px',
+      fontSize: '10px',
       color: '#a8a29e',
       wordWrap: { width: width - 64 }
     });
 
     const btnLabel = customBtnLabel || (isMax ? 'МАКС.' : `КУПИТЬ · ${cost} ₽`);
-    const btn = this.add.text(width - 30, y + cardH - 18, btnLabel, {
+    const btn = this.add.text(width - 30, y + cardH - 16, btnLabel, {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '11px',
       fontWeight: '700',
       color: canBuy ? '#ffffff' : isMax ? '#4ade80' : '#a8a29e',
       backgroundColor: canBuy ? '#d97706' : '#44403c',
-      padding: { x: 11, y: 5 }
+      padding: { x: 10, y: 4 }
     }).setOrigin(1, 0.5).setInteractive({ useHandCursor: canBuy });
 
     if (canBuy) {
