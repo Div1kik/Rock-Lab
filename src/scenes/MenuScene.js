@@ -26,13 +26,9 @@ export class MenuScene extends Phaser.Scene {
       emitting: false
     }).setDepth(30);
 
-    // 1. Детализированный фон лаборатории с учётом уровня и купленного интерьера
     this.drawLabRoom(width, height, tier, labLvl);
-
-    // 2. Верхняя панель статуса
     this.createTopBar(width, tier);
 
-    // 3. Заголовок и плашка уровня
     this.add.text(width / 2, 108, 'ROCK LAB', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '40px',
@@ -51,15 +47,14 @@ export class MenuScene extends Phaser.Scene {
       padding: { x: 12, y: 5 }
     }).setOrigin(0.5);
 
-    // 4. Интерактивный верстак с приборами
     this.createCenterWorkbench(width, height, tier, labLvl);
 
-    // 5. Главные кнопки
+    // Главная кнопка: ДОСКА ЗАКАЗОВ
     this.createActionButton(
       width / 2,
-      height - 172,
-      330,
-      64,
+      height - 196,
+      340,
+      58,
       'ДОСКА ЗАКАЗОВ',
       0xd97706,
       0xfef3c7,
@@ -69,21 +64,38 @@ export class MenuScene extends Phaser.Scene {
       }
     );
 
+    // Вторая строка кнопок: СТАНКИ И ЛАБА + МЕТОДЫ И ГОСТЫ
+    const halfW = 165;
     this.createActionButton(
-      width / 2,
-      height - 94,
-      330,
-      54,
-      'СТАНКИ И ИНТЕРЬЕР ЛАБЫ',
+      width / 2 - halfW / 2 - 5,
+      height - 124,
+      halfW,
+      52,
+      '⚙️ МАГАЗИН',
       0x334155,
       0xe2e8f0,
       () => {
         AudioManager.playClick();
         this.scene.start('UpgradeScene');
-      }
+      },
+      14
     );
 
-    // 6. Плашка студии
+    this.createActionButton(
+      width / 2 + halfW / 2 + 5,
+      height - 124,
+      halfW,
+      52,
+      '📖 ГОСТы',
+      0x1e3a8a,
+      0xbfdbfe,
+      () => {
+        AudioManager.playClick();
+        this.scene.start('GuideScene', { returnScene: 'MenuScene' });
+      },
+      14
+    );
+
     this.add.text(width / 2, height - 22, 'EASY DOPAMINE GAMES', {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '11px',
@@ -98,11 +110,9 @@ export class MenuScene extends Phaser.Scene {
     const decorLvl = Storage.getPerkLevel('decor');
     const showcaseLvl = Storage.getPerkLevel('showcase');
 
-    // Стена
     g.fillStyle(tier.wall, 1);
     g.fillRect(0, 0, w, h);
 
-    // Плиточная или панельная сетка
     g.lineStyle(2, 0x000000, 0.16);
     for (let x = 0; x < w; x += 40) {
       g.moveTo(x, 64);
@@ -114,20 +124,17 @@ export class MenuScene extends Phaser.Scene {
     }
     g.strokePath();
 
-    // Подсветка стен (если куплен декор или Ур. 3+)
     if (decorLvl > 0 || labLvl >= 3) {
       g.fillStyle(tier.accent, 0.14 + decorLvl * 0.04);
       g.fillRect(0, 64, w, 14);
       g.fillRect(0, h * 0.62 - 8, w, 8);
     }
 
-    // Панорамное окно на карьер (Ур. 5) или инженерный монитор (Ур. 1..4)
     if (labLvl >= 5) {
       g.fillStyle(0x0284c9, 0.45);
       g.fillRoundedRect(w / 2 - 175, 178, 350, 125, 10);
       g.lineStyle(4, 0x94a3b8, 1);
       g.strokeRoundedRect(w / 2 - 175, 178, 350, 125, 10);
-      // Силуэты гор и уступов карьера за окном
       g.fillStyle(0x334155, 0.9);
       g.fillTriangle(w / 2 - 165, 300, w / 2 - 70, 210, w / 2 + 25, 300);
       g.fillTriangle(w / 2 - 20, 300, w / 2 + 85, 198, w / 2 + 170, 300);
@@ -140,7 +147,6 @@ export class MenuScene extends Phaser.Scene {
       g.fillStyle(labLvl >= 3 ? 0x0ea5e9 : 0x44403c, 0.28);
       g.fillRect(w / 2 - 127, 192, 254, 98);
 
-      // График напряжений на осциллографе
       g.lineStyle(3, tier.accent, 0.95);
       g.beginPath();
       g.moveTo(w / 2 - 110, 274);
@@ -151,7 +157,6 @@ export class MenuScene extends Phaser.Scene {
       g.strokePath();
     }
 
-    // Стеллаж/витрина с редкими минералами слева (при прокачке showcase или Ур. 2+)
     if (showcaseLvl > 0 || labLvl >= 2) {
       const shelfX = 24;
       const shelfY = 210;
@@ -171,7 +176,6 @@ export class MenuScene extends Phaser.Scene {
       }
     }
 
-    // Грамота / Кубок справа (Ур. 3+)
     if (labLvl >= 3) {
       g.fillStyle(0xfef3c7, 0.9);
       g.fillRect(w - 84, 214, 56, 72);
@@ -181,7 +185,6 @@ export class MenuScene extends Phaser.Scene {
       g.fillCircle(w - 56, 264, 8);
     }
 
-    // Лабораторный верстак (нижняя треть)
     g.fillStyle(tier.table, 1);
     g.fillRect(0, h * 0.62, w, h * 0.38);
     g.fillStyle(0x1c1917, 0.5);
@@ -221,10 +224,9 @@ export class MenuScene extends Phaser.Scene {
   }
 
   createCenterWorkbench(w, h, tier, labLvl) {
-    const cy = h * 0.55;
+    const cy = h * 0.54;
     const coffeeLvl = Storage.getPerkLevel('coffee');
 
-    // Лабораторный пресс
     const g = this.add.graphics();
     g.fillStyle(0x27272a, 1);
     g.fillRect(w / 2 - 78, cy - 112, 16, 152);
@@ -233,12 +235,10 @@ export class MenuScene extends Phaser.Scene {
     g.fillRoundedRect(w / 2 - 88, cy - 126, 176, 24, 6);
     g.fillRect(w / 2 - 24, cy - 102, 48, 28);
 
-    // Интерактивный керн на столе
     const core = this.add.image(w / 2, cy - 6, 'rock_core')
       .setScale(1.35)
       .setInteractive({ useHandCursor: true });
 
-    // Лазерный сканер на Ур. 4+
     if (labLvl >= 4) {
       const laser = this.add.rectangle(w / 2, cy - 26, 94, 3, 0x34d399, 0.85);
       this.tweens.add({
@@ -262,7 +262,6 @@ export class MenuScene extends Phaser.Scene {
       });
     });
 
-    // Интерактивная кофемашина справа на верстаке (если куплена)
     if (coffeeLvl > 0) {
       const cmX = w - 66;
       const cmY = cy + 8;
@@ -272,7 +271,7 @@ export class MenuScene extends Phaser.Scene {
       cm.fillStyle(0xdc2626, 1);
       cm.fillRect(cmX - 24, cmY - 40, 48, 16);
       cm.fillStyle(0xfef3c7, 1);
-      cm.fillRect(cmX - 8, cmY + 6, 16, 18); // кружка
+      cm.fillRect(cmX - 8, cmY + 6, 16, 18);
 
       const cmZone = this.add.zone(cmX, cmY - 8, 64, 84).setInteractive({ useHandCursor: true });
       cmZone.on('pointerdown', () => {
@@ -282,7 +281,7 @@ export class MenuScene extends Phaser.Scene {
     }
   }
 
-  createActionButton(x, y, w, h, label, bgColor, textColor, onClick) {
+  createActionButton(x, y, w, h, label, bgColor, textColor, onClick, fontSize = 17) {
     const container = this.add.container(x, y);
     const bg = this.add.graphics();
 
@@ -301,7 +300,7 @@ export class MenuScene extends Phaser.Scene {
 
     const txt = this.add.text(0, 0, label, {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '17px',
+      fontSize: `${fontSize}px`,
       fontWeight: '700',
       color: Phaser.Display.Color.IntegerToColor(textColor).rgba
     }).setOrigin(0.5);
