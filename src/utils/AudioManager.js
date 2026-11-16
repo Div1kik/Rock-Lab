@@ -48,7 +48,6 @@ class AudioController {
     }
   }
 
-  // Мягкий тактильный клик интерфейса
   playClick() {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -68,7 +67,6 @@ class AudioController {
     osc.stop(now + 0.055);
   }
 
-  // Трещотка шуруповёрта (короткий импульс)
   playDrillTick() {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -88,7 +86,26 @@ class AudioController {
     osc.stop(now + 0.05);
   }
 
-  // Сочный металлический щелчок фиксатора (попадание в зону)
+  // Звук алмазного отрезного диска (короткий импульс реза камня)
+  playSawCut() {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(680 + Math.random() * 140, now);
+    osc.frequency.exponentialRampToValueAtTime(420, now + 0.055);
+
+    gain.gain.setValueAtTime(0.07, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.065);
+  }
+
   playLatchSnap() {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -108,7 +125,6 @@ class AudioController {
     osc.stop(now + 0.1);
   }
 
-  // Хруст / разрушение породы на прессе
   playRockCrack() {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -138,7 +154,6 @@ class AudioController {
     noise.start(now);
   }
 
-  // Непрерывный низкий гул гидропресса (изменяется от нагрузки 0..1)
   updatePressHum(loadRatio) {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -169,7 +184,6 @@ class AudioController {
     this.pressGain = null;
   }
 
-  // Удар печати по бланку отчёта
   playStamp() {
     const ctx = this.ensureContext();
     if (!ctx) return;
