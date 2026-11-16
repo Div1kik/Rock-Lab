@@ -55,7 +55,40 @@ export class UnpackScene extends Phaser.Scene {
     }).setDepth(30);
 
     this.crateContainer = this.add.container(width / 2, height * 0.54);
+    this.buildDrillSprite();
     this.buildCrate();
+  }
+
+  buildDrillSprite() {
+    const drillLvl = Storage.getUpgradeLevel('drill');
+    // Цвет корпуса шуруповёрта меняется с прокачкой
+    const bodyColors = [0xd97706, 0xeab308, 0x22c55e, 0x0ea5e9, 0x8b5cf6, 0xf43f5e];
+    const bodyColor = bodyColors[Math.min(bodyColors.length - 1, drillLvl - 1)];
+
+    this.drillSprite = this.add.container(0, 0).setDepth(45).setVisible(false);
+
+    const g = this.add.graphics();
+    // Бита и патрон (упираются прямо в точку (0, 0) — центр болта)
+    g.fillStyle(0x94a3b8, 1);
+    g.fillRect(-3, -24, 6, 24);
+    g.fillStyle(0x1e293b, 1);
+    g.fillRoundedRect(-9, -42, 18, 20, 4);
+
+    // Моторный блок шуруповёрта (наклонён под удобным углом)
+    g.fillStyle(bodyColor, 1);
+    g.fillRoundedRect(-16, -86, 36, 46, 8);
+    g.fillStyle(0x1c1917, 0.8);
+    g.fillRect(-12, -74, 24, 6);
+    g.fillRect(-12, -62, 24, 6);
+
+    // Рукоятка и аккумулятор в сторону
+    g.fillStyle(0x27272a, 1);
+    g.fillRoundedRect(12, -76, 44, 18, 6);
+    g.fillStyle(bodyColor, 1);
+    g.fillRoundedRect(46, -82, 22, 30, 5);
+
+    this.drillSprite.add(g);
+    this.drillSprite.setAngle(-22);
   }
 
   buildCrate() {
@@ -64,6 +97,7 @@ export class UnpackScene extends Phaser.Scene {
     this.unscrewedCount = 0;
     this.lidOpened = false;
     this.coresCollected = 0;
+    this.drillSprite.setVisible(false);
 
     this.subTxt.setText(`${this.contract.title} · Ящик ${this.currentBox} из ${this.totalBoxes}`);
     this.hintTxt.setText('Зажми по очереди 4 болта шуруповёртом');
@@ -183,11 +217,11 @@ export class UnpackScene extends Phaser.Scene {
     const drillLvl = Storage.getUpgradeLevel('drill');
     const speed = (0.95 + (drillLvl - 1) * 0.35) * (delta / 1000);
 
-    let activeDrilling = false;
+    let activeBolt = null;
 
     for (const bolt of this.bolts) {
       if (bolt.isHolding && !bolt.done) {
-        activeDrilling = true;
+        activeBolt = bolt;
         bolt.progress = Math.min(1, bolt.progress + speed);
         bolt.angle += 18;
         bolt.setScale(1.2 + bolt.progress * 0.35);
@@ -214,16 +248,28 @@ export class UnpackScene extends Phaser.Scene {
       }
     }
 
-    if (activeDrilling) {
+    if (activeBolt && !activeBolt.done) {
+      const worldX = this.crateContainer.x + activeBolt.x;
+      const worldY = this.crateContainer.y + activeBolt.y - activeBolt.progress * 14;
+      this.drillSprite.setVisible(true);
+      this.drillSprite.setPosition(
+        worldX + (Math.random() - 0.5) * 3,
+        worldY + (Math.random() - 0.5) * 3
+      );
+
       this.drillTickTimer += delta;
       if (this.drillTickTimer >= 55) {
         this.drillTickTimer = 0;
         AudioManager.playDrillTick();
+        this.particles.emitParticleAt(worldX, worldY, 2);
       }
+    } else {
+      this.drillSprite.setVisible(false);
     }
   }
 
   unlockLid() {
+    this.drillSprite.setVisible(false);
     this.hintTxt.setText('Нажми на крышку ящика, чтобы снять её!');
     this.lidContainer.setSize(310, 380);
     this.lidContainer.setInteractive({ useHandCursor: true });
@@ -251,7 +297,7 @@ export class UnpackScene extends Phaser.Scene {
       return;
     }
 
-    this.hintTxt.setText('Керны отправлены в камнерезный цех!');
+    this.hintTxt.setText('Керны отправлены на отрезной станок!');
     this.time.delayedCall(450, () => {
       this.scene.start('PrepScene', { contract: this.contract });
     });
