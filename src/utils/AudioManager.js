@@ -8,7 +8,6 @@ class AudioController {
     this.pressSubOsc = null;
     this.pressGain = null;
 
-    // Параметры фонового рок-грува
     this.musicTimer = null;
     this.musicStep = 0;
     this.musicPlaying = false;
@@ -75,7 +74,7 @@ class AudioController {
   }
 
   // =========================================================================
-  // ФОНОВЫЙ РОК-РИФФ (Гаражный блюз-рок / стоунер грув 116 BPM)
+  // ФОНОВЫЙ РОК-РИФФ (SEGA-драйв 116 BPM)
   // =========================================================================
   startMusic() {
     if (this.musicPlaying || !Storage.isSoundEnabled() || this.adSuspended) return;
@@ -83,9 +82,7 @@ class AudioController {
     this.musicPlaying = true;
     this.musicStep = 0;
 
-    // 16-шаговый паттерн (одна шестнадцатая ~ 130 мс)
     const stepMs = 132;
-    // Ноты риффа в Ми-миноре (частоты в Гц): E2, G2, A2, Bb2, B2, D3
     const riffNotes = [
       82.41, 0, 82.41, 98.00,
       110.00, 0, 82.41, 0,
@@ -101,7 +98,6 @@ class AudioController {
       const step = this.musicStep % 16;
       const now = this.ctx.currentTime;
 
-      // 1. Ударные: Бочка на 0, 6, 8, 14; Малый барабан на 4, 12; Хэт каждые 2 шага
       if (step === 0 || step === 6 || step === 8 || step === 14) {
         this.triggerKick(now);
       }
@@ -112,7 +108,6 @@ class AudioController {
         this.triggerHiHat(now, step % 4 === 2 ? 0.024 : 0.012);
       }
 
-      // 2. Перегруженная рок-гитара / бас
       const freq = riffNotes[step];
       if (freq > 0) {
         this.triggerRockGuitar(now, freq, step === 8 ? 0.24 : 0.14);
@@ -193,9 +188,8 @@ class AudioController {
     osc1.type = 'sawtooth';
     osc2.type = 'triangle';
     osc1.frequency.setValueAtTime(freq, now);
-    osc2.frequency.setValueAtTime(freq * 1.498, now); // квинта (power chord!)
+    osc2.frequency.setValueAtTime(freq * 1.498, now);
 
-    // Мягкий овердрайв через волновой шейпер
     const shaper = this.ctx.createWaveShaper();
     const curve = new Float32Array(256);
     for (let i = 0; i < 256; i++) {
@@ -226,10 +220,9 @@ class AudioController {
   }
 
   // =========================================================================
-  // РЕАЛИСТИЧНЫЕ ЗВУКИ ИНСТРУМЕНТОВ
+  // ОБНОВЛЁННЫЕ ЗВУКИ ИНСТРУМЕНТОВ
   // =========================================================================
 
-  // Мягкий тактильный клик кнопки/тумблера
   playClick() {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -249,19 +242,18 @@ class AudioController {
     osc.stop(now + 0.045);
   }
 
-  // Реалистичный электромотор шуруповёрта с редуктором
+  // Мотор шуруповёрта
   playDrillTick() {
     const ctx = this.ensureContext();
     if (!ctx) return;
     const now = ctx.currentTime;
 
-    // Жужжание коллекторного мотора (фильтрованный треугольник + шум щёток)
     const motor = ctx.createOscillator();
     motor.type = 'triangle';
     motor.frequency.setValueAtTime(215 + Math.random() * 25, now);
     motor.frequency.linearRampToValueAtTime(245, now + 0.055);
 
-    const filter = ctx.createBiquadFilter();
+    const filter = this.ctx.createBiquadFilter();
     filter.type = 'bandpass';
     filter.frequency.setValueAtTime(520, now);
     filter.Q.setValueAtTime(2.2, now);
@@ -277,43 +269,109 @@ class AudioController {
     motor.stop(now + 0.065);
   }
 
-  // Реалистичный алмазный отрезной диск по камню
+  // Трение и скрип ломика по дереву ящика
+  playCrowbarPry() {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const creak = ctx.createOscillator();
+    creak.type = 'triangle';
+    creak.frequency.setValueAtTime(150 + Math.random() * 40, now);
+    creak.frequency.exponentialRampToValueAtTime(260, now + 0.09);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.13, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+    creak.connect(gain);
+    gain.connect(ctx.destination);
+    creak.start(now);
+    creak.stop(now + 0.11);
+  }
+
+  // Мягкий, приятный звук доставания каменного керна из поролонового лотка
+  playCorePickup() {
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // 1. Тёплый деревянно-каменный стук (низкий резонанс без писка)
+    const body = ctx.createOscillator();
+    body.type = 'sine';
+    body.frequency.setValueAtTime(260, now);
+    body.frequency.exponentialRampToValueAtTime(145, now + 0.075);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.16, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.085);
+
+    body.connect(gain);
+    gain.connect(ctx.destination);
+    body.start(now);
+    body.stop(now + 0.09);
+
+    // 2. Лёгкий шорох поролона
+    if (this.noiseBuffer) {
+      const rustle = ctx.createBufferSource();
+      rustle.buffer = this.noiseBuffer;
+
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(900, now);
+
+      const rGain = ctx.createGain();
+      rGain.gain.setValueAtTime(0.045, now);
+      rGain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+
+      rustle.connect(lp);
+      lp.connect(rGain);
+      rGain.connect(ctx.destination);
+      rustle.start(now);
+      rustle.stop(now + 0.075);
+    }
+  }
+
+  // Доработанный звук камнерезной пилы (низкий рокот станка + влажное шлифование без визга)
   playSawCut() {
     const ctx = this.ensureContext();
     if (!ctx) return;
     const now = ctx.currentTime;
 
-    // 1. Высокий звон вращающегося стального диска
-    const ring = ctx.createOscillator();
-    ring.type = 'sine';
-    ring.frequency.setValueAtTime(1480 + Math.random() * 90, now);
-    const ringGain = ctx.createGain();
-    ringGain.gain.setValueAtTime(0.025, now);
-    ringGain.gain.exponentialRampToValueAtTime(0.0008, now + 0.065);
-    ring.connect(ringGain);
-    ringGain.connect(ctx.destination);
-    ring.start(now);
-    ring.stop(now + 0.07);
+    // 1. Плотный гул электродвигателя станка (145..175 Гц)
+    const motor = ctx.createOscillator();
+    motor.type = 'triangle';
+    motor.frequency.setValueAtTime(148 + Math.random() * 18, now);
+    motor.frequency.linearRampToValueAtTime(165, now + 0.065);
 
-    // 2. Абразивное трение алмазной кромки о породу (фильтрованный шум)
+    const motorGain = ctx.createGain();
+    motorGain.gain.setValueAtTime(0.075, now);
+    motorGain.gain.exponentialRampToValueAtTime(0.002, now + 0.07);
+
+    motor.connect(motorGain);
+    motorGain.connect(ctx.destination);
+    motor.start(now);
+    motor.stop(now + 0.075);
+
+    // 2. Мягкое водяное шипение алмазного диска о породу (среднечастотный фильтр без высоких писков)
     if (this.noiseBuffer) {
-      const grit = ctx.createBufferSource();
+      const grit = this.ctx.createBufferSource();
       grit.buffer = this.noiseBuffer;
 
       const bp = ctx.createBiquadFilter();
       bp.type = 'bandpass';
-      bp.frequency.setValueAtTime(2400 + Math.random() * 400, now);
-      bp.Q.setValueAtTime(3.0, now);
+      bp.frequency.setValueAtTime(950 + Math.random() * 180, now);
+      bp.Q.setValueAtTime(1.6, now);
 
       const gritGain = ctx.createGain();
-      gritGain.gain.setValueAtTime(0.085, now);
-      gritGain.gain.exponentialRampToValueAtTime(0.002, now + 0.065);
+      gritGain.gain.setValueAtTime(0.065, now);
+      gritGain.gain.exponentialRampToValueAtTime(0.002, now + 0.07);
 
       grit.connect(bp);
       bp.connect(gritGain);
       gritGain.connect(ctx.destination);
       grit.start(now);
-      grit.stop(now + 0.07);
+      grit.stop(now + 0.075);
     }
   }
 
@@ -325,11 +383,11 @@ class AudioController {
 
     const click = ctx.createOscillator();
     click.type = 'triangle';
-    click.frequency.setValueAtTime(1100, now);
-    click.frequency.exponentialRampToValueAtTime(420, now + 0.045);
+    click.frequency.setValueAtTime(860, now);
+    click.frequency.exponentialRampToValueAtTime(340, now + 0.045);
 
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.14, now);
+    gain.gain.setValueAtTime(0.13, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
 
     click.connect(gain);
@@ -338,13 +396,12 @@ class AudioController {
     click.stop(now + 0.055);
   }
 
-  // Тяжёлый многослойный раскол и осыпание каменного керна
+  // Тяжёлый раскол и осыпание каменного керна
   playRockCrack() {
     const ctx = this.ensureContext();
     if (!ctx) return;
     const now = ctx.currentTime;
 
-    // 1. Глухой удар разрыва породы
     const thud = ctx.createOscillator();
     thud.type = 'sine';
     thud.frequency.setValueAtTime(110, now);
@@ -357,7 +414,6 @@ class AudioController {
     thud.start(now);
     thud.stop(now + 0.18);
 
-    // 2. Хруст осколков и каменной крошки
     if (this.noiseBuffer) {
       const debris = ctx.createBufferSource();
       debris.buffer = this.noiseBuffer;
@@ -379,7 +435,6 @@ class AudioController {
     }
   }
 
-  // Глубокий гидравлический гул насоса пресса
   updatePressHum(loadRatio) {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -422,7 +477,6 @@ class AudioController {
     this.pressGain = null;
   }
 
-  // Тяжёлый удар резиновой печати по бумаге
   playStamp() {
     const ctx = this.ensureContext();
     if (!ctx) return;
