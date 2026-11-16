@@ -156,16 +156,17 @@ export class PrepScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // ФАЗА 1А: ОТРЕЗНОЙ СТАНОК (Конструктивная эволюция каретки и рельсы 1→6)
+  // ФАЗА 1А: ОТРЕЗНОЙ СТАНОК (С учётом износа алмазного диска)
   // =========================================================================
   startSawPhase(spec) {
     const { width, height } = this.scale;
     this.stageContainer.removeAll(true);
     const sawLvl = Storage.getUpgradeLevel('saw');
+    const sawWear = Storage.getWear('saw');
     const cutsNeeded = spec.mode === 'two_discs' ? 2 : 1;
     let cutsDone = 0;
 
-    this.titleTxt.setText(`ОТРЕЗНОЙ СТАНОК [Ур. ${sawLvl}]`);
+    this.titleTxt.setText(`ОТРЕЗНОЙ СТАНОК [Ур. ${sawLvl} · Диск ${sawWear}%]`);
 
     const hint = this.add.text(
       width / 2,
@@ -184,12 +185,10 @@ export class PrepScene extends Phaser.Scene {
     const cx = width / 2;
     const cy = 335;
 
-    // Станина с поддоном СОЖ и пневмотисками на старших уровнях
     const bed = this.add.graphics();
     bed.fillStyle(0x475569, 1);
     bed.fillRoundedRect(cx - 185, cy + 44, 370, 34, 8);
     if (sawLvl >= 2) {
-      // Лоток сбора охлаждающей жидкости
       bed.fillStyle(0x0284c9, 0.35);
       bed.fillRect(cx - 140, cy + 46, 280, 10);
     }
@@ -251,7 +250,6 @@ export class PrepScene extends Phaser.Scene {
     };
     drawCutMarks();
 
-    // Направляющая рельса (на Ур. 3+ двойная прецизионная рельса)
     const railY = cy - 94;
     const railStartX = cx - 155;
     const railG = this.add.graphics();
@@ -270,8 +268,7 @@ export class PrepScene extends Phaser.Scene {
     const sawContainer = this.add.container(railStartX, railY);
     const bladeOffsetY = 94;
 
-    // Алмазный диск (на Ур. 4+ золотая алмазная коронка с вентиляционными прорезями)
-    const bladeRimColor = sawLvl >= 4 ? 0xfacc15 : 0xf8fafc;
+    const bladeRimColor = sawWear < 40 ? 0xf87171 : sawLvl >= 4 ? 0xfacc15 : 0xf8fafc;
     const blade = this.add.circle(0, bladeOffsetY, 44, 0xcbd5e1).setStrokeStyle(4, bladeRimColor);
     const teeth = this.add.graphics();
     teeth.y = bladeOffsetY;
@@ -289,7 +286,6 @@ export class PrepScene extends Phaser.Scene {
     carriageBody.fillStyle(cColor, 1);
     carriageBody.fillRoundedRect(-24, 14, 48, 48, 6);
 
-    // На Ур. 2+ форсунка СОЖ, на Ур. 4+ радиатор мотора, на Ур. 5+ лазерный блок
     if (sawLvl >= 2) {
       carriageBody.fillStyle(0x38bdf8, 1);
       carriageBody.fillRect(-32, 28, 8, 40);
@@ -331,7 +327,10 @@ export class PrepScene extends Phaser.Scene {
     let cutProgress = 0;
     let cutting = false;
     let locked = false;
-    const cutSpeed = 0.52 + (sawLvl - 1) * 0.11;
+
+    // Износ алмазного диска замедляет скорость резания
+    const sawWearFactor = 0.55 + 0.45 * (sawWear / 100);
+    const cutSpeed = (0.52 + (sawLvl - 1) * 0.11) * sawWearFactor;
 
     btn.zone.on('pointerdown', () => { if (!locked) cutting = true; });
     btn.zone.on('pointerup', () => { cutting = false; });
@@ -372,7 +371,8 @@ export class PrepScene extends Phaser.Scene {
           } else {
             locked = true;
             coreOutline.setVisible(false);
-            this.prepScores.push(96);
+            const cutQuality = Math.round(90 + 6 * (sawWear / 100));
+            this.prepScores.push(cutQuality);
             const dropTarget = cutsNeeded === 2 ? scrap : disc2;
             if (dropTarget) {
               this.tweens.add({
@@ -485,12 +485,13 @@ export class PrepScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // ФАЗА 1В: ТОРЦЕШЛИФОВАЛЬНЫЙ СТАНОК (Конструктивная эволюция 1→5)
+  // ФАЗА 1В: ТОРЦЕШЛИФОВАЛЬНЫЙ СТАНОК (С учётом износа абразивного круга)
   // =========================================================================
   startGrinderPhase(spec, grinderLvl) {
     const { width, height } = this.scale;
     this.stageContainer.removeAll(true);
-    this.titleTxt.setText(`ТОРЦЕШЛИФОВАЛЬНЫЙ СТАНОК [Ур. ${grinderLvl}]`);
+    const grinderWear = Storage.getWear('grinder');
+    this.titleTxt.setText(`ТОРЦЕШЛИФОВАЛЬНЫЙ СТАНОК [Ур. ${grinderLvl} · Круг ${grinderWear}%]`);
 
     const hint = this.add.text(
       width / 2,
@@ -510,7 +511,6 @@ export class PrepScene extends Phaser.Scene {
     const wheelColors = [0x94a3b8, 0x38bdf8, 0x34d399, 0x818cf8, 0xfbbf24];
     const wColor = wheelColors[Math.min(wheelColors.length - 1, grinderLvl - 1)];
 
-    // Защитный кожух планшайбы (на Ур. 2+) и патрубок пылеотсоса (на Ур. 3+)
     const guardG = this.add.graphics();
     if (grinderLvl >= 2) {
       guardG.lineStyle(6, 0x475569, 1);
@@ -533,7 +533,6 @@ export class PrepScene extends Phaser.Scene {
       const rad = Phaser.Math.DegToRad(a);
       gritMarks.lineBetween(Math.cos(rad) * 30, Math.sin(rad) * 30, Math.cos(rad) * 104, Math.sin(rad) * 104);
     }
-    // Алмазные сегменты по периметру диска на Ур. 3+
     if (grinderLvl >= 3) {
       gritMarks.fillStyle(wColor, 0.9);
       for (let a = 0; a < 360; a += 45) {
@@ -584,7 +583,10 @@ export class PrepScene extends Phaser.Scene {
     let polish = 0;
     let grinding = false;
     let done = false;
-    const grindSpeed = 0.56 + (grinderLvl - 1) * 0.14;
+
+    // Износ абразивного круга снижает скорость и чистоту доводки торцов
+    const grinderWearFactor = 0.55 + 0.45 * (grinderWear / 100);
+    const grindSpeed = (0.56 + (grinderLvl - 1) * 0.14) * grinderWearFactor;
 
     btn.zone.on('pointerdown', () => { if (!done) grinding = true; });
     btn.zone.on('pointerup', () => { grinding = false; });
@@ -599,7 +601,8 @@ export class PrepScene extends Phaser.Scene {
         barFill.width = Math.max(2, (barW - 6) * polish);
         drawBurrs(1 - polish);
 
-        const dev = Math.max(0.01, (0.45 * (1 - polish))).toFixed(2);
+        const minDev = grinderWear < 40 ? 0.04 : 0.01;
+        const dev = Math.max(minDev, (0.45 * (1 - polish))).toFixed(2);
         statusTxt.setText(`Неплоскостность торцов: ${dev} мм (допуск ≤ 0.05)`);
 
         this.sawSoundTimer += dt * 1000;
@@ -613,9 +616,10 @@ export class PrepScene extends Phaser.Scene {
           done = true;
           grinding = false;
           AudioManager.playLatchSnap();
-          statusTxt.setText('✓ Торцы отшлифованы в зеркало (0.01 мм)!');
+          statusTxt.setText(grinderWear < 40 ? '✓ Торцы зачищены (износ абразива!)' : '✓ Торцы отшлифованы в зеркало (0.01 мм)!');
           statusTxt.setColor('#4ade80');
-          this.prepScores.push(Math.min(100, 95 + grinderLvl));
+          const grindScore = Math.min(100, Math.round(90 + grinderLvl + 5 * (grinderWear / 100)));
+          this.prepScores.push(grindScore);
 
           this.time.delayedCall(650, () => {
             this.startMeasurePhase(spec);
@@ -626,7 +630,7 @@ export class PrepScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // ФАЗА 2: ЗАМЕР ГАБАРИТОВ ШТАНГЕНЦИРКУЛЕМ (Визуальная эволюция 1→6)
+  // ФАЗА 2: ЗАМЕР ГАБАРИТОВ ШТАНГЕНЦИРКУЛЕМ
   // =========================================================================
   startMeasurePhase(spec) {
     const { width, height } = this.scale;
@@ -663,7 +667,6 @@ export class PrepScene extends Phaser.Scene {
     const coreH = spec.calCoreH;
     const core = this.createRockBlock(cx, cy, coreW, coreH);
 
-    // 1. Горизонтальный штангенциркуль
     const hCaliperGroup = this.add.container(0, 0);
     const beamY = cy - coreH / 2 - 22;
     const beamStartX = cx - coreW / 2 - 12;
@@ -686,7 +689,6 @@ export class PrepScene extends Phaser.Scene {
     hSliderG.fillRoundedRect(-6, -16, 62, 32, 6);
     hSliderG.lineStyle(2, theme.accent, 0.85);
     hSliderG.strokeRoundedRect(-6, -16, 62, 32, 6);
-    // Конструктивные детали на каретке: стопорный винт (Ур.2+), ЖК-окно (Ур.3+), микрометр (Ур.4+)
     if (calLvl >= 2) {
       hSliderG.fillStyle(0x94a3b8, 1);
       hSliderG.fillRect(20, -23, 10, 7);
@@ -704,7 +706,6 @@ export class PrepScene extends Phaser.Scene {
     hSlider.add(hSliderG);
     hCaliperGroup.add([hBeam, hSlider]);
 
-    // 2. Вертикальный штангенциркуль
     const vCaliperGroup = this.add.container(0, 0).setVisible(false);
     const vBeamX = cx - coreW / 2 - 24;
     const vBeamTopY = cy - coreH / 2 - 12;
