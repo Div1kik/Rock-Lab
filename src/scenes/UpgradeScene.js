@@ -12,7 +12,7 @@ import {
 export class UpgradeScene extends Phaser.Scene {
   constructor() {
     super('UpgradeScene');
-    this.activeTab = 'tests'; // 'tests' | 'tools' | 'perks'
+    this.activeTab = 'tests';
   }
 
   create() {
@@ -60,31 +60,25 @@ export class UpgradeScene extends Phaser.Scene {
 
     this.balanceTxt.setText(`💰 ${money} ₽  ★ ${rep}`);
 
-    // 1. Карточка апгрейда самой лаборатории (Ур. 1 -> 5)
     const nextLab = LAB_UPGRADES.find((l) => l.level === labLvl + 1);
     const labCard = this.add.graphics();
     labCard.fillStyle(0x292524, 1);
-    labCard.fillRoundedRect(18, 66, width - 36, 94, 12);
+    labCard.fillRoundedRect(18, 64, width - 36, 86, 12);
     labCard.lineStyle(2, 0x38bdf8, 0.85);
-    labCard.strokeRoundedRect(18, 66, width - 36, 94, 12);
+    labCard.strokeRoundedRect(18, 64, width - 36, 86, 12);
     this.listContainer.add(labCard);
 
     if (nextLab) {
       const canBuyLab = money >= nextLab.cost && rep >= nextLab.reqRep;
-      const t1 = this.add.text(30, 74, `ЛАБОРАТОРИЯ → Ур. ${nextLab.level}: ${nextLab.name}`, {
+      const t1 = this.add.text(30, 72, `ЛАБОРАТОРИЯ → Ур. ${nextLab.level}: ${nextLab.name}`, {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
         fontWeight: '700',
         color: '#38bdf8'
       });
-      const t2 = this.add.text(30, 94, 'Открывает крупные тендеры и обновляет комнату', {
-        fontFamily: '"Rubik", sans-serif',
-        fontSize: '11px',
-        color: '#d6d3d1'
-      });
       const buyLabBtn = this.add.text(
         width - 30,
-        138,
+        126,
         `РАСШИРИТЬ: ${nextLab.cost} ₽ (нужно ★${nextLab.reqRep})`,
         {
           fontFamily: '"JetBrains Mono", monospace',
@@ -105,9 +99,9 @@ export class UpgradeScene extends Phaser.Scene {
           }
         });
       }
-      this.listContainer.add([t1, t2, buyLabBtn]);
+      this.listContainer.add([t1, buyLabBtn]);
     } else {
-      const maxTxt = this.add.text(width / 2, 113, '🏆 МАКСИМАЛЬНЫЙ УРОВЕНЬ ЛАБОРАТОРИИ (Ур. 5)', {
+      const maxTxt = this.add.text(width / 2, 107, '🏆 МАКСИМАЛЬНЫЙ УРОВЕНЬ ЛАБОРАТОРИИ (Ур. 5)', {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
         fontWeight: '700',
@@ -116,8 +110,7 @@ export class UpgradeScene extends Phaser.Scene {
       this.listContainer.add(maxTxt);
     }
 
-    // 2. Переключатель 3 вкладок: СТЕНДЫ | СТАНКИ | ИНТЕРЬЕР
-    const tabY = 182;
+    const tabY = 170;
     const gap = 8;
     const tabW = (width - 36 - gap * 2) / 3;
 
@@ -130,7 +123,7 @@ export class UpgradeScene extends Phaser.Scene {
         fontWeight: '700',
         color: isSelected ? '#1c1917' : '#e7e5e4',
         backgroundColor: isSelected ? '#facc15' : '#292524',
-        padding: { x: 6, y: 8 },
+        padding: { x: 6, y: 7 },
         fixedWidth: tabW,
         align: 'center'
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
@@ -149,16 +142,15 @@ export class UpgradeScene extends Phaser.Scene {
     makeTab(1, '⚙️ СТАНКИ', 'tools');
     makeTab(2, '🏢 ИНТЕРЬЕР', 'perks');
 
-    // 3. Отрисовка выбранной вкладки
     if (this.activeTab === 'tests') {
       TEST_UPGRADES.forEach((item, idx) => {
-        const y = 212 + idx * 124;
+        const y = 196 + idx * 96;
         const unlocked = Storage.isTestUnlocked(item.key);
         const labOk = labLvl >= item.reqLab;
         const canBuy = !unlocked && labOk && money >= item.cost;
 
         let btnText = `КУПИТЬ · ${item.cost} ₽`;
-        if (unlocked) btnText = '✅ АКТИВЕН В ЛАБЕ';
+        if (unlocked) btnText = '✅ АКТИВЕН';
         else if (!labOk) btnText = `НУЖНА ЛАБА Ур. ${item.reqLab}`;
 
         this.renderItemCard(
@@ -175,13 +167,13 @@ export class UpgradeScene extends Phaser.Scene {
               this.refreshUI();
             }
           },
-          112,
+          88,
           btnText
         );
       });
     } else if (this.activeTab === 'tools') {
       TOOL_UPGRADES.forEach((tool, idx) => {
-        const y = 212 + idx * 95;
+        const y = 196 + idx * 96;
         const lvl = Storage.getUpgradeLevel(tool.key);
         const isMax = lvl >= tool.maxLevel;
         const cost = getToolCost(tool, lvl);
@@ -193,11 +185,11 @@ export class UpgradeScene extends Phaser.Scene {
             AudioManager.playLatchSnap();
             this.refreshUI();
           }
-        });
+        }, 88);
       });
     } else {
       PERK_UPGRADES.forEach((perk, idx) => {
-        const y = 212 + idx * 116;
+        const y = 196 + idx * 112;
         const lvl = Storage.getPerkLevel(perk.key);
         const isMax = lvl >= perk.maxLevel;
         const cost = getPerkCost(perk, lvl);
@@ -209,12 +201,12 @@ export class UpgradeScene extends Phaser.Scene {
             AudioManager.playStamp();
             this.refreshUI();
           }
-        }, 104);
+        }, 102);
       });
     }
   }
 
-  renderItemCard(y, titleStr, descStr, isMax, cost, canBuy, onBuy, cardH = 86, customBtnLabel = null) {
+  renderItemCard(y, titleStr, descStr, isMax, cost, canBuy, onBuy, cardH = 88, customBtnLabel = null) {
     const { width } = this.scale;
     const card = this.add.graphics();
     card.fillStyle(0x292524, 1);
@@ -222,14 +214,14 @@ export class UpgradeScene extends Phaser.Scene {
     card.lineStyle(2, isMax ? 0x22c55e : 0x57534e, 0.9);
     card.strokeRoundedRect(18, y, width - 36, cardH, 10);
 
-    const title = this.add.text(30, y + 10, titleStr, {
+    const title = this.add.text(30, y + 9, titleStr, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '13px',
       fontWeight: '700',
       color: '#fef3c7'
     });
 
-    const desc = this.add.text(30, y + 30, descStr, {
+    const desc = this.add.text(30, y + 28, descStr, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '11px',
       color: '#a8a29e',
@@ -237,13 +229,13 @@ export class UpgradeScene extends Phaser.Scene {
     });
 
     const btnLabel = customBtnLabel || (isMax ? 'МАКС.' : `КУПИТЬ · ${cost} ₽`);
-    const btn = this.add.text(width - 30, y + cardH - 20, btnLabel, {
+    const btn = this.add.text(width - 30, y + cardH - 18, btnLabel, {
       fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '12px',
+      fontSize: '11px',
       fontWeight: '700',
       color: canBuy ? '#ffffff' : isMax ? '#4ade80' : '#a8a29e',
       backgroundColor: canBuy ? '#d97706' : '#44403c',
-      padding: { x: 12, y: 5 }
+      padding: { x: 11, y: 5 }
     }).setOrigin(1, 0.5).setInteractive({ useHandCursor: canBuy });
 
     if (canBuy) {
