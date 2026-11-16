@@ -21,14 +21,18 @@ export class TestScene extends Phaser.Scene {
     this.thawPenalty = 0;
   }
 
+  createRockBlock(x, y, w, h) {
+    return this.add.tileSprite(x, y, w, h, 'rock_tex')
+      .setTint(this.contract.rock.color);
+  }
+
   create() {
     const { width, height } = this.scale;
 
-    // Более живой и глубокий индустриально-синий лабораторный фон
     const bg = this.add.graphics();
-    bg.fillStyle(0x131926, 1);
+    bg.fillStyle(0x181e29, 1);
     bg.fillRect(0, 0, width, height);
-    bg.fillStyle(0x1e293b, 1);
+    bg.fillStyle(0x222a38, 1);
     bg.fillRoundedRect(14, 96, width - 28, height - 114, 16);
     bg.lineStyle(2, 0x334155, 1);
     bg.strokeRoundedRect(14, 96, width - 28, height - 114, 16);
@@ -37,14 +41,14 @@ export class TestScene extends Phaser.Scene {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '12px',
       fontWeight: '700',
-      color: '#38bdf8'
+      color: '#7dd3fc'
     }).setOrigin(0.5);
 
     this.titleTxt = this.add.text(width / 2, 50, '', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '18px',
       fontWeight: '700',
-      color: '#fef3c7'
+      color: '#f8fafc'
     }).setOrigin(0.5);
 
     this.subTxt = this.add.text(width / 2, 74, `${this.contract.rock.name} · ${this.contract.rock.traitLabel}`, {
@@ -114,19 +118,16 @@ export class TestScene extends Phaser.Scene {
     }
   }
 
-  // Анимация разрушения каменного образца на разлетающиеся осколки!
   spawnRockShatter(cx, cy, count = 10, spread = 95) {
-    const color = this.contract.rock.color;
     for (let i = 0; i < count; i++) {
       const w = 8 + Math.random() * 14;
       const h = 6 + Math.random() * 12;
-      const shard = this.add.rectangle(
+      const shard = this.createRockBlock(
         cx + (Math.random() - 0.5) * 34,
         cy + (Math.random() - 0.5) * 44,
         w,
-        h,
-        color
-      ).setStrokeStyle(1, 0x0f172a).setDepth(55);
+        h
+      ).setDepth(55);
 
       this.stageContainer.add(shard);
 
@@ -175,13 +176,13 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 1. ОДНООСНОЕ СЖАТИЕ (с анимацией трещин и разлёта осколков)
+  // 1. ОДНООСНОЕ СЖАТИЕ (Верхняя плита плотно касается и сжимает образец!)
   // =========================================================================
   buildUniaxialTest() {
     const { width, height } = this.scale;
     const pressLvl = Storage.getUpgradeLevel('press');
     const isBrittle = this.contract?.rock?.trait === 'brittle';
-    const frameColors = [0x475569, 0x0284c9, 0x059669, 0x7c3aed, 0xe11d48, 0xf59e0b];
+    const frameColors = [0x64748b, 0x0284c9, 0x059669, 0x7c3aed, 0xbe123c, 0xd97706];
     const pressAccent = frameColors[Math.min(frameColors.length - 1, pressLvl - 1)];
 
     const hint = this.add.text(
@@ -193,7 +194,7 @@ export class TestScene extends Phaser.Scene {
       {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
-        color: isBrittle ? '#fca5a5' : '#f1f5f9',
+        color: isBrittle ? '#fca5a5' : '#e2e8f0',
         align: 'center'
       }
     ).setOrigin(0.5);
@@ -209,16 +210,19 @@ export class TestScene extends Phaser.Scene {
     frame.fillRoundedRect(cx - 114, cy - 140, 228, 26, 6);
     frame.fillStyle(0x334155, 1);
     frame.fillRoundedRect(cx - 114, cy + 94, 228, 26, 6);
-    frame.fillStyle(0x38bdf8, 0.1);
-    frame.fillRect(cx - 84, cy - 98, 168, 192);
 
+    // Нижняя опорная плита: верхняя плоскость на cy + 75
     const lowerPlaten = this.add.rectangle(cx, cy + 84, 118, 18, 0x94a3b8);
-    const core = this.add.image(cx, cy + 32, 'rock_core')
-      .setScale(1.42)
-      .setTint(this.contract.rock.color);
 
-    const piston = this.add.rectangle(cx, cy - 75, 118, 20, 0xf59e0b);
-    const rod = this.add.rectangle(cx, cy - 105, 30, 44, 0xcbd5e1);
+    // Образец высотой 116 px стоит строго на нижней плите (от cy - 41 до cy + 75)
+    const baseCoreH = 116;
+    const baseCoreW = 68;
+    const coreBottomY = cy + 75;
+    const core = this.createRockBlock(cx, coreBottomY - baseCoreH / 2, baseCoreW, baseCoreH);
+
+    // Верхняя нажимная плита (высота 20 px): стартует чуть выше торца (на cy - 58), быстро подходит и сжимает!
+    const piston = this.add.rectangle(cx, cy - 58, 118, 20, 0xf59e0b);
+    const rod = this.add.rectangle(cx, cy - 96, 30, 58, 0xcbd5e1);
     const cracks = this.add.graphics();
 
     const barX = width - 58;
@@ -273,9 +277,8 @@ export class TestScene extends Phaser.Scene {
         const dist = Math.abs(load - center) / ((targetMax - targetMin) / 2);
         const acc = 100 - dist * 22;
         AudioManager.playRockCrack();
-        this.particles.emitParticleAt(cx, cy + 30, 18);
-        this.spawnRockShatter(cx, cy + 32, 8, 70);
-        core.setScale(1.46, 1.32);
+        this.particles.emitParticleAt(cx, cy + 18, 18);
+        this.spawnRockShatter(cx, cy + 18, 8, 70);
         this.completeCurrentTest(acc, 'ПИК ПРОЧНОСТИ ЗАФИКСИРОВАН!');
       } else if (load < targetMin) {
         const acc = Math.max(15, (load / targetMin) * 65);
@@ -285,8 +288,8 @@ export class TestScene extends Phaser.Scene {
         const over = (load - targetMax) / Math.max(0.05, 1 - targetMax);
         const acc = Math.max(32, Math.round(68 - over * 34));
         AudioManager.playRockCrack();
-        this.particles.emitParticleAt(cx, cy + 30, 24);
-        this.spawnRockShatter(cx, cy + 32, 12, 95);
+        this.particles.emitParticleAt(cx, cy + 18, 24);
+        this.spawnRockShatter(cx, cy + 18, 12, 95);
         core.setAlpha(0.55);
         this.completeCurrentTest(acc, 'ПЕРЕДЕРЖКА В КРАСНОЙ ЗОНЕ!');
       }
@@ -301,12 +304,23 @@ export class TestScene extends Phaser.Scene {
         load += speed * dt;
         AudioManager.updatePressHum(load);
 
-        piston.y = cy - 75 + load * 42;
-        rod.y = piston.y - 30;
+        // Первые 12% хода плита подходит к образцу, дальше сжимает его вместе с верхним торцом!
+        const approach = Math.min(1, load / 0.12);
+        const compress = Math.max(0, (load - 0.12) / 0.88);
+        const curCoreH = baseCoreH - compress * 16;
+        const curCoreW = baseCoreW + compress * 6;
+
+        core.width = curCoreW;
+        core.height = curCoreH;
+        core.y = coreBottomY - curCoreH / 2;
+
+        // Нижняя грань верхней плиты (piston.y + 10) плотно лежит на верхнем торце (coreBottomY - curCoreH)
+        const targetPistonY = (coreBottomY - curCoreH) - 10;
+        piston.y = (cy - 58) * (1 - approach) + targetPistonY * approach;
+        rod.y = piston.y - 38;
+
         needle.y = barY + barH * (1 - Math.min(1, load));
 
-        // Лёгкое упругое сжатие и дрожание перед разрушением
-        core.setScale(1.42 + load * 0.08, 1.42 - load * 0.12);
         if (load > 0.65) {
           core.x = cx + (Math.random() - 0.5) * 3;
         }
@@ -318,16 +332,12 @@ export class TestScene extends Phaser.Scene {
         if (load > 0.38) {
           cracks.lineStyle(2.5, 0x0f172a, 0.95);
           cracks.beginPath();
-          cracks.moveTo(cx - 12, cy + 2);
-          cracks.lineTo(cx + 5, cy + 30);
+          cracks.moveTo(cx - 12, cy - 10);
+          cracks.lineTo(cx + 5, cy + 20);
           if (load > 0.58) {
-            cracks.lineTo(cx - 10, cy + 64);
-            cracks.moveTo(cx + 14, cy + 16);
-            cracks.lineTo(cx - 4, cy + 50);
-          }
-          if (load > 0.75) {
-            cracks.moveTo(cx - 18, cy + 24);
-            cracks.lineTo(cx + 16, cy + 44);
+            cracks.lineTo(cx - 10, cy + 56);
+            cracks.moveTo(cx + 14, cy + 6);
+            cracks.lineTo(cx - 4, cy + 44);
           }
           cracks.strokePath();
         }
@@ -336,8 +346,8 @@ export class TestScene extends Phaser.Scene {
           holding = false;
           AudioManager.playRockCrack();
           this.cameras.main.shake(190, 0.013);
-          this.particles.emitParticleAt(cx, cy + 30, 34);
-          this.spawnRockShatter(cx, cy + 32, 18, 130);
+          this.particles.emitParticleAt(cx, cy + 18, 34);
+          this.spawnRockShatter(cx, cy + 18, 18, 130);
           core.setAlpha(0.15);
           this.completeCurrentTest(20, 'ПЕРЕГРУЗ! ОБРАЗЕЦ РАЗРУШЕН В ПЫЛЬ');
         }
@@ -362,7 +372,7 @@ export class TestScene extends Phaser.Scene {
     const hint = this.add.text(width / 2, 134, hintText, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '13px',
-      color: '#f1f5f9',
+      color: '#e2e8f0',
       align: 'center'
     }).setOrigin(0.5);
 
@@ -370,10 +380,10 @@ export class TestScene extends Phaser.Scene {
     const cy = 310;
 
     const lowerBox = this.add.rectangle(cx, cy + 24, 184, 42, 0x475569).setStrokeStyle(2, 0x0f172a);
-    const lowerCore = this.add.rectangle(cx, cy + 12, 142, 24, this.contract.rock.color).setStrokeStyle(1, 0x0f172a);
-    const upperCore = this.add.rectangle(cx, cy - 12, 142, 24, this.contract.rock.color).setStrokeStyle(1, 0x0f172a);
+    const lowerCore = this.createRockBlock(cx, cy + 12, 142, 24);
+    const upperCore = this.createRockBlock(cx, cy - 12, 142, 24);
     const upperBox = this.add.rectangle(cx, cy - 24, 184, 42, isCrack ? 0xb45309 : 0x64748b).setStrokeStyle(2, 0x0f172a);
-    const clampPlate = this.add.rectangle(cx, cy - 82, 136, 18, 0x38bdf8);
+    const clampPlate = this.add.rectangle(cx, cy - 72, 136, 18, 0x38bdf8);
 
     const seamG = this.add.graphics();
     if (isCrack) {
@@ -519,7 +529,7 @@ export class TestScene extends Phaser.Scene {
         if (clampHolding) {
           clampVal = Math.min(1, clampVal + 0.65 * dt);
           AudioManager.updatePressHum(clampVal);
-          clampPlate.y = cy - 82 + clampVal * 32;
+          clampPlate.y = cy - 72 + clampVal * 26;
           slider.x = trackX + trackW * clampVal;
           if (clampVal >= 1) {
             clampHolding = false;
@@ -546,7 +556,7 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 5. ВОДОПОГЛОЩЕНИЕ И СУШКА (Уровень воды строго по стенкам и дну ванночки!)
+  // 5. ВОДОПОГЛОЩЕНИЕ И СУШКА (Вода рисуется через Graphics строго внутри ванночки!)
   // =========================================================================
   buildWaterSaturationTest() {
     const { width, height } = this.scale;
@@ -559,7 +569,7 @@ export class TestScene extends Phaser.Scene {
       {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
-        color: '#f1f5f9',
+        color: '#e2e8f0',
         align: 'center'
       }
     ).setOrigin(0.5);
@@ -567,36 +577,55 @@ export class TestScene extends Phaser.Scene {
     const cx = width / 2;
     const cy = 296;
 
-    // Электронные лабораторные весы снизу
     const scaleBase = this.add.graphics();
     scaleBase.fillStyle(0x475569, 1);
     scaleBase.fillRoundedRect(cx - 110, cy + 68, 220, 46, 8);
     scaleBase.fillStyle(0x0f172a, 1);
     scaleBase.fillRoundedRect(cx - 82, cy + 77, 164, 28, 5);
 
-    // Стеклянная ванночка (строгие координаты стенок и дна)
+    // Стеклянная ванночка (единые координаты левого верхнего угла)
     const tankW = 152;
     const tankH = 134;
+    const tankLeftX = cx - tankW / 2;
     const tankTopY = cy - 68;
     const tankBottomY = tankTopY + tankH; // cy + 66
 
-    const tank = this.add.graphics();
-    tank.fillStyle(0x0f172a, 0.7);
-    tank.fillRoundedRect(cx - tankW / 2, tankTopY, tankW, tankH, 8);
-    tank.lineStyle(3, 0x38bdf8, 0.9);
-    tank.strokeRoundedRect(cx - tankW / 2, tankTopY, tankW, tankH, 8);
+    const tankBg = this.add.graphics();
+    tankBg.fillStyle(0x0f172a, 0.85);
+    tankBg.fillRect(tankLeftX, tankTopY, tankW, tankH);
 
-    // Вода поднимается строго от внутреннего дна ванночки (tankBottomY - 2) вверх
-    const waterInnerW = tankW - 6;
-    const waterMaxH = tankH - 8;
-    const waterFill = this.add.rectangle(cx, tankBottomY - 2, waterInnerW, 4, 0x0ea5e9, 0.55)
-      .setOrigin(0.5, 1);
+    // Образец породы внутри ванночки
+    const core = this.createRockBlock(cx, cy + 16, 62, 92);
 
-    const core = this.add.image(cx, cy + 16, 'rock_core')
-      .setScale(1.22)
-      .setTint(this.contract.rock.color);
+    // Динамический слой воды + пузырьки + обводка ванночки поверх
+    const waterG = this.add.graphics();
+    const tankBorder = this.add.graphics();
+    tankBorder.lineStyle(3, 0x38bdf8, 0.95);
+    tankBorder.strokeRect(tankLeftX, tankTopY, tankW, tankH);
 
-    const bubblesG = this.add.graphics();
+    const drawWater = (ratio, activeBubbles) => {
+      waterG.clear();
+      const innerX = tankLeftX + 2;
+      const innerW = tankW - 4;
+      const maxH = tankH - 4;
+      const curH = Math.max(4, Math.min(maxH, ratio * maxH));
+      const topY = tankBottomY - 2 - curH;
+
+      waterG.fillStyle(0x0ea5e9, 0.5);
+      waterG.fillRect(innerX, topY, innerW, curH);
+      waterG.lineStyle(2, 0x7dd3fc, 0.9);
+      waterG.lineBetween(innerX, topY, innerX + innerW, topY);
+
+      if (activeBubbles && curH > 28) {
+        waterG.fillStyle(0xe0f2fe, 0.9);
+        for (let b = 0; b < 5; b++) {
+          const bx = cx + (Math.random() - 0.5) * 58;
+          const by = tankBottomY - 10 - Math.random() * (curH - 14);
+          waterG.fillCircle(bx, by, 2 + Math.random() * 2);
+        }
+      }
+    };
+    drawWater(0.03, false);
 
     const weightLcd = this.add.text(cx, cy + 91, 'm₀ = 412.0 г (Сухой)', {
       fontFamily: '"JetBrains Mono", monospace',
@@ -627,7 +656,7 @@ export class TestScene extends Phaser.Scene {
     const btn = this.createHoldButton(width / 2, height - 110, 310, 74, 'УДЕРЖИВАТЬ: НАСЫЩЕНИЕ ВОДОЙ');
 
     this.stageContainer.add([
-      hint, scaleBase, tank, waterFill, core, bubblesG, weightLcd, barBg, marker, statusTxt, btn.container
+      hint, scaleBase, tankBg, core, waterG, tankBorder, weightLcd, barBg, marker, statusTxt, btn.container
     ]);
 
     let sat = 0;
@@ -652,23 +681,11 @@ export class TestScene extends Phaser.Scene {
 
     this.updateHandler = (dt) => {
       if (!this.phaseActive) return;
-      bubblesG.clear();
       if (holding) {
         sat += 0.52 * dt;
         AudioManager.updatePressHum(sat * 0.7);
-        const curH = 4 + Math.min(1, sat) * (waterMaxH - 4);
-        waterFill.height = curH;
+        drawWater(Math.min(1, sat), true);
         marker.x = barX + barW * Math.min(1, sat);
-
-        // Пузырьки воздуха, выходящие из пор породы в воду
-        if (curH > 35) {
-          bubblesG.fillStyle(0xe0f2fe, 0.85);
-          for (let b = 0; b < 5; b++) {
-            const bx = cx + (Math.random() - 0.5) * 60;
-            const by = tankBottomY - 12 - Math.random() * (curH - 16);
-            bubblesG.fillCircle(bx, by, 2 + Math.random() * 2);
-          }
-        }
 
         const wPct = (sat * 6.4).toFixed(2);
         const mass = (412 + sat * 26.4).toFixed(1);
@@ -685,7 +702,7 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 6. МОРОЗОСТОЙКОСТЬ (Криокамера F200 с инеем, снежинками и ледяной коркой!)
+  // 6. МОРОЗОСТОЙКОСТЬ (Криокамера F200 с текстурированным образцом и инеем)
   // =========================================================================
   buildFrostResistanceTest() {
     const { width, height } = this.scale;
@@ -698,7 +715,7 @@ export class TestScene extends Phaser.Scene {
       {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
-        color: '#f1f5f9',
+        color: '#e2e8f0',
         align: 'center'
       }
     ).setOrigin(0.5);
@@ -712,11 +729,7 @@ export class TestScene extends Phaser.Scene {
     chamber.lineStyle(5, 0x38bdf8, 0.95);
     chamber.strokeRoundedRect(cx - 96, cy - 105, 192, 195, 16);
 
-    const core = this.add.image(cx, cy, 'rock_core')
-      .setScale(1.3)
-      .setTint(this.contract.rock.color);
-
-    // Слой кристаллического инея, снежинок и ледяных игл на керне
+    const core = this.createRockBlock(cx, cy, 74, 114);
     const iceFx = this.add.graphics();
 
     const barW = 320;
@@ -755,20 +768,17 @@ export class TestScene extends Phaser.Scene {
       iceFx.clear();
       if (ratio <= 0.08) return;
 
-      // 1. Полупрозрачная ледяная глазурь на образце
-      iceFx.fillStyle(0xe0f2fe, ratio * 0.55);
-      iceFx.fillRoundedRect(cx - 44, cy - 60, 88, 120, 10);
+      iceFx.fillStyle(0xe0f2fe, ratio * 0.52);
+      iceFx.fillRoundedRect(cx - 38, cy - 58, 76, 116, 6);
 
-      // 2. Иглы инея по краям образца и стенкам камеры
       iceFx.lineStyle(2, 0xbae6fd, ratio * 0.95);
       const spikes = Math.floor(ratio * 10);
       for (let i = 0; i < spikes; i++) {
         const sy = cy - 48 + i * 11;
-        iceFx.lineBetween(cx - 44, sy, cx - 54 - ratio * 8, sy - 4);
-        iceFx.lineBetween(cx + 44, sy, cx + 54 + ratio * 8, sy - 4);
+        iceFx.lineBetween(cx - 38, sy, cx - 50 - ratio * 8, sy - 4);
+        iceFx.lineBetween(cx + 38, sy, cx + 50 + ratio * 8, sy - 4);
       }
 
-      // 3. Падающие снежинки внутри криокамеры
       iceFx.fillStyle(0xffffff, ratio * 0.9);
       for (let s = 0; s < 14; s++) {
         const sx = cx - 80 + ((s * 37 + Math.floor(ratio * 120)) % 160);
@@ -846,7 +856,7 @@ export class TestScene extends Phaser.Scene {
       {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
-        color: '#f1f5f9',
+        color: '#e2e8f0',
         align: 'center'
       }
     ).setOrigin(0.5);
@@ -856,7 +866,7 @@ export class TestScene extends Phaser.Scene {
 
     const leftSensor = this.add.rectangle(cx - 95, cy, 26, 56, 0x38bdf8).setStrokeStyle(2, 0x0f172a);
     const rightSensor = this.add.rectangle(cx + 95, cy, 26, 56, 0x38bdf8).setStrokeStyle(2, 0x0f172a);
-    const core = this.add.rectangle(cx, cy, 160, 64, this.contract.rock.color).setStrokeStyle(2, 0x0f172a);
+    const core = this.createRockBlock(cx, cy, 160, 64);
 
     const scopeW = 340;
     const scopeH = 130;
@@ -946,7 +956,7 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 8. ТРЁХОСНОЕ СЖАТИЕ: Стабилометр в силовой раме пресса
+  // 8. ТРЁХОСНОЕ СЖАТИЕ: Стабилометр в раме пресса + пауза после накачки σ3
   // =========================================================================
   buildTriaxialTest() {
     const { width, height } = this.scale;
@@ -959,7 +969,7 @@ export class TestScene extends Phaser.Scene {
       {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
-        color: '#f1f5f9',
+        color: '#e2e8f0',
         align: 'center'
       }
     ).setOrigin(0.5);
@@ -967,6 +977,7 @@ export class TestScene extends Phaser.Scene {
     const cx = width / 2 + 12;
     const cy = 310;
 
+    // 1. Внешняя силовая рама пресса
     const pressFrame = this.add.graphics();
     pressFrame.fillStyle(0x64748b, 1);
     pressFrame.fillRect(cx - 122, cy - 135, 16, 250);
@@ -976,6 +987,7 @@ export class TestScene extends Phaser.Scene {
     pressFrame.fillStyle(0x334155, 1);
     pressFrame.fillRoundedRect(cx - 134, cy + 108, 268, 22, 6);
 
+    // 2. Слева — насос бокового обжима
     const pumpG = this.add.graphics();
     pumpG.fillStyle(0x334155, 1);
     pumpG.fillRoundedRect(26, cy + 28, 56, 86, 8);
@@ -988,38 +1000,60 @@ export class TestScene extends Phaser.Scene {
     pumpG.lineStyle(5, 0x38bdf8, 0.85);
     pumpG.beginPath();
     pumpG.moveTo(82, cy + 72);
-    pumpG.lineTo(cx - 72, cy + 72);
+    pumpG.lineTo(cx - 68, cy + 72);
     pumpG.strokePath();
 
-    const cellTopY = cy - 84;
+    // 3. Камера стабилометра (единые координаты для стекла и жидкости!)
+    const cellW = 136;
     const cellH = 168;
-    const cellBottomY = cellTopY + cellH;
+    const cellLeftX = cx - cellW / 2;
+    const cellTopY = cy - 84;
+    const cellBottomY = cellTopY + cellH; // cy + 84
 
-    const cellBody = this.add.graphics();
-    cellBody.fillStyle(0x090d16, 0.92);
-    cellBody.fillRoundedRect(cx - 68, cellTopY, 136, cellH, 10);
-    cellBody.lineStyle(4, 0x94a3b8, 0.9);
-    cellBody.strokeRoundedRect(cx - 68, cellTopY, 136, cellH, 10);
-    cellBody.fillStyle(0x64748b, 1);
-    cellBody.fillRect(cx - 76, cellTopY - 12, 6, cellH + 24);
-    cellBody.fillRect(cx + 70, cellTopY - 12, 6, cellH + 24);
-    cellBody.fillStyle(0x475569, 1);
-    cellBody.fillRoundedRect(cx - 82, cellTopY - 14, 164, 16, 5);
-    cellBody.fillRoundedRect(cx - 82, cellBottomY - 2, 164, 16, 5);
+    const cellBg = this.add.graphics();
+    cellBg.fillStyle(0x090d16, 0.94);
+    cellBg.fillRect(cellLeftX, cellTopY, cellW, cellH);
 
-    const fluidMaxH = cellH - 8;
-    const fluid = this.add.rectangle(cx, cellBottomY - 3, 128, 4, 0x0284c9, 0.45).setOrigin(0.5, 1);
+    // Жидкость рисуется через Graphics строго внутри колбы [cellLeftX+2 .. cellLeftX+cellW-2]
+    const fluidG = this.add.graphics();
+    const drawCellFluid = (ratio) => {
+      fluidG.clear();
+      const innerX = cellLeftX + 2;
+      const innerW = cellW - 4;
+      const maxH = cellH - 4;
+      const curH = Math.max(4, Math.min(maxH, ratio * maxH));
+      const topY = cellBottomY - 2 - curH;
 
+      fluidG.fillStyle(0x0284c9, 0.45);
+      fluidG.fillRect(innerX, topY, innerW, curH);
+      fluidG.lineStyle(2, 0x38bdf8, 0.9);
+      fluidG.lineBetween(innerX, topY, innerX + innerW, topY);
+    };
+    drawCellFluid(0.03);
+
+    const cellFrame = this.add.graphics();
+    cellFrame.lineStyle(4, 0x94a3b8, 0.95);
+    cellFrame.strokeRect(cellLeftX, cellTopY, cellW, cellH);
+    cellFrame.fillStyle(0x64748b, 1);
+    cellFrame.fillRect(cellLeftX - 8, cellTopY - 12, 6, cellH + 24);
+    cellFrame.fillRect(cellLeftX + cellW + 2, cellTopY - 12, 6, cellH + 24);
+    cellFrame.fillStyle(0x475569, 1);
+    cellFrame.fillRoundedRect(cellLeftX - 14, cellTopY - 14, cellW + 28, 16, 5);
+    cellFrame.fillRoundedRect(cellLeftX - 14, cellBottomY - 2, cellW + 28, 16, 5);
+
+    // 4. Керн на пьедестале внутри камеры (верхний торец на cellBottomY - 24 - 84 = cy - 24)
     const pedestal = this.add.rectangle(cx, cellBottomY - 14, 62, 20, 0x64748b);
-    const core = this.add.image(cx, cy + 16, 'rock_core')
-      .setScale(1.12)
-      .setTint(this.contract.rock.color);
-    const membrane = this.add.rectangle(cx, cy + 16, 48, 84)
+    const coreH = 84;
+    const coreW = 46;
+    const coreBottomY = cellBottomY - 24;
+    const core = this.createRockBlock(cx, coreBottomY - coreH / 2, coreW, coreH);
+    const membrane = this.add.rectangle(cx, coreBottomY - coreH / 2, coreW + 2, coreH)
       .setStrokeStyle(2, 0x1e293b, 0.95);
 
     const sideArrows = this.add.graphics();
 
-    const pistonStartY = cy - 42;
+    // 5. Подвижный осевой шток пресса σ1 (верхний торец образца = cy - 24, плита стартует на cy - 34)
+    const pistonStartY = cy - 34;
     const axialCap = this.add.rectangle(cx, pistonStartY, 56, 14, 0xf59e0b);
     const axialRod = this.add.rectangle(cx, pistonStartY - 46, 20, 82, 0xe2e8f0);
 
@@ -1039,11 +1073,11 @@ export class TestScene extends Phaser.Scene {
     const btn = this.createHoldButton(width / 2, height - 110, 310, 74, 'ТАПАЙ: НАКАЧАТЬ ОБЖИМ σ₃');
 
     this.stageContainer.add([
-      hint, pressFrame, pumpG, cellBody, fluid, pedestal, core, membrane,
+      hint, pressFrame, pumpG, cellBg, fluidG, cellFrame, pedestal, core, membrane,
       sideArrows, axialRod, axialCap, barBg, marker, statusTxt, btn.container
     ]);
 
-    let phase = 'confine';
+    let phase = 'confine'; // 'confine' -> 'transition_pause' -> 'axial'
     let sigma3 = 0;
     let axialLoad = 0;
     let holdingAxial = false;
@@ -1070,19 +1104,44 @@ export class TestScene extends Phaser.Scene {
     this.phaseActive = true;
 
     btn.zone.on('pointerdown', () => {
-      if (!this.phaseActive) return;
+      if (!this.phaseActive || phase === 'transition_pause') return;
 
       if (phase === 'confine') {
         sigma3 = Math.min(1, sigma3 + 0.135);
         AudioManager.playDrillTick();
-        if (sigma3 >= 0.72) {
-          phase = 'axial';
+        if (sigma3 >= 0.74) {
+          // Переходная пауза 1.1 сек, чтобы случайный тап не сбил осевой пресс!
+          phase = 'transition_pause';
           AudioManager.playLatchSnap();
-          drawGauge(true);
-          hint.setText('Фаза 2: Боковой обжим σ₃ зафиксирован!\nТеперь зажми пресс (σ₁) и отпусти в ЗЕЛЁНОЙ зоне!');
-          btn.setLabel('УДЕРЖИВАТЬ: ОСЕВОЙ ПРЕСС σ₁');
+
+          const toast = this.add.text(
+            width / 2,
+            cy - 10,
+            '✓ БОКОВОЙ ОБЖИМ σ₃ ЗАДАН!\nПодготовка осевого пресса…',
+            {
+              fontFamily: '"Rubik", sans-serif',
+              fontSize: '15px',
+              fontWeight: '700',
+              color: '#4ade80',
+              backgroundColor: '#0f172aee',
+              padding: { x: 14, y: 10 },
+              align: 'center'
+            }
+          ).setOrigin(0.5).setDepth(55);
+          this.stageContainer.add(toast);
+          btn.setLabel('⏳ ПЕРЕКЛЮЧЕНИЕ НА ПРЕСС…');
+
+          this.time.delayedCall(1100, () => {
+            if (!this.phaseActive) return;
+            toast.destroy();
+            phase = 'axial';
+            drawGauge(true);
+            marker.x = barX + 6;
+            hint.setText('Фаза 2: Зажми осевой пресс (σ₁) и отпусти\nв ЗЕЛЁНОЙ зоне пика разрушения!');
+            btn.setLabel('УДЕРЖИВАТЬ: ОСЕВОЙ ПРЕСС σ₁');
+          });
         }
-      } else {
+      } else if (phase === 'axial') {
         holdingAxial = true;
       }
     });
@@ -1121,8 +1180,8 @@ export class TestScene extends Phaser.Scene {
       if (!this.phaseActive) return;
 
       if (phase === 'confine') {
-        sigma3 = Math.max(0, sigma3 - 0.18 * dt);
-        fluid.height = 4 + sigma3 * (fluidMaxH - 4);
+        sigma3 = Math.max(0, sigma3 - 0.16 * dt);
+        drawCellFluid(sigma3);
         marker.x = barX + barW * sigma3;
         statusTxt.setText(`Боковой обжим σ₃: ${Math.round(sigma3 * 600)} кПа`);
 
@@ -1137,12 +1196,30 @@ export class TestScene extends Phaser.Scene {
         return;
       }
 
+      if (phase === 'transition_pause') {
+        return;
+      }
+
+      // Фаза 2: Осевой шток пресса σ1 касается образца и реально сжимает его!
       if (holdingAxial) {
         const axialSpeed = Math.max(0.34, 0.54 - (pressLvl - 1) * 0.04);
         axialLoad += axialSpeed * dt;
         AudioManager.updatePressHum(axialLoad);
 
-        axialCap.y = pistonStartY + axialLoad * 18;
+        const approach = Math.min(1, axialLoad / 0.1);
+        const compress = Math.max(0, (axialLoad - 0.1) / 0.9);
+        const curCoreH = coreH - compress * 12;
+        const curCoreW = coreW + compress * 4;
+
+        core.width = curCoreW;
+        core.height = curCoreH;
+        core.y = coreBottomY - curCoreH / 2;
+        membrane.width = curCoreW + 2;
+        membrane.height = curCoreH;
+        membrane.y = core.y;
+
+        const targetCapY = (coreBottomY - curCoreH) - 7;
+        axialCap.y = pistonStartY * (1 - approach) + targetCapY * approach;
         axialRod.y = axialCap.y - 46;
         marker.x = barX + barW * Math.min(1, axialLoad);
 
@@ -1171,11 +1248,11 @@ export class TestScene extends Phaser.Scene {
     const draw = (pressed) => {
       bg.clear();
       const oy = pressed ? 3 : 0;
-      bg.fillStyle(0x000000, 0.5);
+      bg.fillStyle(0x000000, 0.45);
       bg.fillRoundedRect(-w / 2, -h / 2 + 5, w, h, 14);
-      bg.fillStyle(pressed ? 0xb45309 : 0xf59e0b, 1);
+      bg.fillStyle(pressed ? 0xb45309 : 0xd97706, 1);
       bg.fillRoundedRect(-w / 2, -h / 2 + oy, w, h, 14);
-      bg.lineStyle(2, 0xfef3c7, 0.45);
+      bg.lineStyle(2, 0xfef3c7, 0.35);
       bg.strokeRoundedRect(-w / 2, -h / 2 + oy, w, h, 14);
     };
 
