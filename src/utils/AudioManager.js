@@ -3,12 +3,8 @@ import { Storage } from './Storage.js';
 export const MUSIC_TRACKS = [
   {
     name: '01. Warm Lab Rhodes',
+    mode: 'rhodes',
     stepSec: 0.36,
-    leadWave: 'sine',
-    bassWave: 'sine',
-    filterFreq: 520,
-    hasSoftBeat: true,
-    // Мягкие, певучие ноты электропиано (Fmaj7 -> Em7 -> Dm7 -> Cmaj7)
     lead: [
       329.63, 0, 392.00, 493.88,
       392.00, 0, 329.63, 0,
@@ -23,66 +19,63 @@ export const MUSIC_TRACKS = [
     ]
   },
   {
-    name: '02. Subterranean Pad',
-    stepSec: 0.44,
-    leadWave: 'triangle',
-    bassWave: 'sine',
-    filterFreq: 380,
-    hasSoftBeat: false,
-    // Тягучий подземный эмбиент без ударных — только глубокие гармонии
-    lead: [
-      220.00, 0, 261.63, 0,
-      329.63, 0, 0, 293.66,
-      246.94, 0, 0, 220.00,
-      196.00, 0, 0, 0
-    ],
-    bass: [
-      55.00, 0, 0, 0,
-      65.41, 0, 0, 0,
-      49.00, 0, 0, 0,
-      55.00, 0, 0, 0
+    name: '02. Original SEGA Rock',
+    mode: 'rock',
+    stepSec: 0.145,
+    // Тот самый первый оригинальный рок-рифф (E2 - G2 - A2 - Bb2 - A2 - G2 - D2 - E2) с гитарной квинтой!
+    riff: [
+      82.41, 0, 82.41, 98.00,
+      110.00, 0, 82.41, 0,
+      116.54, 110.00, 98.00, 0,
+      82.41, 0, 73.42, 82.41
     ]
   },
   {
-    name: '03. Late Shift Chill',
-    stepSec: 0.38,
-    leadWave: 'sine',
-    bassWave: 'triangle',
-    filterFreq: 460,
-    hasSoftBeat: true,
-    // Спокойный вечерний чилл-синт
-    lead: [
-      392.00, 0, 349.23, 329.63,
-      293.66, 0, 0, 261.63,
-      293.66, 0, 329.63, 0,
-      246.94, 0, 0, 0
-    ],
-    bass: [
-      65.41, 0, 0, 65.41,
-      58.27, 0, 0, 0,
-      73.42, 0, 0, 73.42,
-      49.00, 0, 0, 0
+    name: '03. Quarry Heavy Riff',
+    mode: 'rock',
+    stepSec: 0.148,
+    // Тяжёлый качающий стоунер/хард-рок рифф в Drop D (D2 - F2 - G2 - Ab2)
+    riff: [
+      73.42, 0, 73.42, 87.31,
+      98.00, 0, 73.42, 0,
+      103.83, 98.00, 87.31, 0,
+      73.42, 65.41, 73.42, 0
     ]
   },
   {
-    name: '04. Northern Quarry',
-    stepSec: 0.42,
-    leadWave: 'sine',
-    bassWave: 'sine',
-    filterFreq: 440,
-    hasSoftBeat: false,
-    // Сдержанный нордический минимализм
-    lead: [
-      293.66, 0, 440.00, 0,
-      392.00, 0, 349.23, 0,
-      329.63, 0, 293.66, 0,
-      220.00, 0, 0, 0
-    ],
-    bass: [
-      73.42, 0, 0, 0,
-      58.27, 0, 0, 0,
-      65.41, 0, 0, 0,
-      55.00, 0, 0, 0
+    name: '04. Vice Stadium Rock',
+    mode: 'rock',
+    stepSec: 0.138,
+    // Бодрый стадионный рок 80-х (A2 - C3 - D3 - E3)
+    riff: [
+      110.00, 0, 110.00, 130.81,
+      146.83, 0, 164.81, 146.83,
+      130.81, 0, 110.00, 98.00,
+      110.00, 0, 146.83, 130.81
+    ]
+  },
+  {
+    name: '05. Core Drill Blues-Rock',
+    mode: 'rock',
+    stepSec: 0.152,
+    // Драйвовый блюз-рок грув с перекатами (G2 - Bb2 - C3 - D3)
+    riff: [
+      98.00, 0, 116.54, 130.81,
+      146.83, 0, 130.81, 116.54,
+      98.00, 0, 87.31, 98.00,
+      116.54, 0, 98.00, 0
+    ]
+  },
+  {
+    name: '06. Highway Rig Overdrive',
+    mode: 'rock',
+    stepSec: 0.140,
+    // Энергичный дорожный рок-рифф (F#2 - A2 - B2 - C#3)
+    riff: [
+      92.50, 0, 92.50, 110.00,
+      123.47, 0, 138.59, 123.47,
+      110.00, 0, 92.50, 82.41,
+      92.50, 110.00, 123.47, 0
     ]
   }
 ];
@@ -126,14 +119,14 @@ class AudioController {
       this.ctx = new AudioCtx();
 
       this.compressor = this.ctx.createDynamicsCompressor();
-      this.compressor.threshold.setValueAtTime(-18, this.ctx.currentTime);
-      this.compressor.knee.setValueAtTime(14, this.ctx.currentTime);
-      this.compressor.ratio.setValueAtTime(4, this.ctx.currentTime);
-      this.compressor.attack.setValueAtTime(0.01, this.ctx.currentTime);
-      this.compressor.release.setValueAtTime(0.15, this.ctx.currentTime);
+      this.compressor.threshold.setValueAtTime(-16, this.ctx.currentTime);
+      this.compressor.knee.setValueAtTime(12, this.ctx.currentTime);
+      this.compressor.ratio.setValueAtTime(5, this.ctx.currentTime);
+      this.compressor.attack.setValueAtTime(0.005, this.ctx.currentTime);
+      this.compressor.release.setValueAtTime(0.12, this.ctx.currentTime);
 
       this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.setValueAtTime(0.7, this.ctx.currentTime);
+      this.masterGain.gain.setValueAtTime(0.75, this.ctx.currentTime);
 
       this.compressor.connect(this.masterGain);
       this.masterGain.connect(this.ctx.destination);
@@ -196,44 +189,48 @@ class AudioController {
   }
 
   // =========================================================================
-  // ПЛАВНЫЙ ОБВОЛАКИВАЮЩИЙ СИНТЕЗАТОР (Без тиканья, с мягкой атакой)
+  // ГИБРИДНЫЙ МУЗЫКАЛЬНЫЙ ДВИЖОК (Warm Rhodes + 5 драйвовых рок-риффов)
   // =========================================================================
   startMusic() {
     if (this.musicPlaying || !Storage.isSoundEnabled() || this.adSuspended || !this.ctx) return;
     this.musicPlaying = true;
     this.musicStep = 0;
-    this.nextNoteTime = this.ctx.currentTime + 0.08;
+    this.nextNoteTime = this.ctx.currentTime + 0.06;
 
     const scheduler = () => {
       if (!this.musicPlaying) return;
       if (this.ctx && this.ctx.state === 'running' && Storage.isSoundEnabled() && !this.adSuspended) {
-        while (this.nextNoteTime < this.ctx.currentTime + 0.2) {
+        while (this.nextNoteTime < this.ctx.currentTime + 0.14) {
           const track = this.getCurrentTrack();
           const step = this.musicStep % 16;
           const t = this.nextNoteTime;
 
-          // Только глубокий, приглушённый пульс на 0 и 8 доле (никаких тикающих тарелок!)
-          if (track.hasSoftBeat && (step === 0 || step === 8)) {
-            this.triggerSoftPulse(t);
-          }
-
-          // Длинный обволакивающий бас (держится почти весь такт)
-          const bassFreq = track.bass[step];
-          if (bassFreq > 0) {
-            this.triggerSmoothBass(t, bassFreq, track.stepSec * 3.6, track.bassWave);
-          }
-
-          // Певучая мягкая мелодия с плавным нарастанием и затуханием
-          const leadFreq = track.lead[step];
-          if (leadFreq > 0) {
-            this.triggerSmoothPad(t, leadFreq, track.stepSec * 2.4, track);
+          if (track.mode === 'rhodes') {
+            if (step === 0 || step === 8) this.triggerSoftPulse(t);
+            const bassFreq = track.bass[step];
+            if (bassFreq > 0) this.triggerSmoothBass(t, bassFreq, track.stepSec * 3.6);
+            const leadFreq = track.lead[step];
+            if (leadFreq > 0) this.triggerSmoothPad(t, leadFreq, track.stepSec * 2.4);
+          } else {
+            // Бодрый рок-режим с гитарной квинтой, плотной бочкой и малым барабаном (без тикающих хэтов!)
+            if (step === 0 || step === 6 || step === 8 || step === 14) {
+              this.triggerRockKick(t);
+            }
+            if (step === 4 || step === 12) {
+              this.triggerRockSnare(t);
+            }
+            const riffFreq = track.riff[step];
+            if (riffFreq > 0) {
+              const dur = step === 8 ? track.stepSec * 1.8 : track.stepSec * 1.15;
+              this.triggerPowerChordGuitar(t, riffFreq, dur);
+            }
           }
 
           this.nextNoteTime += track.stepSec;
           this.musicStep += 1;
         }
       } else if (this.ctx) {
-        this.nextNoteTime = this.ctx.currentTime + 0.08;
+        this.nextNoteTime = this.ctx.currentTime + 0.06;
       }
 
       this.musicRafId = requestAnimationFrame(scheduler);
@@ -250,6 +247,7 @@ class AudioController {
     }
   }
 
+  // --- Инструменты для Warm Lab Rhodes ---
   triggerSoftPulse(now) {
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -267,9 +265,9 @@ class AudioController {
     osc.stop(now + 0.24);
   }
 
-  triggerSmoothBass(now, freq, duration, waveType) {
+  triggerSmoothBass(now, freq, duration) {
     const osc = this.ctx.createOscillator();
-    osc.type = waveType;
+    osc.type = 'sine';
     osc.frequency.setValueAtTime(freq, now);
 
     const filter = this.ctx.createBiquadFilter();
@@ -288,22 +286,20 @@ class AudioController {
     osc.stop(now + duration + 0.02);
   }
 
-  triggerSmoothPad(now, freq, duration, track) {
+  triggerSmoothPad(now, freq, duration) {
     const osc1 = this.ctx.createOscillator();
     const osc2 = this.ctx.createOscillator();
-    osc1.type = track.leadWave;
+    osc1.type = 'sine';
     osc2.type = 'sine';
     osc1.frequency.setValueAtTime(freq, now);
-    // Мягкая октава ниже для теплоты звука
     osc2.frequency.setValueAtTime(freq * 0.5, now);
 
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(track.filterFreq, now);
-    filter.frequency.linearRampToValueAtTime(track.filterFreq * 0.65, now + duration);
+    filter.frequency.setValueAtTime(520, now);
+    filter.frequency.linearRampToValueAtTime(340, now + duration);
 
     const gain = this.ctx.createGain();
-    // Плавный вход (attack 0.09 с) убирает любые щелчки и тиканье
     gain.gain.setValueAtTime(0.0005, now);
     gain.gain.linearRampToValueAtTime(0.024, now + 0.09);
     gain.gain.exponentialRampToValueAtTime(0.0005, now + duration);
@@ -317,6 +313,75 @@ class AudioController {
     osc2.start(now);
     osc1.stop(now + duration + 0.03);
     osc2.stop(now + duration + 0.03);
+  }
+
+  // --- Инструменты для бодрых 16-bit рок-композиций ---
+  triggerRockKick(now) {
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(122, now);
+    osc.frequency.exponentialRampToValueAtTime(42, now + 0.11);
+
+    gain.gain.setValueAtTime(0.095, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+    osc.connect(gain);
+    gain.connect(this.getOut());
+    osc.start(now);
+    osc.stop(now + 0.13);
+  }
+
+  triggerRockSnare(now) {
+    if (!this.noiseBuffer) return;
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = this.noiseBuffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1180, now);
+    filter.Q.setValueAtTime(0.95, now);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.048, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.getOut());
+    noise.start(now);
+    noise.stop(now + 0.13);
+  }
+
+  triggerPowerChordGuitar(now, freq, duration) {
+    // Основной тон + чистая квинта (Power Chord) через тёплый фильтр
+    const rootOsc = this.ctx.createOscillator();
+    const fifthOsc = this.ctx.createOscillator();
+    rootOsc.type = 'triangle';
+    fifthOsc.type = 'sawtooth';
+
+    rootOsc.frequency.setValueAtTime(freq, now);
+    fifthOsc.frequency.setValueAtTime(freq * 1.498, now);
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(640, now);
+    filter.exponentialRampToValueAtTime(290, now + duration);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.038, now + 0.014);
+    gain.gain.exponentialRampToValueAtTime(0.0008, now + duration);
+
+    rootOsc.connect(filter);
+    fifthOsc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.getOut());
+
+    rootOsc.start(now);
+    fifthOsc.start(now);
+    rootOsc.stop(now + duration + 0.015);
+    fifthOsc.stop(now + duration + 0.015);
   }
 
   // =========================================================================
