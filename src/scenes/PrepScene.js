@@ -26,7 +26,7 @@ export class PrepScene extends Phaser.Scene {
     if (needsCylinder) {
       specs.push({
         mode: 'cylinder',
-        label: 'Цилиндр (H=100 × D=50 мм)',
+        label: 'Цилиндр (высота H=100 × Ø50 мм)',
         targetH: 100.0,
         targetD: 50.0,
         sawKeepW: 165,
@@ -37,9 +37,10 @@ export class PrepScene extends Phaser.Scene {
     }
 
     if (needsTwoDiscs) {
+      // Из керна диаметром D=70 мм отпиливаются две шайбы высотой (толщиной) H=35 мм
       specs.push({
         mode: 'two_discs',
-        label: 'Две шайбы (H=35 × D=70 мм)',
+        label: 'Две шайбы (высота H=35 × Ø70 мм)',
         targetH: 35.0,
         targetD: 70.0,
         sawKeepW: 68,
@@ -52,7 +53,7 @@ export class PrepScene extends Phaser.Scene {
     if (needsSplit) {
       specs.push({
         mode: 'split_core',
-        label: 'Раскол керна (H=70 × D=70 мм)',
+        label: 'Раскол керна (H=70 × Ø70 мм)',
         targetH: 70.0,
         targetD: 70.0,
         calCoreW: 104,
@@ -63,7 +64,7 @@ export class PrepScene extends Phaser.Scene {
     if (!specs.length) {
       specs.push({
         mode: 'cylinder',
-        label: 'Цилиндр (H=100 × D=50 мм)',
+        label: 'Цилиндр (высота H=100 × Ø50 мм)',
         targetH: 100.0,
         targetD: 50.0,
         sawKeepW: 165,
@@ -143,11 +144,9 @@ export class PrepScene extends Phaser.Scene {
 
   afterCutOrSplit(spec) {
     const grinderLvl = Storage.getUpgradeLevel('grinder');
-    // Если шлифовальный станок куплен и это пилёный образец (цилиндр или шайбы) -> этап шлифовки торцов!
     if (grinderLvl > 0 && spec.mode !== 'split_core') {
       this.startGrinderPhase(spec, grinderLvl);
     } else {
-      // Без шлифовального станка остаётся небольшой природный перекос торцов
       if (spec.mode !== 'split_core') {
         this.prepScores.push(82);
       }
@@ -156,7 +155,7 @@ export class PrepScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // ФАЗА 1А: ОТРЕЗНОЙ СТАНОК
+  // ФАЗА 1А: ОТРЕЗНОЙ СТАНОК (Вдоль керна отмеряется высота H)
   // =========================================================================
   startSawPhase(spec) {
     const { width, height } = this.scale;
@@ -171,8 +170,8 @@ export class PrepScene extends Phaser.Scene {
       width / 2,
       128,
       cutsNeeded === 2
-        ? 'Напилить ДВЕ шайбы (H=35 × D=70 мм) для сдвига!\nЗажми подачу пилы для реза №1 и №2'
-        : `Зажми подачу — отрежь образец по разметке (H=${spec.targetH} мм)`,
+        ? `Отрежь ДВЕ шайбы высотой H=${spec.targetH} мм (из керна Ø${spec.targetD} мм)\nЗажми подачу пилы для реза №1 и №2`
+        : `Зажми подачу — отрежь цилиндр высотой H=${spec.targetH} мм (Ø${spec.targetD} мм)`,
       {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
@@ -217,6 +216,22 @@ export class PrepScene extends Phaser.Scene {
       ? this.add.rectangle(cut2X + scrapW / 2, coreCenterY, scrapW, coreH, this.contract.rock.color)
           .setStrokeStyle(2, 0x1c1917)
       : null;
+
+    // Подписи размеров прямо на заготовке (H по горизонтали, Ø по вертикали)
+    const dimTag = this.add.text(
+      leftX + discW / 2,
+      coreCenterY,
+      `H=${spec.targetH}\nØ${spec.targetD}`,
+      {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '11px',
+        fontWeight: '700',
+        color: '#1c1917',
+        backgroundColor: '#fef3c7bb',
+        padding: { x: 4, y: 2 },
+        align: 'center'
+      }
+    ).setOrigin(0.5);
 
     const cutLines = this.add.graphics();
     const drawCutMarks = () => {
@@ -279,7 +294,7 @@ export class PrepScene extends Phaser.Scene {
       cutsNeeded === 2 ? 'УДЕРЖИВАТЬ: ОТПИЛИТЬ ШАЙБУ №1' : 'УДЕРЖИВАТЬ: ОТРЕЗАТЬ КЕРН'
     );
 
-    const items = [hint, bed, disc1, disc2, cutLines, railG, sawContainer, barBg, barFill, btn.container];
+    const items = [hint, bed, disc1, disc2, dimTag, cutLines, railG, sawContainer, barBg, barFill, btn.container];
     if (scrap) items.splice(4, 0, scrap);
     this.stageContainer.add(items);
 
@@ -356,7 +371,7 @@ export class PrepScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // ФАЗА 1Б: ГИДРОКЛИН-КОЛУН (Отцентрован строго по стыку половинок!)
+  // ФАЗА 1Б: ГИДРОКЛИН-КОЛУН
   // =========================================================================
   startSplitCrackPhase(spec) {
     const { width, height } = this.scale;
@@ -378,16 +393,12 @@ export class PrepScene extends Phaser.Scene {
     const cx = width / 2;
     const cy = 345;
 
-    // Нижняя опора-призма
     const anvil = this.add.rectangle(cx, cy + 56, 220, 26, 0x3f3f46);
-
-    // Две половинки керна со стыком ровно на cx
     const leftHalf = this.add.rectangle(cx - 46, cy + 8, 92, 70, this.contract.rock.color)
       .setStrokeStyle(2, 0x1c1917);
     const rightHalf = this.add.rectangle(cx + 46, cy + 8, 92, 70, this.contract.rock.color)
       .setStrokeStyle(2, 0x1c1917);
 
-    // Ось симметрии штока и клина строго на cx (через Graphics с локальным (0,0) = остриё клина)
     const ram = this.add.rectangle(cx, cy - 122, 24, 52, 0x94a3b8);
 
     const wedgeStartY = cy - 60;
@@ -397,9 +408,9 @@ export class PrepScene extends Phaser.Scene {
     wedge.fillStyle(0xfacc15, 1);
     wedge.lineStyle(2, 0xb45309, 1);
     wedge.beginPath();
-    wedge.moveTo(0, 0);      // Остриё клина строго в (cx, wedge.y)
-    wedge.lineTo(-24, -44);  // Левый верхний угол
-    wedge.lineTo(24, -44);   // Правый верхний угол
+    wedge.moveTo(0, 0);
+    wedge.lineTo(-24, -44);
+    wedge.lineTo(24, -44);
     wedge.closePath();
     wedge.fillPath();
     wedge.strokePath();
@@ -445,7 +456,7 @@ export class PrepScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // ФАЗА 1В: ТОРЦЕШЛИФОВАЛЬНЫЙ СТАНОК (Выравнивание торцов после распила!)
+  // ФАЗА 1В: ТОРЦЕШЛИФОВАЛЬНЫЙ СТАНОК
   // =========================================================================
   startGrinderPhase(spec, grinderLvl) {
     const { width, height } = this.scale;
@@ -467,7 +478,6 @@ export class PrepScene extends Phaser.Scene {
     const cx = width / 2;
     const cy = 325;
 
-    // Вращающаяся планшайба шлифовального станка
     const wheelColors = [0x64748b, 0x38bdf8, 0x22c55e, 0xa855f7, 0xfacc15];
     const wColor = wheelColors[Math.min(wheelColors.length - 1, grinderLvl - 1)];
 
@@ -482,7 +492,6 @@ export class PrepScene extends Phaser.Scene {
     }
     wheelContainer.add([outerDisc, innerDisc, gritMarks]);
 
-    // Образец прижатый к шлифовальному диску и заусенцы на торцах (которые исчезают при шлифовке)
     const core = this.add.rectangle(cx, cy, spec.calCoreW, spec.calCoreH, this.contract.rock.color)
       .setStrokeStyle(2, 0x1c1917);
 
@@ -501,7 +510,6 @@ export class PrepScene extends Phaser.Scene {
     };
     drawBurrs(1.0);
 
-    // Шкала гладкости торцов
     const barW = 280;
     const barX = width / 2 - barW / 2;
     const barY = 462;
@@ -523,7 +531,7 @@ export class PrepScene extends Phaser.Scene {
       hint, wheelContainer, core, burrs, barBg, barFill, statusTxt, btn.container
     ]);
 
-    let polish = 0; // 0..1
+    let polish = 0;
     let grinding = false;
     let done = false;
     const grindSpeed = 0.58 + (grinderLvl - 1) * 0.14;
@@ -557,7 +565,6 @@ export class PrepScene extends Phaser.Scene {
           AudioManager.playLatchSnap();
           statusTxt.setText('✓ Торцы отшлифованы в зеркало (0.01 мм)!');
           statusTxt.setColor('#4ade80');
-          // Бонус за шлифовку повышает итоговую точность подготовки до 100%
           this.prepScores.push(Math.min(100, 96 + grinderLvl));
 
           this.time.delayedCall(650, () => {
@@ -607,7 +614,6 @@ export class PrepScene extends Phaser.Scene {
     const core = this.add.rectangle(cx, cy, coreW, coreH, this.contract.rock.color)
       .setStrokeStyle(2, 0x1c1917);
 
-    // 1. Горизонтальный штангенциркуль (замер высоты H по горизонтали)
     const hCaliperGroup = this.add.container(0, 0);
     const beamY = cy - coreH / 2 - 22;
     const beamStartX = cx - coreW / 2 - 12;
@@ -635,7 +641,6 @@ export class PrepScene extends Phaser.Scene {
     hSlider.add(hSliderG);
     hCaliperGroup.add([hBeam, hSlider]);
 
-    // 2. Вертикальный штангенциркуль (замер диаметра D по вертикали)
     const vCaliperGroup = this.add.container(0, 0).setVisible(false);
     const vBeamX = cx - coreW / 2 - 24;
     const vBeamTopY = cy - coreH / 2 - 12;
