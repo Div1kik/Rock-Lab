@@ -18,12 +18,10 @@ export class ReportScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
 
-    // Тёмный фон стола инженера
     const bg = this.add.graphics();
     bg.fillStyle(0x1c1917, 1);
     bg.fillRect(0, 0, width, height);
 
-    // Официальный бланк протокола испытаний
     const padX = 24;
     const sheetW = width - padX * 2;
     const sheetH = 470;
@@ -35,7 +33,6 @@ export class ReportScene extends Phaser.Scene {
     sheet.lineStyle(3, 0x78350f, 1);
     sheet.strokeRoundedRect(padX, sheetY, sheetW, sheetH, 10);
 
-    // Шапка бланка
     this.add.text(width / 2, sheetY + 28, 'ПРОТОКОЛ ИСПЫТАНИЙ ГРУНТА', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '18px',
@@ -50,11 +47,9 @@ export class ReportScene extends Phaser.Scene {
       color: '#57534e'
     }).setOrigin(0.5);
 
-    // Разделитель
     sheet.lineStyle(2, 0xb45309, 0.5);
     sheet.lineBetween(padX + 16, sheetY + 70, padX + sheetW - 16, sheetY + 70);
 
-    // Данные объекта и породы
     const infoLines = [
       `Объект: ${this.contract.title}`,
       `Исследованная порода: ${this.contract.rock.name}`,
@@ -69,7 +64,6 @@ export class ReportScene extends Phaser.Scene {
       lineSpacing: 8
     });
 
-    // Блок показаний приборов
     sheet.fillStyle(0xfde68a, 1);
     sheet.fillRoundedRect(padX + 18, sheetY + 182, sheetW - 36, 130, 8);
     sheet.lineStyle(2, 0xd97706, 0.8);
@@ -94,7 +88,7 @@ export class ReportScene extends Phaser.Scene {
     this.add.text(
       width / 2,
       sheetY + 278,
-      `Точность работы на стендах: ${this.avgAccuracy}% (${this.errorPct > 15 ? 'ВНИМАНИЕ: ВЫСОКАЯ ПОГРЕШНОСТЬ!' : 'Датчики в норме'})`,
+      `Точность работы: ${this.avgAccuracy}% (${this.errorPct > 15 ? 'ВНИМАНИЕ: ВЫСОКАЯ ПОГРЕШНОСТЬ!' : 'Датчики в норме'})`,
       {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '12px',
@@ -103,7 +97,6 @@ export class ReportScene extends Phaser.Scene {
       }
     ).setOrigin(0.5);
 
-    // Подсказка инженеру
     this.add.text(
       width / 2,
       sheetY + 365,
@@ -117,7 +110,6 @@ export class ReportScene extends Phaser.Scene {
       }
     ).setOrigin(0.5);
 
-    // Две кнопки-печати внизу
     this.createStampButton(
       width / 2,
       height - 195,
@@ -171,31 +163,34 @@ export class ReportScene extends Phaser.Scene {
     const actuallySafe = this.contract.isActuallySafe;
     const isCorrectDecision = approvedByPlayer === actuallySafe;
 
-    // Расчёт бонуса от прокачки оборудования
     const loaderLvl = Storage.getUpgradeLevel('loader');
     const bonusMult = 1 + (loaderLvl - 1) * 0.1;
 
+    // Бонусы от купленных интерьерных перков (кофемашина, витрина минералов, LED-свет)
+    const perkCashBonus =
+      Storage.getPerkLevel('coffee') * 15 +
+      Storage.getPerkLevel('showcase') * 30;
+    const perkRepBonus = Storage.getPerkLevel('decor');
+
     let moneyDelta = 0;
     let repDelta = 0;
-    let outcomeType = 'success'; // 'success' | 'collapse' | 'false_alarm' | 'saved_lives'
+    let outcomeType = 'success';
 
     if (isCorrectDecision && approvedByPlayer) {
       outcomeType = 'success';
-      moneyDelta = Math.round(this.contract.reward * bonusMult);
-      repDelta = this.contract.repReward;
+      moneyDelta = Math.round(this.contract.reward * bonusMult) + perkCashBonus;
+      repDelta = this.contract.repReward + perkRepBonus;
     } else if (isCorrectDecision && !approvedByPlayer) {
       outcomeType = 'saved_lives';
-      moneyDelta = Math.round(this.contract.reward * 0.85 * bonusMult);
-      repDelta = this.contract.repReward + 1;
+      moneyDelta = Math.round(this.contract.reward * 0.85 * bonusMult) + perkCashBonus;
+      repDelta = this.contract.repReward + 1 + perkRepBonus;
     } else if (!isCorrectDecision && approvedByPlayer) {
-      // Игрок одобрил слабый грунт -> ОБВАЛ!
       outcomeType = 'collapse';
       moneyDelta = 0;
       repDelta = -Math.max(2, this.contract.tier * 2);
       this.cameras.main.shake(320, 0.018);
       AudioManager.playRockCrack();
     } else {
-      // Перестраховался на хорошем грунте
       outcomeType = 'false_alarm';
       moneyDelta = Math.round(this.contract.reward * 0.35);
       repDelta = -1;
@@ -217,7 +212,6 @@ export class ReportScene extends Phaser.Scene {
     overlay.fillStyle(0x0c0a09, 0.92);
     overlay.fillRect(0, 0, width, height);
 
-    // Рамка пиксельной катсцены
     const boxW = 390;
     const boxH = 540;
     const boxX = width / 2 - boxW / 2;
@@ -228,19 +222,16 @@ export class ReportScene extends Phaser.Scene {
     overlay.lineStyle(3, outcomeType === 'collapse' ? 0xef4444 : 0xfacc15, 1);
     overlay.strokeRoundedRect(boxX, boxY, boxW, boxH, 16);
 
-    // Пиксельная иллюстрация результата на объекте
     const art = this.add.graphics();
     const sceneTop = boxY + 30;
     const sceneH = 190;
     art.fillStyle(outcomeType === 'collapse' ? 0x450a0a : 0x0c4a6e, 1);
     art.fillRoundedRect(boxX + 24, sceneTop, boxW - 48, sceneH, 10);
 
-    // Земля и фундамент
     art.fillStyle(0x78350f, 1);
     art.fillRect(boxX + 24, sceneTop + 135, boxW - 48, 55);
 
     if (outcomeType === 'success') {
-      // Ровное здание и кран
       art.fillStyle(0xe2e8f0, 1);
       art.fillRect(width / 2 - 55, sceneTop + 45, 110, 90);
       art.fillStyle(0x38bdf8, 1);
@@ -250,14 +241,12 @@ export class ReportScene extends Phaser.Scene {
         }
       }
     } else if (outcomeType === 'collapse') {
-      // Покосившиеся обломки и трещина в грунте
       art.fillStyle(0x94a3b8, 1);
       art.fillRect(width / 2 - 60, sceneTop + 95, 55, 42);
       art.fillRect(width / 2 + 5, sceneTop + 105, 50, 34);
       art.lineStyle(4, 0xef4444, 1);
       art.lineBetween(width / 2 - 10, sceneTop + 135, width / 2 + 18, sceneTop + 185);
     } else {
-      // Ограждение стройплощадки
       art.fillStyle(0xfacc15, 1);
       art.fillRect(width / 2 - 80, sceneTop + 112, 160, 16);
       art.fillStyle(0x1c1917, 1);
@@ -304,7 +293,6 @@ export class ReportScene extends Phaser.Scene {
       color: '#facc15'
     }).setOrigin(0.5);
 
-    // Кнопка удвоения награды за рекламу (если заработали деньги)
     let nextBtnY = boxY + 475;
     if (moneyDelta > 0) {
       const adBtn = this.add.text(width / 2, boxY + 422, `🎬 УДВОИТЬ ГОНОРАР (+${moneyDelta} ₽)`, {
