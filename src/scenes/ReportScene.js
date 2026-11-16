@@ -19,7 +19,7 @@ export class ReportScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     const bg = this.add.graphics();
-    bg.fillStyle(0x1c1917, 1);
+    bg.fillStyle(0x181e29, 1);
     bg.fillRect(0, 0, width, height);
 
     const padX = 24;
@@ -166,7 +166,6 @@ export class ReportScene extends Phaser.Scene {
     const loaderLvl = Storage.getUpgradeLevel('loader');
     const bonusMult = 1 + (loaderLvl - 1) * 0.1;
 
-    // Бонусы от купленных интерьерных перков (кофемашина, витрина минералов, LED-свет)
     const perkCashBonus =
       Storage.getPerkLevel('coffee') * 15 +
       Storage.getPerkLevel('showcase') * 30;
@@ -201,74 +200,224 @@ export class ReportScene extends Phaser.Scene {
     Storage.setActiveContract(null);
     if (isCorrectDecision) Storage.incrementCompleted();
 
+    Storage.addSiteRecord({
+      title: this.contract.title,
+      rockName: this.contract.rock.name,
+      outcome: outcomeType
+    });
+
     PlatformSDK.onContractFinished();
-    this.showCutsceneModal(outcomeType, moneyDelta, repDelta);
+    this.showAnimatedCutsceneModal(outcomeType, moneyDelta, repDelta);
   }
 
-  showCutsceneModal(outcomeType, moneyDelta, repDelta) {
+  // Живая анимированная мини-сценка в зависимости от объекта и исхода!
+  showAnimatedCutsceneModal(outcomeType, moneyDelta, repDelta) {
     const { width, height } = this.scale;
 
     const overlay = this.add.graphics();
-    overlay.fillStyle(0x0c0a09, 0.92);
+    overlay.fillStyle(0x0b101b, 0.94);
     overlay.fillRect(0, 0, width, height);
 
-    const boxW = 390;
-    const boxH = 540;
+    const boxW = 396;
+    const boxH = 550;
     const boxX = width / 2 - boxW / 2;
     const boxY = height / 2 - boxH / 2;
 
-    overlay.fillStyle(0x292524, 1);
+    overlay.fillStyle(0x1e293b, 1);
     overlay.fillRoundedRect(boxX, boxY, boxW, boxH, 16);
     overlay.lineStyle(3, outcomeType === 'collapse' ? 0xef4444 : 0xfacc15, 1);
     overlay.strokeRoundedRect(boxX, boxY, boxW, boxH, 16);
 
-    const art = this.add.graphics();
-    const sceneTop = boxY + 30;
-    const sceneH = 190;
-    art.fillStyle(outcomeType === 'collapse' ? 0x450a0a : 0x0c4a6e, 1);
-    art.fillRoundedRect(boxX + 24, sceneTop, boxW - 48, sceneH, 10);
+    const sceneX = boxX + 22;
+    const sceneY = boxY + 24;
+    const sceneW = boxW - 44;
+    const sceneH = 200;
 
-    art.fillStyle(0x78350f, 1);
-    art.fillRect(boxX + 24, sceneTop + 135, boxW - 48, 55);
+    // Небо и грунтовый массив мини-сценки
+    const sky = this.add.graphics();
+    sky.fillStyle(outcomeType === 'collapse' ? 0x450a0a : 0x0c4a6e, 1);
+    sky.fillRoundedRect(sceneX, sceneY, sceneW, sceneH, 10);
 
+    const groundY = sceneY + 142;
+    const groundBlock = this.add.rectangle(
+      width / 2,
+      groundY + 29,
+      sceneW,
+      58,
+      this.contract.rock.color
+    );
+
+    const dustParticles = this.add.particles(0, 0, 'dust_px', {
+      speed: { min: 40, max: 140 },
+      scale: { start: 1.2, end: 0 },
+      lifespan: 480,
+      emitting: false
+    }).setDepth(30);
+
+    const titleLower = (this.contract.title || '').toLowerCase();
+    const isBridge = titleLower.includes('мост');
+    const isDam = titleLower.includes('гэс') || titleLower.includes('плотин');
+    const isTunnel = titleLower.includes('тоннел') || titleLower.includes('карьер');
+
+    // =====================================================================
+    // АНИМАЦИЯ 1: СТРОЙКА ЗАПУЩЕНА (Кран монтирует этажи / пролёты моста)
+    // =====================================================================
     if (outcomeType === 'success') {
-      art.fillStyle(0xe2e8f0, 1);
-      art.fillRect(width / 2 - 55, sceneTop + 45, 110, 90);
-      art.fillStyle(0x38bdf8, 1);
-      for (let r = 0; r < 3; r++) {
-        for (let c = 0; c < 3; c++) {
-          art.fillRect(width / 2 - 40 + c * 30, sceneTop + 58 + r * 24, 16, 14);
+      // Башенный кран справа
+      const crane = this.add.graphics();
+      crane.fillStyle(0xfacc15, 1);
+      crane.fillRect(sceneX + sceneW - 48, sceneY + 24, 10, 118);
+      crane.fillRect(sceneX + 40, sceneY + 30, sceneW - 76, 8);
+
+      // Крюк крана катается и опускает конструкции
+      const hookCable = this.add.rectangle(width / 2, sceneY + 55, 2, 34, 0xe2e8f0);
+      this.tweens.add({
+        targets: hookCable,
+        x: width / 2 + 24,
+        duration: 900,
+        yoyo: true,
+        repeat: -1
+      });
+
+      if (isBridge) {
+        // Опоры моста + опускающийся центральный пролёт
+        this.add.rectangle(width / 2 - 70, groundY - 26, 22, 52, 0x94a3b8);
+        this.add.rectangle(width / 2 + 70, groundY - 26, 22, 52, 0x94a3b8);
+        const span = this.add.rectangle(width / 2, sceneY + 45, 185, 16, 0x38bdf8);
+        this.tweens.add({
+          targets: span,
+          y: groundY - 56,
+          duration: 850,
+          ease: 'Bounce.easeOut',
+          onComplete: () => dustParticles.emitParticleAt(width / 2, groundY - 50, 14)
+        });
+      } else if (isDam) {
+        // Тело плотины ГЭС + поток воды
+        const damWall = this.add.rectangle(width / 2, groundY - 10, 150, 10, 0xcbd5e1).setOrigin(0.5, 1);
+        this.tweens.add({
+          targets: damWall,
+          height: 82,
+          duration: 900,
+          ease: 'Cubic.easeOut'
+        });
+        const waterfall = this.add.rectangle(width / 2 + 30, groundY - 35, 28, 70, 0x38bdf8, 0.75);
+        this.tweens.add({
+          targets: waterfall,
+          alpha: 0.35,
+          duration: 300,
+          yoyo: true,
+          repeat: -1
+        });
+      } else {
+        // Поэтажное возведение здания / опоры с зажигающимися окнами
+        for (let floor = 0; floor < 3; floor++) {
+          const fy = groundY - 14 - floor * 28;
+          const block = this.add.rectangle(width / 2 - 12, sceneY + 35, 114, 26, 0xe2e8f0)
+            .setStrokeStyle(2, 0x64748b);
+
+          this.tweens.add({
+            targets: block,
+            y: fy,
+            delay: floor * 280,
+            duration: 460,
+            ease: 'Back.easeOut',
+            onComplete: () => {
+              dustParticles.emitParticleAt(width / 2 - 12, fy + 10, 8);
+              for (let c = -1; c <= 1; c++) {
+                this.add.rectangle(width / 2 - 12 + c * 30, fy, 14, 12, 0x38bdf8);
+              }
+            }
+          });
         }
       }
-    } else if (outcomeType === 'collapse') {
-      art.fillStyle(0x94a3b8, 1);
-      art.fillRect(width / 2 - 60, sceneTop + 95, 55, 42);
-      art.fillRect(width / 2 + 5, sceneTop + 105, 50, 34);
-      art.lineStyle(4, 0xef4444, 1);
-      art.lineBetween(width / 2 - 10, sceneTop + 135, width / 2 + 18, sceneTop + 185);
-    } else {
-      art.fillStyle(0xfacc15, 1);
-      art.fillRect(width / 2 - 80, sceneTop + 112, 160, 16);
-      art.fillStyle(0x1c1917, 1);
-      art.fillRect(width / 2 - 50, sceneTop + 112, 20, 16);
-      art.fillRect(width / 2 + 10, sceneTop + 112, 20, 16);
+    }
+
+    // =====================================================================
+    // АНИМАЦИЯ 2: ОБВАЛ ГРУНТА И РАЗРУШЕНИЕ КОНСТРУКЦИИ
+    // =====================================================================
+    if (outcomeType === 'collapse') {
+      const leftBlock = this.add.rectangle(width / 2 - 34, groundY - 26, 62, 52, 0x94a3b8);
+      const rightBlock = this.add.rectangle(width / 2 + 34, groundY - 26, 62, 52, 0x94a3b8);
+
+      // Трещина разлома в грунте
+      const crack = this.add.graphics();
+      crack.lineStyle(4, 0xef4444, 1);
+      crack.beginPath();
+      crack.moveTo(width / 2 - 8, groundY);
+      crack.lineTo(width / 2 + 12, groundY + 28);
+      crack.lineTo(width / 2 - 6, groundY + 56);
+      crack.strokePath();
+
+      // Анимация проседания и завала блоков в облаке пыли
+      this.tweens.add({
+        targets: leftBlock,
+        y: groundY + 4,
+        angle: -24,
+        duration: 620,
+        ease: 'Bounce.easeOut',
+        onStart: () => dustParticles.emitParticleAt(width / 2, groundY - 10, 26)
+      });
+      this.tweens.add({
+        targets: rightBlock,
+        y: groundY + 8,
+        angle: 28,
+        duration: 680,
+        ease: 'Bounce.easeOut'
+      });
+    }
+
+    // =====================================================================
+    // АНИМАЦИЯ 3: ОБЪЕКТ СПАСЁН (Геологоразведка переносит площадку)
+    // =====================================================================
+    if (outcomeType === 'saved_lives') {
+      // Предупреждающий барьер слева + буровая вышка переносится на крепкую скалу справа
+      const beacon = this.add.circle(sceneX + 68, groundY - 16, 10, 0xfacc15);
+      this.tweens.add({
+        targets: beacon,
+        alpha: 0.2,
+        duration: 280,
+        yoyo: true,
+        repeat: -1
+      });
+
+      const rig = this.add.triangle(sceneX + 75, groundY - 36, 0, -48, -22, 24, 22, 24, 0x38bdf8);
+      this.tweens.add({
+        targets: rig,
+        x: width / 2 + 68,
+        duration: 950,
+        ease: 'Cubic.easeInOut',
+        onComplete: () => dustParticles.emitParticleAt(width / 2 + 68, groundY - 10, 12)
+      });
+    }
+
+    // =====================================================================
+    // АНИМАЦИЯ 4: ЛОЖНАЯ ТРЕВОГА (Приезд контрольной комиссии)
+    // =====================================================================
+    if (outcomeType === 'false_alarm') {
+      const car = this.add.rectangle(sceneX + 45, groundY - 14, 68, 24, 0xfacc15);
+      this.tweens.add({
+        targets: car,
+        x: width / 2,
+        duration: 750,
+        ease: 'Cubic.easeOut'
+      });
     }
 
     const titles = {
-      success: 'СТРОЙКА ПРОШЛА УСПЕШНО!',
-      saved_lives: 'ОБЪЕКТ СПАСЁН ОТ АВАРИИ!',
+      success: 'СТРОЙКА ЗАПУЩЕНА УСПЕШНО!',
+      saved_lives: 'ОБЪЕКТ СПАСЁН ОТ ОБВАЛА!',
       collapse: 'ПРОИЗОШЁЛ ОБВАЛ ГРУНТА!',
       false_alarm: 'ЛОЖНАЯ ТРЕВОГА ЗАКАЗЧИКА'
     };
 
     const descriptions = {
-      success: `Фундамент выдержал нагрузку.\nРеальная прочность породы: ${this.contract.trueStrengthMpa} МПа.`,
-      saved_lives: `Ты вовремя выявил слабый грунт (${this.contract.trueStrengthMpa} МПа при норме ${this.contract.reqMpa} МПа). Заказчик перенёс площадку!`,
+      success: `Основание выдержало нагрузку.\nРеальная прочность породы: ${this.contract.trueStrengthMpa} МПа.`,
+      saved_lives: `Ты вовремя выявил слабый грунт (${this.contract.trueStrengthMpa} МПа при норме ${this.contract.reqMpa} МПа). Площадка перенесена!`,
       collapse: `Приборы ошиблись из-за погрешности! Реальная прочность была всего ${this.contract.trueStrengthMpa} МПа при норме ${this.contract.reqMpa} МПа.`,
       false_alarm: `Грунт на самом деле выдержал бы (${this.contract.trueStrengthMpa} МПа). Независимая экспертиза оспорила отказ.`
     };
 
-    this.add.text(width / 2, boxY + 248, titles[outcomeType], {
+    this.add.text(width / 2, boxY + 252, titles[outcomeType], {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '18px',
       fontWeight: '700',
@@ -276,30 +425,30 @@ export class ReportScene extends Phaser.Scene {
       align: 'center'
     }).setOrigin(0.5);
 
-    this.add.text(width / 2, boxY + 305, descriptions[outcomeType], {
+    this.add.text(width / 2, boxY + 308, descriptions[outcomeType], {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '13px',
-      color: '#e7e5e4',
+      color: '#e2e8f0',
       align: 'center',
       wordWrap: { width: boxW - 44 },
       lineSpacing: 5
     }).setOrigin(0.5);
 
     const repSign = repDelta >= 0 ? `+${repDelta}` : `${repDelta}`;
-    this.add.text(width / 2, boxY + 372, `Гонорар: +${moneyDelta} ₽   |   Репутация: ${repSign} ★`, {
+    this.add.text(width / 2, boxY + 374, `Гонорар: +${moneyDelta} ₽   |   Репутация: ${repSign} ★`, {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '15px',
       fontWeight: '700',
       color: '#facc15'
     }).setOrigin(0.5);
 
-    let nextBtnY = boxY + 475;
+    let nextBtnY = boxY + 480;
     if (moneyDelta > 0) {
-      const adBtn = this.add.text(width / 2, boxY + 422, `🎬 УДВОИТЬ ГОНОРАР (+${moneyDelta} ₽)`, {
+      const adBtn = this.add.text(width / 2, boxY + 425, `🎬 УДВОИТЬ ГОНОРАР (+${moneyDelta} ₽)`, {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '14px',
         fontWeight: '700',
-        color: '#1c1917',
+        color: '#0f172a',
         backgroundColor: '#facc15',
         padding: { x: 16, y: 10 }
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
@@ -313,14 +462,14 @@ export class ReportScene extends Phaser.Scene {
         });
       });
     } else {
-      nextBtnY = boxY + 455;
+      nextBtnY = boxY + 458;
     }
 
     const continueBtn = this.add.text(width / 2, nextBtnY, 'ВЕРНУТЬСЯ В ЛАБОРАТОРИЮ →', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '15px',
       fontWeight: '700',
-      color: '#fef3c7',
+      color: '#ffffff',
       backgroundColor: '#d97706',
       padding: { x: 20, y: 12 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
