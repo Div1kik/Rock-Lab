@@ -16,7 +16,7 @@
     rel="stylesheet"
   />
 
-  <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@vkontakte/vk-bridge@2.15.4/dist/browser.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
 
   <style>
@@ -53,12 +53,39 @@
       display: block;
       touch-action: none;
     }
+
+    #debug-log {
+      display: none;
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      z-index: 9999;
+      background: rgba(127, 29, 29, 0.95);
+      color: #fef2f2;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 10px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
   </style>
 </head>
 <body>
   <div id="game-container"></div>
+  <div id="debug-log"></div>
 
   <script>
+    const showErr = (msg) => {
+      const box = document.getElementById('debug-log');
+      if (box) {
+        box.style.display = 'block';
+        box.textContent += msg + '\n';
+      }
+    };
+    window.addEventListener('error', (e) => showErr('ERR: ' + (e.message || e.filename)));
+    window.addEventListener('unhandledrejection', (e) => showErr('PROMISE: ' + (e.reason?.message || e.reason)));
     window.addEventListener('contextmenu', (e) => e.preventDefault());
   </script>
 
@@ -68,11 +95,22 @@
         if (document.fonts && document.fonts.ready) {
           await Promise.race([
             document.fonts.ready,
-            new Promise((resolve) => setTimeout(resolve, 1000))
+            new Promise((resolve) => setTimeout(resolve, 600))
           ]);
         }
       } catch {}
-      await import('./src/main.js?v=1');
+      try {
+        if (typeof Phaser === 'undefined') {
+          throw new Error('Phaser CDN не загрузился');
+        }
+        await import('./src/main.js?v=2');
+      } catch (err) {
+        const box = document.getElementById('debug-log');
+        if (box) {
+          box.style.display = 'block';
+          box.textContent += 'BOOT FAIL: ' + (err?.message || err) + '\n';
+        }
+      }
     };
     startApp();
   </script>
