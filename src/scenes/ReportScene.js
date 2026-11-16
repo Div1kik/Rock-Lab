@@ -267,22 +267,29 @@ export class ReportScene extends Phaser.Scene {
     const sceneW = boxW - 40;
     const sceneH = 206;
 
+    // Улучшенный контрастный фон с видимым горным рельефом и подсветкой
     const backdrop = this.add.graphics().setDepth(22);
-    backdrop.fillStyle(isBad ? 0x3b0d11 : 0x0c4a6e, 1);
+    backdrop.fillStyle(isBad ? 0x450a0a : 0x0f172a, 1);
     backdrop.fillRoundedRect(sceneX, sceneY, sceneW, sceneH, 10);
 
-    backdrop.fillStyle(isBad ? 0x57181d : 0x1e3a8a, 0.75);
-    backdrop.fillTriangle(sceneX + 10, sceneY + 145, sceneX + 95, sceneY + 78, sceneX + 185, sceneY + 145);
-    backdrop.fillTriangle(sceneX + 140, sceneY + 145, sceneX + 245, sceneY + 68, sceneX + 345, sceneY + 145);
+    // Контрастные многослойные горы/склоны (отчетливо видны на синем/темном фоне)
+    backdrop.fillStyle(isBad ? 0x7f1d1d : 0x1e293b, 1);
+    backdrop.fillTriangle(sceneX + 12, sceneY + 155, sceneX + 90, sceneY + 72, sceneX + 175, sceneY + 155);
+    backdrop.fillStyle(isBad ? 0x991b1b : 0x334155, 1);
+    backdrop.fillTriangle(sceneX + 130, sceneY + 155, sceneX + 230, sceneY + 58, sceneX + 335, sceneY + 155);
 
-    const groundY = sceneY + 144;
-    this.add.tileSprite(width / 2, groundY + 31, sceneW, 62, 'rock_tex')
+    // Дополнительный светящийся горизонт для глубины
+    backdrop.lineStyle(2, isBad ? 0xf87171 : 0x38bdf8, 0.4);
+    backdrop.lineBetween(sceneX + 10, sceneY + 155, sceneX + sceneW - 10, sceneY + 155);
+
+    const groundY = sceneY + 148;
+    this.add.tileSprite(width / 2, groundY + 25, sceneW, 50, 'rock_tex')
       .setTint(this.contract.rock.color)
       .setDepth(22);
 
     const topCrust = this.add.graphics().setDepth(23);
-    topCrust.fillStyle(isBad ? 0x78350f : 0x15803d, 1);
-    topCrust.fillRect(sceneX, groundY, sceneW, 7);
+    topCrust.fillStyle(isBad ? 0xb45309 : 0x16a34a, 1);
+    topCrust.fillRect(sceneX, groundY, sceneW, 6);
 
     const dustParticles = this.add.particles(0, 0, 'dust_px', {
       speed: { min: 45, max: 165 },
@@ -291,63 +298,112 @@ export class ReportScene extends Phaser.Scene {
       emitting: false
     }).setDepth(35);
 
+    // Кат-сцена 1: Успешный запуск стройки (детальный высотный каркас + башенный кран с проработкой)
     if (outcomeType === 'success' || outcomeType === 'audit_pass') {
       const craneG = this.add.graphics().setDepth(23);
-      const mastX = sceneX + sceneW - 52;
+      const mastX = sceneX + sceneW - 48;
+      // Основание и стрела крана
       craneG.lineStyle(3, 0xfacc15, 1);
-      craneG.strokeRect(mastX - 7, sceneY + 24, 14, 120);
+      craneG.strokeRect(mastX - 6, sceneY + 18, 12, 130);
+      craneG.lineBetween(mastX, sceneY + 18, sceneX + 32, sceneY + 28); // стрела
       craneG.fillStyle(0xfacc15, 1);
-      craneG.fillRect(sceneX + 36, sceneY + 26, sceneW - 60, 7);
+      craneG.fillRect(sceneX + 30, sceneY + 26, sceneW - 55, 6);
 
+      // Сборка этажей здания с деталями окон
       for (let floor = 0; floor < 3; floor++) {
-        const fy = groundY - 22 - floor * 26;
-        const unit = this.add.rectangle(width / 2 - 16, sceneY + 46, 124, 24, 0xf1f5f9)
+        const fy = groundY - 24 - floor * 28;
+        const unit = this.add.rectangle(width / 2 - 20, sceneY + 40, 130, 26, 0xf8fafc)
           .setStrokeStyle(2, 0x475569)
           .setDepth(24);
+        
+        // Окошки на блоке
+        const winG = this.add.graphics().setDepth(25);
+        winG.fillStyle(0x0284c9, 0.8);
+        winG.fillRect(width / 2 - 70, fy - 6, 18, 12);
+        winG.fillRect(width / 2 - 35, fy - 6, 18, 12);
+        winG.fillRect(width / 2, fy - 6, 18, 12);
+        winG.fillRect(width / 2 + 35, fy - 6, 18, 12);
+
         this.tweens.add({
-          targets: unit,
+          targets: [unit],
           y: fy,
-          delay: floor * 240,
-          duration: 440,
+          delay: floor * 250,
+          duration: 450,
           ease: 'Back.easeOut',
-          onComplete: () => dustParticles.emitParticleAt(width / 2 - 16, fy + 10, 10)
+          onComplete: () => dustParticles.emitParticleAt(width / 2 - 20, fy + 12, 12)
         });
       }
-    } else if (outcomeType === 'collapse') {
-      const leftHalf = this.add.rectangle(width / 2 - 36, groundY - 30, 66, 58, 0xcbd5e1)
-        .setStrokeStyle(2, 0x475569)
-        .setDepth(24);
-      const rightHalf = this.add.rectangle(width / 2 + 36, groundY - 30, 66, 58, 0xcbd5e1)
-        .setStrokeStyle(2, 0x475569)
+    } 
+    // Кат-сцена 2: Предотвращен обвал / Установлено надежное анкерное укрепление (НОВАЯ ДЕТАЛЬНАЯ КАТ-СЦЕНА)
+    else if (outcomeType === 'saved_lives') {
+      const shieldG = this.add.graphics().setDepth(23);
+      // Укрепленный склон с металлическими гео-панелями и анкерными балками
+      shieldG.fillStyle(0x0284c9, 0.9);
+      shieldG.fillRoundedRect(width / 2 - 80, groundY - 60, 160, 60, 8);
+      shieldG.lineStyle(3, 0x38bdf8, 1);
+      shieldG.strokeRoundedRect(width / 2 - 80, groundY - 60, 160, 60, 8);
+
+      // Анкерные крестовины и болты
+      shieldG.fillStyle(0xfacc15, 1);
+      [-50, 0, 50].forEach(ox => {
+        shieldG.fillRect(width / 2 + ox - 6, groundY - 35, 12, 12);
+      });
+
+      const indicator = this.add.text(width / 2, groundY - 30, '🛡️ АНКЕРА OK', {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '11px',
+        fontWeight: '700',
+        color: '#ffffff'
+      }).setOrigin(0.5).setDepth(25);
+
+      const rig = this.add.rectangle(sceneX + 55, groundY - 26, 42, 32, 0x38bdf8)
+        .setStrokeStyle(2, 0x0f172a)
         .setDepth(24);
 
       this.tweens.add({
-        targets: leftHalf,
-        x: width / 2 - 48,
-        y: groundY + 8,
-        angle: -32,
-        duration: 640,
-        ease: 'Bounce.easeOut',
-        onStart: () => dustParticles.emitParticleAt(width / 2, groundY - 12, 30)
-      });
-      this.tweens.add({
-        targets: rightHalf,
-        x: width / 2 + 52,
-        y: groundY + 12,
-        angle: 36,
-        duration: 700,
-        ease: 'Bounce.easeOut'
-      });
-    } else if (outcomeType === 'saved_lives') {
-      const rig = this.add.triangle(sceneX + 95, groundY - 28, 0, -34, -18, 24, 18, 24, 0x38bdf8)
-        .setDepth(24);
-      this.tweens.add({
-        targets: rig,
-        x: width / 2 + 78,
-        duration: 950,
+        targets: [rig],
+        x: width / 2 + 95,
+        duration: 900,
         ease: 'Cubic.easeInOut'
       });
-    } else {
+    } 
+    // Кат-сцена 3: Реальный обвал в карьере / Авария из-за ошибки в пробах (НОВАЯ КАТ-СЦЕНА С РАЗРУШЕНИЕМ)
+    else if (outcomeType === 'collapse') {
+      const debrisG = this.add.graphics().setDepth(23);
+      // Рухнувшие скальные блоки и накренившаяся буровая вышка
+      const leftBlock = this.add.rectangle(width / 2 - 42, groundY - 20, 72, 48, 0x64748b)
+        .setStrokeStyle(2, 0x1e293b)
+        .setDepth(24);
+      const rightBlock = this.add.rectangle(width / 2 + 48, groundY - 14, 64, 40, 0x475569)
+        .setStrokeStyle(2, 0x1e293b)
+        .setDepth(24);
+
+      // Сломанная вышка
+      const brokenRig = this.add.rectangle(width / 2 + 10, groundY - 55, 14, 75, 0xef4444)
+        .setAngle(28)
+        .setStrokeStyle(2, 0x0f172a)
+        .setDepth(25);
+
+      this.tweens.add({
+        targets: [leftBlock],
+        x: width / 2 - 62,
+        y: groundY + 4,
+        angle: -18,
+        duration: 500,
+        ease: 'Bounce.easeOut',
+        onStart: () => dustParticles.emitParticleAt(width / 2, groundY - 10, 35)
+      });
+      this.tweens.add({
+        targets: [rightBlock],
+        x: width / 2 + 68,
+        y: groundY + 6,
+        angle: 22,
+        duration: 550,
+        ease: 'Bounce.easeOut'
+      });
+    } 
+    // Кат-сцена 4: Ложная тревога заказчика
+    else {
       const van = this.add.rectangle(sceneX + 50, groundY - 18, 74, 26, 0xf8fafc)
         .setStrokeStyle(2, 0x0284c9)
         .setDepth(24);
@@ -370,7 +426,7 @@ export class ReportScene extends Phaser.Scene {
 
     const descriptions = {
       success: `Основание выдержало нагрузку.\nРеальная прочность породы: ${this.contract.trueStrengthMpa} МПа.`,
-      saved_lives: `Ты вовремя выявил слабый грунт (${this.contract.trueStrengthMpa} МПа при норме ${this.contract.reqMpa} МПа). Площадка перенесена!`,
+      saved_lives: `Ты вовремя выявил слабый грунт (${this.contract.trueStrengthMpa} МПа при норме ${this.contract.reqMpa} МПа). Установлены анкеры!`,
       collapse: `Приборы ошиблись из-за погрешности! Реальная прочность была всего ${this.contract.trueStrengthMpa} МПа при норме ${this.contract.reqMpa} МПа.`,
       false_alarm: `Грунт на самом деле выдержал бы (${this.contract.trueStrengthMpa} МПа). Независимая экспертиза оспорила отказ.`,
       audit_pass: `Эталонный образец измерен с точностью ±${this.errorPct}%! Выдан сертификат: следующие 3 заказа оплачиваются на 15% выше.`,
