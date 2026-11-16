@@ -15,6 +15,11 @@ export class TestScene extends Phaser.Scene {
     this.scores = [];
     this.phaseActive = false;
     this.updateHandler = null;
+
+    // Физика мёрзлых грунтов: температура начинает подниматься от -12°C к 0°C
+    this.isFrozenRock = this.contract?.rock?.trait === 'frozen';
+    this.coreTempC = -12.0;
+    this.thawPenalty = 0;
   }
 
   create() {
@@ -28,25 +33,38 @@ export class TestScene extends Phaser.Scene {
     bg.lineStyle(2, 0x44403c, 1);
     bg.strokeRoundedRect(14, 96, width - 28, height - 114, 16);
 
-    this.stepTxt = this.add.text(width / 2, 26, '', {
+    this.stepTxt = this.add.text(width / 2, 24, '', {
       fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '13px',
+      fontSize: '12px',
       fontWeight: '700',
       color: '#38bdf8'
     }).setOrigin(0.5);
 
-    this.titleTxt = this.add.text(width / 2, 54, '', {
+    this.titleTxt = this.add.text(width / 2, 50, '', {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '19px',
+      fontSize: '18px',
       fontWeight: '700',
       color: '#fef3c7'
     }).setOrigin(0.5);
 
-    this.subTxt = this.add.text(width / 2, 78, `${this.contract.rock.name} · ${this.contract.title}`, {
+    this.subTxt = this.add.text(width / 2, 74, `${this.contract.rock.name} · ${this.contract.rock.traitLabel}`, {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '12px',
-      color: '#a8a29e'
+      fontSize: '11px',
+      color: this.isFrozenRock ? '#38bdf8' : '#a8a29e'
     }).setOrigin(0.5);
+
+    // Индикатор температуры для вечной мерзлоты
+    this.tempBadge = null;
+    if (this.isFrozenRock) {
+      this.tempBadge = this.add.text(width - 24, 108, '❄️ -12.0°C', {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '12px',
+        fontWeight: '700',
+        color: '#38bdf8',
+        backgroundColor: '#0f172a',
+        padding: { x: 8, y: 4 }
+      }).setOrigin(1, 0).setDepth(40);
+    }
 
     this.particles = this.add.particles(0, 0, 'dust_px', {
       speed: { min: 60, max: 180 },
@@ -84,6 +102,10 @@ export class TestScene extends Phaser.Scene {
       this.buildShearTest({ withVerticalLoad: false, isCrack: true });
     } else if (testKey === 'shear_load') {
       this.buildShearTest({ withVerticalLoad: true, isCrack: false });
+    } else if (testKey === 'water_sat') {
+      this.buildWaterSaturationTest();
+    } else if (testKey === 'frost_test') {
+      this.buildFrostResistanceTest();
     } else if (testKey === 'ultrasonic') {
       this.buildUltrasonicTest();
     } else if (testKey === 'triaxial') {
@@ -124,23 +146,31 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 1. ОДНООСНОЕ СЖАТИЕ
+  // 1. ОДНООСНОЕ СЖАТИЕ (с учётом хрупкого гранита)
   // =========================================================================
   buildUniaxialTest() {
     const { width, height } = this.scale;
     const pressLvl = Storage.getUpgradeLevel('press');
+    const isBrittle = this.contract?.rock?.trait === 'brittle';
     const frameColors = [0x3f3f46, 0x475569, 0x0284c9, 0x059669, 0x7c3aed, 0xe11d48];
     const pressAccent = frameColors[Math.min(frameColors.length - 1, pressLvl - 1)];
 
-    const hint = this.add.text(width / 2, 128, 'Зажми пресс и отпусти в ЗЕЛЁНОЙ зоне\nпрямо перед разрушением цилиндра (100×50 мм)', {
-      fontFamily: '"Rubik", sans-serif',
-      fontSize: '13px',
-      color: '#e7e5e4',
-      align: 'center'
-    }).setOrigin(0.5);
+    const hint = this.add.text(
+      width / 2,
+      134,
+      isBrittle
+        ? '⚠️ Хрупкий гранит! Узкий пик разрушения —\nотпусти пресс точно в зелёной зоне!'
+        : 'Зажми пресс и отпусти в ЗЕЛЁНОЙ зоне\nпрямо перед разрушением цилиндра',
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '13px',
+        color: isBrittle ? '#fca5a5' : '#e7e5e4',
+        align: 'center'
+      }
+    ).setOrigin(0.5);
 
     const cx = width / 2 - 18;
-    const cy = 330;
+    const cy = 335;
 
     const frame = this.add.graphics();
     frame.fillStyle(0x52525b, 1);
@@ -163,11 +193,12 @@ export class TestScene extends Phaser.Scene {
     const cracks = this.add.graphics();
 
     const barX = width - 58;
-    const barY = 210;
+    const barY = 215;
     const barH = 240;
     const barW = 26;
 
-    const targetMin = 0.68 - Math.min(0.12, (pressLvl - 1) * 0.025);
+    const brittleNarrow = isBrittle ? 0.05 : 0;
+    const targetMin = 0.68 - Math.min(0.11, (pressLvl - 1) * 0.025) + brittleNarrow;
     const targetMax = 0.86 + Math.min(0.06, (pressLvl - 1) * 0.015);
 
     const gaugeBg = this.add.graphics();
@@ -265,7 +296,7 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 2, 3, 4. СРЕЗ ПО РАСПИЛУ / СРЕЗ ПО ТРЕЩИНЕ / СДВИГ СО СЖАТИЕМ
+  // 2, 3, 4. СРЕЗ ПО РАСПИЛУ / ПО ТРЕЩИНЕ / СДВИГ СО СЖАТИЕМ
   // =========================================================================
   buildShearTest({ withVerticalLoad, isCrack }) {
     const { width, height } = this.scale;
@@ -278,7 +309,7 @@ export class TestScene extends Phaser.Scene {
         ? 'Сначала зажми вертикальный прижим (σ),\nзатем поймай срез двух шайб в зелёной зоне (×2)'
         : 'Срез по гладкому распилу двух шайб:\nфиксируй сдвиг в зелёной зоне (×3)';
 
-    const hint = this.add.text(width / 2, 128, hintText, {
+    const hint = this.add.text(width / 2, 134, hintText, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '13px',
       color: '#e7e5e4',
@@ -286,9 +317,8 @@ export class TestScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const cx = width / 2;
-    const cy = 305;
+    const cy = 310;
 
-    // Визуал обоймы: при срезе по трещине рисуем зубчатую линию разлома, при распиле — две ровные шайбы
     const lowerBox = this.add.rectangle(cx, cy + 24, 184, 42, 0x57534e).setStrokeStyle(2, 0x1c1917);
     const lowerCore = this.add.rectangle(cx, cy + 12, 142, 24, this.contract.rock.color).setStrokeStyle(1, 0x1c1917);
     const upperCore = this.add.rectangle(cx, cy - 12, 142, 24, this.contract.rock.color).setStrokeStyle(1, 0x1c1917);
@@ -465,7 +495,244 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 5. УЛЬТРАЗВУКОВОЕ ПРОЗВУЧИВАНИЕ (УЗК НА ТРЕЩИНОВАТОСТЬ)
+  // 5. ВОДОПОГЛОЩЕНИЕ И СУШКА (Весы + Пропитка в ванне)
+  // =========================================================================
+  buildWaterSaturationTest() {
+    const { width, height } = this.scale;
+    const sensorsLvl = Storage.getUpgradeLevel('sensors');
+
+    const hint = this.add.text(
+      width / 2,
+      134,
+      'Зажми подачу воды в вакуумную ванну — насыть керн\nровно до отметки 100% на электронных весах!',
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '13px',
+        color: '#e7e5e4',
+        align: 'center'
+      }
+    ).setOrigin(0.5);
+
+    const cx = width / 2;
+    const cy = 300;
+
+    // Лабораторные весы и стеклянная ёмкость с водой
+    const scaleBase = this.add.graphics();
+    scaleBase.fillStyle(0x3f3f46, 1);
+    scaleBase.fillRoundedRect(cx - 110, cy + 68, 220, 44, 8);
+    scaleBase.fillStyle(0x0f172a, 1);
+    scaleBase.fillRoundedRect(cx - 75, cy + 76, 150, 28, 5);
+
+    // Ванночка и поднимающийся уровень воды
+    const tank = this.add.graphics();
+    tank.lineStyle(3, 0x38bdf8, 0.85);
+    tank.strokeRoundedRect(cx - 75, cy - 70, 150, 134, 10);
+
+    const waterFill = this.add.rectangle(cx, cy + 62, 144, 6, 0x0284c9, 0.55).setOrigin(0.5, 1);
+    const core = this.add.image(cx, cy + 16, 'rock_core')
+      .setScale(1.25)
+      .setTint(this.contract.rock.color);
+
+    const weightLcd = this.add.text(cx, cy + 90, 'm₀ = 412.0 г (Сухой)', {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '13px',
+      fontWeight: '700',
+      color: '#38bdf8'
+    }).setOrigin(0.5);
+
+    // Шкала насыщения
+    const barW = 320;
+    const barX = width / 2 - barW / 2;
+    const barY = 445;
+    const barBg = this.add.graphics();
+    barBg.fillStyle(0x141210, 1);
+    barBg.fillRoundedRect(barX, barY, barW, 28, 8);
+
+    const tol = 0.14 + (sensorsLvl - 1) * 0.02;
+    barBg.fillStyle(0x22c55e, 0.85);
+    barBg.fillRect(barX + barW * (0.78 - tol / 2), barY + 3, barW * tol, 22);
+
+    const marker = this.add.rectangle(barX + 6, barY + 14, 10, 34, 0xfacc15);
+    const statusTxt = this.add.text(width / 2, 496, 'Водопоглощение W: 0.0%', {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '15px',
+      fontWeight: '700',
+      color: '#fde68a'
+    }).setOrigin(0.5);
+
+    const btn = this.createHoldButton(width / 2, height - 110, 310, 74, 'УДЕРЖИВАТЬ: НАСЫЩЕНИЕ ВОДОЙ');
+
+    this.stageContainer.add([
+      hint, scaleBase, tank, waterFill, core, weightLcd, barBg, marker, statusTxt, btn.container
+    ]);
+
+    let sat = 0;
+    let holding = false;
+    this.phaseActive = true;
+
+    btn.zone.on('pointerdown', () => { if (this.phaseActive) holding = true; });
+
+    const releaseWater = () => {
+      if (!holding || !this.phaseActive) return;
+      holding = false;
+      AudioManager.stopPressHum();
+
+      const diff = Math.abs(sat - 0.78);
+      const acc = diff <= tol / 2 ? 100 - (diff / (tol / 2)) * 20 : Math.max(25, 80 - diff * 130);
+      AudioManager.playLatchSnap();
+      this.completeCurrentTest(acc, 'КОЭФФИЦИЕНТ РАЗМЯГЧЕНИЯ ЗАМЕРЕН!');
+    };
+
+    btn.zone.on('pointerup', releaseWater);
+    btn.zone.on('pointerout', releaseWater);
+
+    this.updateHandler = (dt) => {
+      if (!this.phaseActive) return;
+      if (holding) {
+        sat += 0.52 * dt;
+        AudioManager.updatePressHum(sat * 0.7);
+        waterFill.height = 6 + Math.min(1, sat) * 124;
+        marker.x = barX + barW * Math.min(1, sat);
+
+        const wPct = (sat * 6.4).toFixed(2);
+        const mass = (412 + sat * 26.4).toFixed(1);
+        weightLcd.setText(`m₁ = ${mass} г`);
+        statusTxt.setText(`Водопоглощение W: ${wPct}%`);
+
+        if (sat >= 1) {
+          holding = false;
+          AudioManager.stopPressHum();
+          this.completeCurrentTest(30, 'ПЕРЕЛИВ ВАННЫ! ПОГРЕШНОСТЬ ВЗВЕШИВАНИЯ');
+        }
+      }
+    };
+  }
+
+  // =========================================================================
+  // 6. МОРОЗОСТОЙКОСТЬ (Криокамера F200 с охлаждением до -20°C)
+  // =========================================================================
+  buildFrostResistanceTest() {
+    const { width, height } = this.scale;
+    const pressLvl = Storage.getUpgradeLevel('press');
+
+    const hint = this.add.text(
+      width / 2,
+      134,
+      'Быстрыми тапами нагони холод в криокамере до -20°C,\nзатем удерживай режим заморозки 2.5 сек!',
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '13px',
+        color: '#e7e5e4',
+        align: 'center'
+      }
+    ).setOrigin(0.5);
+
+    const cx = width / 2;
+    const cy = 305;
+
+    // Криокамера с толстыми термостенками
+    const chamber = this.add.graphics();
+    chamber.fillStyle(0x0c4a6e, 1);
+    chamber.fillRoundedRect(cx - 90, cy - 105, 180, 195, 16);
+    chamber.lineStyle(5, 0x7dd3fc, 0.9);
+    chamber.strokeRoundedRect(cx - 90, cy - 105, 180, 195, 16);
+
+    const core = this.add.image(cx, cy, 'rock_core')
+      .setScale(1.3)
+      .setTint(this.contract.rock.color);
+
+    // Слой инея поверх керна
+    const frostOverlay = this.add.rectangle(cx, cy, 86, 118, 0xe0f2fe, 0);
+
+    const barW = 320;
+    const barX = width / 2 - barW / 2;
+    const barY = 445;
+    const barBg = this.add.graphics();
+    barBg.fillStyle(0x141210, 1);
+    barBg.fillRoundedRect(barX, barY, barW, 28, 8);
+
+    barBg.fillStyle(0x38bdf8, 0.85);
+    barBg.fillRect(barX + barW * 0.68, barY + 3, barW * 0.24, 22);
+
+    const marker = this.add.rectangle(barX + 6, barY + 14, 10, 34, 0xfacc15);
+    const tempTxt = this.add.text(width / 2, 496, 'Камера: +18.0°C', {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '16px',
+      fontWeight: '700',
+      color: '#38bdf8'
+    }).setOrigin(0.5);
+
+    const btn = this.createHoldButton(width / 2, height - 110, 310, 74, 'ТАПАЙ: ВКЛЮЧИТЬ КОМПРЕССОР!');
+
+    this.stageContainer.add([
+      hint, chamber, core, frostOverlay, barBg, marker, tempTxt, btn.container
+    ]);
+
+    let phase = 'cool';
+    let coldRatio = 0; // 0 (+18°C) -> 1 (-25°C)
+    let holdTimer = 0;
+    const holdReq = 2.5;
+    let inZoneTime = 0;
+    let holding = false;
+    this.phaseActive = true;
+
+    btn.zone.on('pointerdown', () => {
+      if (!this.phaseActive) return;
+      if (phase === 'cool') {
+        coldRatio = Math.min(1, coldRatio + 0.12);
+        AudioManager.playDrillTick();
+        if (coldRatio >= 0.72) {
+          phase = 'hold';
+          AudioManager.playLatchSnap();
+          hint.setText('Температура -20°C достигнута! Удерживай\nтермостат в голубой зоне 2.5 сек!');
+          btn.setLabel('УДЕРЖИВАТЬ: ТЕРМОСТАТ -20°C');
+        }
+      } else {
+        holding = true;
+      }
+    });
+
+    btn.zone.on('pointerup', () => { holding = false; });
+    btn.zone.on('pointerout', () => { holding = false; });
+
+    this.updateHandler = (dt) => {
+      if (!this.phaseActive) return;
+
+      if (phase === 'cool') {
+        coldRatio = Math.max(0, coldRatio - 0.2 * dt);
+        frostOverlay.setAlpha(coldRatio * 0.55);
+        marker.x = barX + barW * coldRatio;
+        const deg = (18 - coldRatio * 43).toFixed(1);
+        tempTxt.setText(`Камера: ${deg > 0 ? '+' + deg : deg}°C`);
+        return;
+      }
+
+      holdTimer += dt;
+      const drift = Math.max(0.24, 0.36 - (pressLvl - 1) * 0.03);
+      coldRatio = holding
+        ? Math.min(1, coldRatio + drift * 1.35 * dt)
+        : Math.max(0, coldRatio - drift * dt);
+
+      frostOverlay.setAlpha(coldRatio * 0.65);
+      marker.x = barX + barW * coldRatio;
+      const deg = (18 - coldRatio * 43).toFixed(1);
+      tempTxt.setText(`Заморозка (${Math.max(0, holdReq - holdTimer).toFixed(1)}с): ${deg}°C`);
+
+      if (coldRatio >= 0.68 && coldRatio <= 0.92) {
+        inZoneTime += dt;
+      }
+
+      if (holdTimer >= holdReq) {
+        const acc = 35 + (inZoneTime / holdReq) * 65;
+        AudioManager.playLatchSnap();
+        this.particles.emitParticleAt(cx, cy, 16);
+        this.completeCurrentTest(acc, 'ЦИКЛ МОРОЗОСТОЙКОСТИ F200 ПРОЙДЕН!');
+      }
+    };
+  }
+
+  // =========================================================================
+  // 7. УЛЬТРАЗВУКОВОЕ ПРОЗВУЧИВАНИЕ (УЗК)
   // =========================================================================
   buildUltrasonicTest() {
     const { width, height } = this.scale;
@@ -473,7 +740,7 @@ export class TestScene extends Phaser.Scene {
 
     const hint = this.add.text(
       width / 2,
-      128,
+      134,
       'Зажми кнопку генератора импульсов — поймай\nрезонанс ультразвуковой волны на осциллографе!',
       {
         fontFamily: '"Rubik", sans-serif',
@@ -486,12 +753,10 @@ export class TestScene extends Phaser.Scene {
     const cx = width / 2;
     const cy = 260;
 
-    // Керн между двумя пьезодатчиками УЗК
     const leftSensor = this.add.rectangle(cx - 95, cy, 26, 56, 0x38bdf8).setStrokeStyle(2, 0x0f172a);
     const rightSensor = this.add.rectangle(cx + 95, cy, 26, 56, 0x38bdf8).setStrokeStyle(2, 0x0f172a);
     const core = this.add.rectangle(cx, cy, 160, 64, this.contract.rock.color).setStrokeStyle(2, 0x1c1917);
 
-    // Осциллограф УЗК
     const scopeW = 340;
     const scopeH = 130;
     const scopeX = cx - scopeW / 2;
@@ -503,7 +768,6 @@ export class TestScene extends Phaser.Scene {
     scopeBg.lineStyle(2, 0x38bdf8, 0.85);
     scopeBg.strokeRoundedRect(scopeX, scopeY, scopeW, scopeH, 10);
 
-    // Целевая амплитуда (зелёный коридор на экране осциллографа)
     const targetAmp = 0.72;
     const tol = 0.12 + (sensorsLvl - 1) * 0.02;
     scopeBg.fillStyle(0x22c55e, 0.22);
@@ -523,7 +787,7 @@ export class TestScene extends Phaser.Scene {
       hint, leftSensor, rightSensor, core, scopeBg, waveGraphics, vpReadout, btn.container
     ]);
 
-    let freq = 0; // 0..1
+    let freq = 0;
     let holding = false;
     let phaseShift = 0;
     this.phaseActive = true;
@@ -558,7 +822,6 @@ export class TestScene extends Phaser.Scene {
       const vp = Math.round(1800 + freq * 3600);
       vpReadout.setText(`Скорость волны Vp: ${vp} м/с`);
 
-      // Отрисовка синусоиды на осциллографе
       waveGraphics.clear();
       const inZone = Math.abs(freq - targetAmp) <= tol;
       waveGraphics.lineStyle(3, inZone ? 0x4ade80 : 0x38bdf8, 1);
@@ -582,13 +845,13 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 6. ТРЁХОСНАЯ КАМЕРА (СТАБИЛОМЕТР)
+  // 8. ТРЁХОСНАЯ КАМЕРА (СТАБИЛОМЕТР)
   // =========================================================================
   buildTriaxialTest() {
     const { width, height } = this.scale;
     const pressLvl = Storage.getUpgradeLevel('press');
 
-    const hint = this.add.text(width / 2, 128, 'Фаза 1: Быстрыми тапами накачай\nдавление обжима в камере до отметки!', {
+    const hint = this.add.text(width / 2, 134, 'Фаза 1: Быстрыми тапами накачай\nдавление обжима в камере до отметки!', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '14px',
       color: '#e7e5e4',
@@ -744,8 +1007,23 @@ export class TestScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    const dt = delta / 1000;
+
+    // Тик оттаивания вечной мерзлоты
+    if (this.isFrozenRock && this.tempBadge) {
+      const cryoLvl = Storage.getPerkLevel('cryobox');
+      const warmRate = 0.42 / (1 + cryoLvl * 0.65);
+      this.coreTempC = Math.min(2.0, this.coreTempC + warmRate * dt);
+      const tStr = this.coreTempC > 0 ? `+${this.coreTempC.toFixed(1)}` : this.coreTempC.toFixed(1);
+      this.tempBadge.setText(`❄️ ${tStr}°C`);
+      if (this.coreTempC >= -2.0) {
+        this.tempBadge.setColor('#f87171');
+        this.thawPenalty = 12;
+      }
+    }
+
     if (this.updateHandler) {
-      this.updateHandler(delta / 1000);
+      this.updateHandler(dt);
     }
   }
 
@@ -755,7 +1033,7 @@ export class TestScene extends Phaser.Scene {
       ? this.scores.reduce((a, b) => a + b, 0) / this.scores.length
       : 70;
 
-    const avgAccuracy = Math.round(testsAvg * 0.75 + this.prepAccuracy * 0.25);
+    const avgAccuracy = Math.max(15, Math.round(testsAvg * 0.75 + this.prepAccuracy * 0.25 - this.thawPenalty));
 
     const rawErrorPct = Math.max(2, Math.round((100 - avgAccuracy) * 0.42 - (sensorsLvl - 1) * 2.5));
     const errorPct = Math.max(2, Math.min(38, rawErrorPct));
