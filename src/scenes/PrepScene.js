@@ -76,35 +76,43 @@ export class PrepScene extends Phaser.Scene {
     return specs;
   }
 
+  // Создаёт текстурированный блок породы вместо плоского одноцветного прямоугольника
+  createRockBlock(x, y, w, h) {
+    const block = this.add.tileSprite(x, y, w, h, 'rock_tex')
+      .setTint(this.contract.rock.color);
+    return block;
+  }
+
   create() {
     const { width, height } = this.scale;
 
+    // Мягкий, комфортный для глаз фон рабочего места
     const bg = this.add.graphics();
-    bg.fillStyle(0x1c1917, 1);
+    bg.fillStyle(0x181e29, 1);
     bg.fillRect(0, 0, width, height);
-    bg.fillStyle(0x292524, 1);
+    bg.fillStyle(0x222a38, 1);
     bg.fillRoundedRect(14, 92, width - 28, height - 110, 16);
-    bg.lineStyle(2, 0x44403c, 1);
+    bg.lineStyle(2, 0x334155, 1);
     bg.strokeRoundedRect(14, 92, width - 28, height - 110, 16);
 
     this.stepTxt = this.add.text(width / 2, 26, '', {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '12px',
       fontWeight: '700',
-      color: '#38bdf8'
+      color: '#7dd3fc'
     }).setOrigin(0.5);
 
     this.titleTxt = this.add.text(width / 2, 54, '', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '19px',
       fontWeight: '700',
-      color: '#fef3c7'
+      color: '#f8fafc'
     }).setOrigin(0.5);
 
     this.subTxt = this.add.text(width / 2, 78, '', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '12px',
-      color: '#a8a29e'
+      color: '#cbd5e1'
     }).setOrigin(0.5);
 
     this.particles = this.add.particles(0, 0, 'dust_px', {
@@ -143,7 +151,6 @@ export class PrepScene extends Phaser.Scene {
 
   afterCutOrSplit(spec) {
     const grinderLvl = Storage.getUpgradeLevel('grinder');
-    // Шлифовка торцов обязательна по ГОСТ для всех пилёных образцов; для расколотого по трещине сразу переходим к обмеру
     if (spec.mode !== 'split_core') {
       this.startGrinderPhase(spec, grinderLvl);
     } else {
@@ -172,7 +179,7 @@ export class PrepScene extends Phaser.Scene {
       {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
-        color: '#e7e5e4',
+        color: '#e2e8f0',
         align: 'center'
       }
     ).setOrigin(0.5);
@@ -181,9 +188,9 @@ export class PrepScene extends Phaser.Scene {
     const cy = 335;
 
     const bed = this.add.graphics();
-    bed.fillStyle(0x3f3f46, 1);
+    bed.fillStyle(0x475569, 1);
     bed.fillRoundedRect(cx - 185, cy + 44, 370, 34, 8);
-    bed.fillStyle(0x52525b, 1);
+    bed.fillStyle(0x64748b, 1);
     bed.fillRect(cx - 165, cy - 38, 24, 82);
     bed.fillStyle(0x94a3b8, 1);
     bed.fillRect(cx - 182, cy - 8, 17, 10);
@@ -197,22 +204,22 @@ export class PrepScene extends Phaser.Scene {
     const cut1X = leftX + discW;
     const cut2X = leftX + discW * 2;
 
-    const disc1 = this.add.rectangle(leftX + discW / 2, coreCenterY, discW, coreH, this.contract.rock.color)
-      .setStrokeStyle(2, 0x1c1917);
-
-    const disc2 = this.add.rectangle(
+    const disc1 = this.createRockBlock(leftX + discW / 2, coreCenterY, discW, coreH);
+    const disc2 = this.createRockBlock(
       leftX + discW + (cutsNeeded === 2 ? discW / 2 : (270 - discW) / 2),
       coreCenterY,
       cutsNeeded === 2 ? discW : 270 - discW,
-      coreH,
-      this.contract.rock.color
-    ).setStrokeStyle(2, 0x1c1917);
+      coreH
+    );
 
     const scrapW = Math.max(40, 270 - discW * 2);
     const scrap = cutsNeeded === 2
-      ? this.add.rectangle(cut2X + scrapW / 2, coreCenterY, scrapW, coreH, this.contract.rock.color)
-          .setStrokeStyle(2, 0x1c1917)
+      ? this.createRockBlock(cut2X + scrapW / 2, coreCenterY, scrapW, coreH)
       : null;
+
+    const coreOutline = this.add.graphics();
+    coreOutline.lineStyle(2, 0x0f172a, 0.9);
+    coreOutline.strokeRect(leftX, coreCenterY - coreH / 2, 270, coreH);
 
     const dimTag = this.add.text(
       leftX + discW / 2,
@@ -222,8 +229,8 @@ export class PrepScene extends Phaser.Scene {
         fontFamily: '"JetBrains Mono", monospace',
         fontSize: '11px',
         fontWeight: '700',
-        color: '#1c1917',
-        backgroundColor: '#fef3c7bb',
+        color: '#0f172a',
+        backgroundColor: '#fef3c7cc',
         padding: { x: 4, y: 2 },
         align: 'center'
       }
@@ -235,7 +242,7 @@ export class PrepScene extends Phaser.Scene {
       const targets = cutsNeeded === 2 ? [cut1X, cut2X] : [cut1X];
       targets.forEach((tx, idx) => {
         const done = idx < cutsDone;
-        cutLines.lineStyle(sawLvl >= 3 ? 2 : 3, done ? 0x4ade80 : sawLvl >= 3 ? 0xef4444 : 0x22c55e, 0.95);
+        cutLines.lineStyle(sawLvl >= 3 ? 2 : 3, done ? 0x4ade80 : sawLvl >= 3 ? 0xf87171 : 0x34d399, 0.95);
         cutLines.lineBetween(tx, cy - 55, tx, cy + 44);
       });
     };
@@ -244,18 +251,19 @@ export class PrepScene extends Phaser.Scene {
     const railY = cy - 94;
     const railStartX = cx - 155;
     const railG = this.add.graphics();
-    railG.fillStyle(0x52525b, 1);
+    railG.fillStyle(0x64748b, 1);
     railG.fillRect(cx - 176, railY - 6, 16, 144);
     railG.fillRect(cx + 160, railY - 6, 16, 144);
-    railG.fillStyle(0x71717a, 1);
+    railG.fillStyle(0x94a3b8, 1);
     railG.fillRoundedRect(cx - 180, railY - 8, 360, 16, 4);
 
-    const carriageColors = [0xd97706, 0xeab308, 0x22c55e, 0x38bdf8, 0xa855f7, 0xf43f5e];
+    // Спокойная благородная палитра каретки
+    const carriageColors = [0xd97706, 0xca8a04, 0x059669, 0x0284c9, 0x4f46e5, 0xbe123c];
     const cColor = carriageColors[Math.min(carriageColors.length - 1, sawLvl - 1)];
     const sawContainer = this.add.container(railStartX, railY);
     const bladeOffsetY = 94;
 
-    const blade = this.add.circle(0, bladeOffsetY, 44, 0x94a3b8).setStrokeStyle(4, 0xf8fafc);
+    const blade = this.add.circle(0, bladeOffsetY, 44, 0xcbd5e1).setStrokeStyle(4, 0xf8fafc);
     const teeth = this.add.graphics();
     teeth.y = bladeOffsetY;
     teeth.lineStyle(2, 0x334155, 1);
@@ -263,7 +271,7 @@ export class PrepScene extends Phaser.Scene {
     teeth.lineBetween(0, -36, 0, 36);
 
     const carriageBody = this.add.graphics();
-    carriageBody.fillStyle(0x27272a, 1);
+    carriageBody.fillStyle(0x1e293b, 1);
     carriageBody.fillRoundedRect(-26, -18, 52, 36, 6);
     carriageBody.fillStyle(cColor, 1);
     carriageBody.fillRoundedRect(-22, 16, 44, 48, 6);
@@ -278,7 +286,7 @@ export class PrepScene extends Phaser.Scene {
     const barX = width / 2 - barW / 2;
     const barY = 458;
     const barBg = this.add.graphics();
-    barBg.fillStyle(0x141210, 1);
+    barBg.fillStyle(0x0f172a, 1);
     barBg.fillRoundedRect(barX, barY, barW, 22, 6);
     const barFill = this.add.rectangle(barX + 3, barY + 3, 2, 16, cColor).setOrigin(0, 0);
 
@@ -290,7 +298,7 @@ export class PrepScene extends Phaser.Scene {
       cutsNeeded === 2 ? 'УДЕРЖИВАТЬ: ОТПИЛИТЬ ШАЙБУ №1' : 'УДЕРЖИВАТЬ: ОТРЕЗАТЬ КЕРН'
     );
 
-    const items = [hint, bed, disc1, disc2, dimTag, cutLines, railG, sawContainer, barBg, barFill, btn.container];
+    const items = [hint, bed, disc1, disc2, coreOutline, dimTag, cutLines, railG, sawContainer, barBg, barFill, btn.container];
     if (scrap) items.splice(4, 0, scrap);
     this.stageContainer.add(items);
 
@@ -337,6 +345,7 @@ export class PrepScene extends Phaser.Scene {
             btn.setLabel('УДЕРЖИВАТЬ: ОТПИЛИТЬ ШАЙБУ №2');
           } else {
             locked = true;
+            coreOutline.setVisible(false);
             this.prepScores.push(96);
             const dropTarget = cutsNeeded === 2 ? scrap : disc2;
             if (dropTarget) {
@@ -381,7 +390,7 @@ export class PrepScene extends Phaser.Scene {
       {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
-        color: '#e7e5e4',
+        color: '#e2e8f0',
         align: 'center'
       }
     ).setOrigin(0.5);
@@ -389,19 +398,17 @@ export class PrepScene extends Phaser.Scene {
     const cx = width / 2;
     const cy = 345;
 
-    const anvil = this.add.rectangle(cx, cy + 56, 220, 26, 0x3f3f46);
-    const leftHalf = this.add.rectangle(cx - 46, cy + 8, 92, 70, this.contract.rock.color)
-      .setStrokeStyle(2, 0x1c1917);
-    const rightHalf = this.add.rectangle(cx + 46, cy + 8, 92, 70, this.contract.rock.color)
-      .setStrokeStyle(2, 0x1c1917);
+    const anvil = this.add.rectangle(cx, cy + 56, 220, 26, 0x475569);
+    const leftHalf = this.createRockBlock(cx - 46, cy + 8, 92, 70);
+    const rightHalf = this.createRockBlock(cx + 46, cy + 8, 92, 70);
 
-    const ram = this.add.rectangle(cx, cy - 122, 24, 52, 0x94a3b8);
+    const ram = this.add.rectangle(cx, cy - 122, 24, 52, 0xcbd5e1);
 
     const wedgeStartY = cy - 60;
     const wedge = this.add.graphics();
     wedge.x = cx;
     wedge.y = wedgeStartY;
-    wedge.fillStyle(0xfacc15, 1);
+    wedge.fillStyle(0xf59e0b, 1);
     wedge.lineStyle(2, 0xb45309, 1);
     wedge.beginPath();
     wedge.moveTo(0, 0);
@@ -452,7 +459,7 @@ export class PrepScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // ФАЗА 1В: ТОРЦЕШЛИФОВАЛЬНЫЙ СТАНОК (Обязательный этап по ГОСТ)
+  // ФАЗА 1В: ТОРЦЕШЛИФОВАЛЬНЫЙ СТАНОК
   // =========================================================================
   startGrinderPhase(spec, grinderLvl) {
     const { width, height } = this.scale;
@@ -466,7 +473,7 @@ export class PrepScene extends Phaser.Scene {
       {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
-        color: '#e7e5e4',
+        color: '#e2e8f0',
         align: 'center'
       }
     ).setOrigin(0.5);
@@ -474,7 +481,7 @@ export class PrepScene extends Phaser.Scene {
     const cx = width / 2;
     const cy = 325;
 
-    const wheelColors = [0x64748b, 0x38bdf8, 0x22c55e, 0xa855f7, 0xfacc15];
+    const wheelColors = [0x94a3b8, 0x38bdf8, 0x34d399, 0x818cf8, 0xfbbf24];
     const wColor = wheelColors[Math.min(wheelColors.length - 1, grinderLvl - 1)];
 
     const wheelContainer = this.add.container(cx, cy);
@@ -488,14 +495,13 @@ export class PrepScene extends Phaser.Scene {
     }
     wheelContainer.add([outerDisc, innerDisc, gritMarks]);
 
-    const core = this.add.rectangle(cx, cy, spec.calCoreW, spec.calCoreH, this.contract.rock.color)
-      .setStrokeStyle(2, 0x1c1917);
+    const core = this.createRockBlock(cx, cy, spec.calCoreW, spec.calCoreH);
 
     const burrs = this.add.graphics();
     const drawBurrs = (roughness) => {
       burrs.clear();
       if (roughness <= 0.05) return;
-      burrs.lineStyle(3, 0xfacc15, roughness);
+      burrs.lineStyle(3, 0xfbbf24, roughness);
       const halfW = spec.calCoreW / 2;
       const halfH = spec.calCoreH / 2;
       for (let y = -halfH + 6; y <= halfH - 6; y += 12) {
@@ -510,7 +516,7 @@ export class PrepScene extends Phaser.Scene {
     const barX = width / 2 - barW / 2;
     const barY = 462;
     const barBg = this.add.graphics();
-    barBg.fillStyle(0x141210, 1);
+    barBg.fillStyle(0x0f172a, 1);
     barBg.fillRoundedRect(barX, barY, barW, 22, 6);
     const barFill = this.add.rectangle(barX + 3, barY + 3, 2, 16, wColor).setOrigin(0, 0);
 
@@ -572,7 +578,7 @@ export class PrepScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // ФАЗА 2: ЗАМЕР ГАБАРИТОВ ШТАНГЕНЦИРКУЛЕМ
+  // ФАЗА 2: ЗАМЕР ГАБАРИТОВ ШТАНГЕНЦИРКУЛЕМ (Мягкие стальные тона + текстура камня)
   // =========================================================================
   startMeasurePhase(spec) {
     const { width, height } = this.scale;
@@ -587,7 +593,7 @@ export class PrepScene extends Phaser.Scene {
       {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
-        color: '#e7e5e4',
+        color: '#e2e8f0',
         align: 'center'
       }
     ).setOrigin(0.5);
@@ -595,20 +601,20 @@ export class PrepScene extends Phaser.Scene {
     const cx = width / 2;
     const cy = 278;
 
+    // Приятная для глаз палитра нержавеющей/сатинированной стали без кислотных обводок
     const calThemes = [
-      { bar: 0x94a3b8, slider: 0x475569, accent: 0x38bdf8 },
-      { bar: 0xcbd5e1, slider: 0x334155, accent: 0xfacc15 },
-      { bar: 0xe2e8f0, slider: 0x1e293b, accent: 0x4ade80 },
-      { bar: 0x64748b, slider: 0x0f172a, accent: 0x38bdf8 },
-      { bar: 0x334155, slider: 0x18181b, accent: 0xa855f7 },
-      { bar: 0x1e293b, slider: 0x09090b, accent: 0xf43f5e }
+      { bar: 0x94a3b8, slider: 0x334155, accent: 0x38bdf8 },
+      { bar: 0xcbd5e1, slider: 0x1e293b, accent: 0xfbbf24 },
+      { bar: 0xe2e8f0, slider: 0x1e293b, accent: 0x34d399 },
+      { bar: 0xcbd5e1, slider: 0x0f172a, accent: 0x38bdf8 },
+      { bar: 0xe2e8f0, slider: 0x1e293b, accent: 0x818cf8 },
+      { bar: 0xf1f5f9, slider: 0x0f172a, accent: 0xfbbf24 }
     ];
     const theme = calThemes[Math.min(calThemes.length - 1, calLvl - 1)];
 
     const coreW = spec.calCoreW;
     const coreH = spec.calCoreH;
-    const core = this.add.rectangle(cx, cy, coreW, coreH, this.contract.rock.color)
-      .setStrokeStyle(2, 0x1c1917);
+    const core = this.createRockBlock(cx, cy, coreW, coreH);
 
     const hCaliperGroup = this.add.container(0, 0);
     const beamY = cy - coreH / 2 - 22;
@@ -619,7 +625,7 @@ export class PrepScene extends Phaser.Scene {
     hBeam.fillStyle(theme.bar, 1);
     hBeam.fillRoundedRect(beamStartX, beamY - 11, hBeamLen, 22, 4);
     hBeam.fillRect(beamStartX, beamY - 11, 12, coreH + 34);
-    hBeam.lineStyle(1, 0x0f172a, 0.7);
+    hBeam.lineStyle(1, 0x0f172a, 0.75);
     for (let x = beamStartX + 18; x < beamStartX + hBeamLen - 8; x += 8) {
       const tickH = (x - beamStartX) % 24 === 0 ? 10 : 5;
       hBeam.lineBetween(x, beamY + 11 - tickH, x, beamY + 11);
@@ -630,7 +636,7 @@ export class PrepScene extends Phaser.Scene {
     const hSliderG = this.add.graphics();
     hSliderG.fillStyle(theme.slider, 1);
     hSliderG.fillRoundedRect(-6, -16, 62, 32, 6);
-    hSliderG.lineStyle(2, theme.accent, 0.9);
+    hSliderG.lineStyle(2, theme.accent, 0.85);
     hSliderG.strokeRoundedRect(-6, -16, 62, 32, 6);
     hSliderG.fillStyle(theme.bar, 1);
     hSliderG.fillRect(0, 11, 10, coreH + 12);
@@ -646,7 +652,7 @@ export class PrepScene extends Phaser.Scene {
     vBeam.fillStyle(theme.bar, 1);
     vBeam.fillRoundedRect(vBeamX - 11, vBeamTopY, 22, vBeamLen, 4);
     vBeam.fillRect(vBeamX - 11, vBeamTopY, coreW + 46, 12);
-    vBeam.lineStyle(1, 0x0f172a, 0.7);
+    vBeam.lineStyle(1, 0x0f172a, 0.75);
     for (let y = vBeamTopY + 18; y < vBeamTopY + vBeamLen - 8; y += 8) {
       const tickW = (y - vBeamTopY) % 24 === 0 ? 10 : 5;
       vBeam.lineBetween(vBeamX + 11 - tickW, y, vBeamX + 11, y);
@@ -657,7 +663,7 @@ export class PrepScene extends Phaser.Scene {
     const vSliderG = this.add.graphics();
     vSliderG.fillStyle(theme.slider, 1);
     vSliderG.fillRoundedRect(-16, -6, 32, 44, 6);
-    vSliderG.lineStyle(2, theme.accent, 0.9);
+    vSliderG.lineStyle(2, theme.accent, 0.85);
     vSliderG.strokeRoundedRect(-16, -6, 32, 44, 6);
     vSliderG.fillStyle(theme.bar, 1);
     vSliderG.fillRect(11, 0, coreW + 24, 10);
@@ -667,7 +673,7 @@ export class PrepScene extends Phaser.Scene {
     const lcdBg = this.add.graphics();
     lcdBg.fillStyle(0x0f172a, 1);
     lcdBg.fillRoundedRect(cx - 165, 456, 330, 54, 10);
-    lcdBg.lineStyle(2, theme.accent, 0.9);
+    lcdBg.lineStyle(2, theme.accent, 0.75);
     lcdBg.strokeRoundedRect(cx - 165, 456, 330, 54, 10);
 
     const lcdText = this.add.text(
@@ -678,7 +684,7 @@ export class PrepScene extends Phaser.Scene {
         fontFamily: '"JetBrains Mono", monospace',
         fontSize: '15px',
         fontWeight: '700',
-        color: '#38bdf8'
+        color: '#7dd3fc'
       }
     ).setOrigin(0.5);
 
@@ -724,7 +730,7 @@ export class PrepScene extends Phaser.Scene {
         hCaliperGroup.setVisible(false);
         vCaliperGroup.setVisible(true);
         lcdText.setText(`ДИАМЕТР D: ${(spec.targetD + 20).toFixed(1)} мм (норма ${spec.targetD})`);
-        lcdText.setColor('#38bdf8');
+        lcdText.setColor('#7dd3fc');
         btn.setLabel('УДЕРЖИВАТЬ: ЗАМЕР ДИАМЕТРА D (↕)');
       } else if (step === 'diameter_axis') {
         measuredD = (spec.targetD + gap * 20).toFixed(1);
@@ -756,12 +762,12 @@ export class PrepScene extends Phaser.Scene {
         hSlider.x = cx + coreW / 2 + gap * hMaxTravel;
         const mm = (spec.targetH + gap * 25).toFixed(1);
         lcdText.setText(`ВЫСОТА H: ${mm} мм (норма ${spec.targetH})`);
-        lcdText.setColor(Math.abs(gap) <= 0.08 ? '#4ade80' : '#38bdf8');
+        lcdText.setColor(Math.abs(gap) <= 0.08 ? '#4ade80' : '#7dd3fc');
       } else {
         vSlider.y = cy + coreH / 2 + gap * vMaxTravel;
         const mm = (spec.targetD + gap * 20).toFixed(1);
         lcdText.setText(`ДИАМЕТР D: ${mm} мм (норма ${spec.targetD})`);
-        lcdText.setColor(Math.abs(gap) <= 0.08 ? '#4ade80' : '#38bdf8');
+        lcdText.setColor(Math.abs(gap) <= 0.08 ? '#4ade80' : '#7dd3fc');
       }
     };
   }
@@ -773,7 +779,7 @@ export class PrepScene extends Phaser.Scene {
     const draw = (pressed) => {
       bg.clear();
       const oy = pressed ? 3 : 0;
-      bg.fillStyle(0x000000, 0.5);
+      bg.fillStyle(0x000000, 0.45);
       bg.fillRoundedRect(-w / 2, -h / 2 + 5, w, h, 14);
       bg.fillStyle(pressed ? 0xb45309 : 0xd97706, 1);
       bg.fillRoundedRect(-w / 2, -h / 2 + oy, w, h, 14);
