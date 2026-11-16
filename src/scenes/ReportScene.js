@@ -14,7 +14,6 @@ export class ReportScene extends Phaser.Scene {
     this.measuredMpa = data.measuredMpa;
     this.verdictLocked = false;
     this.leavingScene = false;
-    // Защита от случайного тапа в первые 250 мс после загрузки протокола
     this.inputReadyAt = performance.now() + 250;
   }
 
@@ -244,8 +243,7 @@ export class ReportScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const modalReadyAt = performance.now() + 300;
 
-    // Интерактивная подложка-блокер, чтобы клики по модалке не проваливались в нижние кнопки печати!
-    const blocker = this.add.zone(width / 2, height / 2, width, height)
+    this.add.zone(width / 2, height / 2, width, height)
       .setInteractive()
       .setDepth(20);
 
@@ -444,7 +442,6 @@ export class ReportScene extends Phaser.Scene {
       this.leavingScene = true;
       continueBtn.disableInteractive();
       AudioManager.playClick();
-      // Небольшая задержка 140 мс гасит остаточный pointerup, чтобы в MenuScene не нажалась кнопка под пальцем
       this.time.delayedCall(140, () => {
         this.scene.start('MenuScene');
       });
