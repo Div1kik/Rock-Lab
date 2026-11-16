@@ -14,11 +14,12 @@ const DEFAULT_STATE = {
     loader: 1
   },
   perks: {
-    coffee: 0,    // 0..3 Кофемашина на верстаке
-    showcase: 0,  // 0..4 Витрина минералов (+доход)
-    assistant: 0, // 0..3 Лаборант-помощник (авто-болты)
-    decor: 0      // 0..3 Освещение и вытяжка (+репутация)
+    coffee: 0,
+    showcase: 0,
+    assistant: 0,
+    decor: 0
   },
+  unlockedTests: ['uniaxial', 'shear_cut'], // Базовые стенды на старте
   soundEnabled: true,
   activeContract: null
 };
@@ -43,7 +44,10 @@ class StorageManager {
         perks: {
           ...DEFAULT_STATE.perks,
           ...(parsed.perks || {})
-        }
+        },
+        unlockedTests: Array.isArray(parsed.unlockedTests) && parsed.unlockedTests.length
+          ? parsed.unlockedTests
+          : [...DEFAULT_STATE.unlockedTests]
       };
     } catch {
       return structuredClone(DEFAULT_STATE);
@@ -116,6 +120,21 @@ class StorageManager {
     this.state.perks[key] = (this.state.perks[key] || 0) + 1;
     this.save();
     return this.state.perks[key];
+  }
+
+  getUnlockedTests() {
+    return this.state.unlockedTests || ['uniaxial', 'shear_cut'];
+  }
+
+  isTestUnlocked(testKey) {
+    return this.getUnlockedTests().includes(testKey);
+  }
+
+  unlockTest(testKey) {
+    if (!this.isTestUnlocked(testKey)) {
+      this.state.unlockedTests.push(testKey);
+      this.save();
+    }
   }
 
   isSoundEnabled() {
