@@ -189,9 +189,6 @@ class AudioController {
     }
   }
 
-  // =========================================================================
-  // ГИБРИДНЫЙ МУЗЫКАЛЬНЫЙ ДВИЖОК (Warm Rhodes + 5 драйвовых рок-риффов)
-  // =========================================================================
   startMusic() {
     if (!Storage.isSoundEnabled() || this.adSuspended || !this.ctx) return;
     if (this.musicPlaying && this.musicRafId) return;
@@ -247,7 +244,6 @@ class AudioController {
           }
         }
       } catch (err) {
-        console.warn('Audio scheduler recovered:', err);
         if (this.ctx) this.nextNoteTime = this.ctx.currentTime + 0.1;
       }
 
@@ -265,7 +261,6 @@ class AudioController {
     }
   }
 
-  // --- Инструменты для Warm Lab Rhodes ---
   triggerSoftPulse(now) {
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -333,7 +328,6 @@ class AudioController {
     osc2.stop(now + duration + 0.03);
   }
 
-  // --- Инструменты для бодрых 16-bit рок-композиций ---
   triggerRockKick(now) {
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -401,9 +395,6 @@ class AudioController {
     fifthOsc.stop(now + duration + 0.015);
   }
 
-  // =========================================================================
-  // ЗВУКИ ИНСТРУМЕНТОВ
-  // =========================================================================
   playClick() {
     const ctx = this.ensureContext();
     if (!ctx) return;
