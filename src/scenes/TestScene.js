@@ -176,7 +176,7 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 1. ОДНООСНОЕ СЖАТИЕ (Эволюция пресса: гидроаккумуляторы, лазерные датчики, сервопривод)
+  // 1. ОДНООСНОЕ СЖАТИЕ
   // =========================================================================
   buildUniaxialTest() {
     const { width, height } = this.scale;
@@ -204,7 +204,6 @@ export class TestScene extends Phaser.Scene {
     const cy = 335;
 
     const frame = this.add.graphics();
-    // Силовые колонны (на Ур. 3+ утолщённые с резьбовыми муфтами)
     const colW = pressLvl >= 3 ? 22 : 18;
     frame.fillStyle(0x64748b, 1);
     frame.fillRect(cx - 104, cy - 124, colW, 224);
@@ -214,7 +213,6 @@ export class TestScene extends Phaser.Scene {
     frame.fillStyle(0x334155, 1);
     frame.fillRoundedRect(cx - 116, cy + 94, 232, 26, 6);
 
-    // На Ур. 2+ гидроаккумулятор и медная магистраль слева от стойки
     if (pressLvl >= 2) {
       frame.fillStyle(0x1e293b, 1);
       frame.fillRoundedRect(cx - 142, cy - 20, 24, 96, 8);
@@ -225,13 +223,11 @@ export class TestScene extends Phaser.Scene {
       frame.lineBetween(cx - 130, cy - 128, cx - 116, cy - 128);
     }
 
-    // На Ур. 4+ верхний сервоцилиндр с радиатором над траверсой
     if (pressLvl >= 4) {
       frame.fillStyle(0x475569, 1);
       frame.fillRoundedRect(cx - 34, cy - 166, 68, 24, 5);
     }
 
-    // Лазерные тензодатчики деформации на колоннах (при прокачке sensors >= 2)
     if (sensorsLvl >= 2) {
       frame.fillStyle(0x38bdf8, 1);
       frame.fillRect(cx - 82, cy + 12, 8, 22);
@@ -1314,13 +1310,16 @@ export class TestScene extends Phaser.Scene {
 
   finishAllTests() {
     const sensorsLvl = Storage.getUpgradeLevel('sensors');
+    const calPct = Storage.getWear('calibration');
+    const calDriftPenalty = Math.round(((100 - calPct) / 100) * 8);
+
     const testsAvg = this.scores.length
       ? this.scores.reduce((a, b) => a + b, 0) / this.scores.length
       : 70;
 
     const avgAccuracy = Math.max(15, Math.round(testsAvg * 0.75 + this.prepAccuracy * 0.25 - this.thawPenalty));
 
-    const rawErrorPct = Math.max(2, Math.round((100 - avgAccuracy) * 0.42 - (sensorsLvl - 1) * 2.5));
+    const rawErrorPct = Math.max(2, Math.round((100 - avgAccuracy) * 0.42 - (sensorsLvl - 1) * 2.5 + calDriftPenalty));
     const errorPct = Math.max(2, Math.min(38, rawErrorPct));
 
     const sign = Math.random() < 0.5 ? -1 : 1;
