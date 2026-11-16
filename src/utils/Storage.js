@@ -8,6 +8,7 @@ const DEFAULT_STATE = {
   upgrades: {
     drill: 1,
     saw: 1,
+    grinder: 0, // 0 = не куплен (ручная зачистка), 1..5 = уровни шлифовального станка
     caliper: 1,
     press: 1,
     sensors: 1,
@@ -18,11 +19,11 @@ const DEFAULT_STATE = {
     showcase: 0,
     assistant: 0,
     decor: 0,
-    cryobox: 0 // Крио-термобокс для мёрзлых грунтов
+    cryobox: 0
   },
   unlockedTests: ['uniaxial', 'shear_cut'],
-  foundGems: [],     // Найденные в кернах редкие минералы
-  siteHistory: [],   // Архив сданных объектов (успехи и обвалы)
+  foundGems: [],
+  siteHistory: [],
   soundEnabled: true,
   activeContract: null
 };
@@ -106,6 +107,7 @@ class StorageManager {
   }
 
   getUpgradeLevel(key) {
+    if (key === 'grinder') return this.state.upgrades?.grinder ?? 0;
     return this.state.upgrades[key] || 1;
   }
 
