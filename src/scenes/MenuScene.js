@@ -1,662 +1,499 @@
-import { Storage } from './Storage.js';
+import { Storage } from '../utils/Storage.js';
+import { AudioManager } from '../utils/AudioManager.js';
 
-export const MUSIC_TRACKS = [
-  {
-    name: '01. Warm Lab Rhodes',
-    mode: 'rhodes',
-    stepSec: 0.36,
-    lead: [
-      329.63, 0, 392.00, 493.88,
-      392.00, 0, 329.63, 0,
-      293.66, 0, 349.23, 440.00,
-      329.63, 0, 261.63, 0
-    ],
-    bass: [
-      87.31, 0, 0, 0,
-      82.41, 0, 0, 0,
-      73.42, 0, 0, 0,
-      65.41, 0, 0, 0
-    ]
-  },
-  {
-    name: '02. Original SEGA Rock',
-    mode: 'rock',
-    stepSec: 0.145,
-    riff: [
-      82.41, 0, 82.41, 98.00,
-      110.00, 0, 82.41, 0,
-      116.54, 110.00, 98.00, 0,
-      82.41, 0, 73.42, 82.41
-    ]
-  },
-  {
-    name: '03. Quarry Heavy Riff',
-    mode: 'rock',
-    stepSec: 0.148,
-    riff: [
-      73.42, 0, 73.42, 87.31,
-      98.00, 0, 73.42, 0,
-      103.83, 98.00, 87.31, 0,
-      73.42, 65.41, 73.42, 0
-    ]
-  },
-  {
-    name: '04. Vice Stadium Rock',
-    mode: 'rock',
-    stepSec: 0.138,
-    riff: [
-      110.00, 0, 110.00, 130.81,
-      146.83, 0, 164.81, 146.83,
-      130.81, 0, 110.00, 98.00,
-      110.00, 0, 146.83, 130.81
-    ]
-  },
-  {
-    name: '05. Core Drill Blues-Rock',
-    mode: 'rock',
-    stepSec: 0.152,
-    riff: [
-      98.00, 0, 116.54, 130.81,
-      146.83, 0, 130.81, 116.54,
-      98.00, 0, 87.31, 98.00,
-      116.54, 0, 98.00, 0
-    ]
-  },
-  {
-    name: '06. Highway Rig Overdrive',
-    mode: 'rock',
-    stepSec: 0.140,
-    riff: [
-      92.50, 0, 92.50, 110.00,
-      123.47, 0, 138.59, 123.47,
-      110.00, 0, 92.50, 82.41,
-      92.50, 110.00, 123.47, 0
-    ]
-  }
-];
+const LAB_TIERS = {
+  1: { name: 'Гаражная геолаборатория', wall: 0x262320, table: 0x57504a, accent: 0xeab308 },
+  2: { name: 'Участковый пост контроля', wall: 0x23272e, table: 0x4b5563, accent: 0xf59e0b },
+  3: { name: 'Инженерный центр грунтов', wall: 0x1e2631, table: 0x475569, accent: 0x38bdf8 },
+  4: { name: 'Институт механики скал', wall: 0x1b2432, table: 0x3f4c5e, accent: 0x34d399 },
+  5: { name: 'Геотех-комплекс «Атлант»', wall: 0x17202e, table: 0x374151, accent: 0xfacc15 }
+};
 
-class AudioController {
+export class MenuScene extends Phaser.Scene {
   constructor() {
-    this.ctx = null;
-    this.masterGain = null;
-    this.compressor = null;
-    this.adSuspended = false;
-    this.pressOsc = null;
-    this.pressSubOsc = null;
-    this.pressGain = null;
+    super('MenuScene');
+    this.eqBars = [];
+    this.eqTimer = 0;
+  }
 
-    this.musicPlaying = false;
-    this.musicRafId = null;
-    this.nextNoteTime = 0;
-    this.musicStep = 0;
-    this.noiseBuffer = null;
+  create() {
+    const { width, height } = this.scale;
+    const labLvl = Storage.getLabLevel();
+    const tier = LAB_TIERS[labLvl] || LAB_TIERS[1];
 
-    if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', () => {
-        if (!this.ctx) return;
-        if (document.hidden) {
-          this.stopPressHum();
-          this.stopMusic();
-          this.ctx.suspend().catch(() => {});
-        } else if (!this.adSuspended && Storage.isSoundEnabled()) {
-          this.ctx.resume().catch(() => {});
-          this.startMusic();
-        }
+    this.inputGuardUntil = performance.now() + 260;
+
+    this.particles = this.add.particles(0, 0, 'dust_px', {
+      speed: { min: 40, max: 120 },
+      scale: { start: 1.2, end: 0 },
+      lifespan: 420,
+      emitting: false
+    }).setDepth(30);
+
+    this.drawLabRoom(width, height, tier, labLvl);
+    this.createTopBar(width, tier);
+
+    this.add.text(width / 2, 98, 'ROCK LAB', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '36px',
+      fontWeight: '700',
+      color: '#fef3c7',
+      stroke: '#1c1917',
+      strokeThickness: 6
+    }).setOrigin(0.5);
+
+    const auditLeft = Storage.getAuditBonus();
+    const subLabel = auditLeft > 0
+      ? `Ур. ${labLvl} · ${tier.name} · 🛡️ Аккредитация (+15% ×${auditLeft})`
+      : `Ур. ${labLvl} · ${tier.name}`;
+
+    this.add.text(width / 2, 134, subLabel, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '11px',
+      fontWeight: '600',
+      color: auditLeft > 0 ? '#4ade80' : '#fde68a',
+      backgroundColor: '#1c1917cc',
+      padding: { x: 10, y: 4 }
+    }).setOrigin(0.5);
+
+    this.createCenterWorkbench(width, height, tier, labLvl);
+    this.createMaintenancePanel(width, height);
+    this.createMiniPlayer(width, height, tier);
+
+    this.createActionButton(
+      width / 2,
+      height - 178,
+      340,
+      54,
+      'ДОСКА ЗАКАЗОВ',
+      0xd97706,
+      0xffffff,
+      () => {
+        AudioManager.playClick();
+        this.scene.start('ContractsScene');
+      }
+    );
+
+    const halfW = 165;
+    this.createActionButton(
+      width / 2 - halfW / 2 - 5,
+      height - 110,
+      halfW,
+      48,
+      '⚙️ МАГАЗИН',
+      0x334155,
+      0xf8fafc,
+      () => {
+        AudioManager.playClick();
+        this.scene.start('UpgradeScene');
+      },
+      14
+    );
+
+    this.createActionButton(
+      width / 2 + halfW / 2 + 5,
+      height - 110,
+      halfW,
+      48,
+      '📖 ГОСТы',
+      0x0369a1,
+      0xf0f9ff,
+      () => {
+        AudioManager.playClick();
+        this.scene.start('GuideScene', { returnScene: 'MenuScene' });
+      },
+      14
+    );
+
+    this.add.text(width / 2, height - 18, 'EASY DOPAMINE GAMES', {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '11px',
+      fontWeight: '700',
+      letterSpacing: 2,
+      color: '#a8a29e'
+    }).setOrigin(0.5).setAlpha(0.85);
+  }
+
+  drawLabRoom(w, h, tier, labLvl) {
+    const g = this.add.graphics();
+    const decorLvl = Storage.getPerkLevel('decor');
+    const showcaseLvl = Storage.getPerkLevel('showcase');
+
+    g.fillStyle(tier.wall, 1);
+    g.fillRect(0, 0, w, h);
+
+    g.fillStyle(0xfef3c7, 0.06 + decorLvl * 0.02);
+    g.fillTriangle(w / 2, 64, 40, h * 0.56, w - 40, h * 0.56);
+
+    g.lineStyle(1.5, 0x000000, 0.18);
+    for (let x = 0; x < w; x += 40) {
+      g.moveTo(x, 64);
+      g.lineTo(x, h * 0.56);
+    }
+    for (let y = 64; y < h * 0.56; y += 40) {
+      g.moveTo(0, y);
+      g.lineTo(w, y);
+    }
+    g.strokePath();
+
+    g.fillStyle(0x3f3f46, 1);
+    g.fillRect(0, 68, w, 10);
+    g.fillStyle(tier.accent, 0.25 + decorLvl * 0.06);
+    g.fillRect(0, 78, w, 4);
+
+    if (labLvl >= 5) {
+      g.fillStyle(0x0284c9, 0.45);
+      g.fillRoundedRect(w / 2 - 175, 160, 350, 112, 10);
+      g.lineStyle(4, 0x94a3b8, 1);
+      g.strokeRoundedRect(w / 2 - 175, 160, 350, 112, 10);
+      g.fillStyle(0x334155, 0.9);
+      g.fillTriangle(w / 2 - 165, 270, w / 2 - 70, 192, w / 2 + 25, 270);
+      g.fillTriangle(w / 2 - 20, 270, w / 2 + 85, 184, w / 2 + 170, 270);
+    } else {
+      g.fillStyle(0x14161b, 1);
+      g.fillRoundedRect(w / 2 - 135, 162, 270, 102, 8);
+      g.lineStyle(3, 0x4b5563, 1);
+      g.strokeRoundedRect(w / 2 - 135, 162, 270, 102, 8);
+
+      g.fillStyle(0x0ea5e9, 0.12);
+      g.fillRect(w / 2 - 127, 170, 254, 86);
+
+      g.lineStyle(1, 0x334155, 0.6);
+      g.lineBetween(w / 2 - 120, 212, w / 2 + 120, 212);
+      g.lineStyle(2.5, tier.accent, 0.9);
+      g.beginPath();
+      g.moveTo(w / 2 - 110, 244);
+      g.lineTo(w / 2 - 50, 222);
+      g.lineTo(w / 2 + 10, 190);
+      g.lineTo(w / 2 + 55, 184);
+      g.lineTo(w / 2 + 95, 240);
+      g.strokePath();
+    }
+
+    if (showcaseLvl > 0 || labLvl >= 2) {
+      const shelfX = 20;
+      const shelfY = 186;
+      g.fillStyle(0x18181b, 0.95);
+      g.fillRoundedRect(shelfX, shelfY, 62, 140, 6);
+      g.lineStyle(2, tier.accent, 0.7);
+      g.strokeRoundedRect(shelfX, shelfY, 62, 140, 6);
+
+      const gemColors = [0x38bdf8, 0xfacc15, 0x34d399, 0xf43f5e];
+      const count = Math.max(1, showcaseLvl);
+      for (let i = 0; i < count; i++) {
+        const sy = shelfY + 22 + i * 29;
+        g.fillStyle(0x52525b, 1);
+        g.fillRect(shelfX + 8, sy + 14, 46, 4);
+        g.fillStyle(gemColors[i % gemColors.length], 1);
+        g.fillCircle(shelfX + 31, sy + 4, 8);
+      }
+    }
+
+    g.fillStyle(0xfef3c7, 0.9);
+    g.fillRect(w - 82, 188, 56, 70);
+    g.lineStyle(2, 0x78350f, 1);
+    g.strokeRect(w - 82, 188, 56, 70);
+    g.fillStyle(0x78350f, 0.75);
+    g.fillRect(w - 74, 200, 40, 5);
+    g.fillRect(w - 74, 212, 32, 4);
+    g.fillRect(w - 74, 222, 36, 4);
+    if (labLvl >= 3) {
+      g.fillStyle(0xd97706, 1);
+      g.fillCircle(w - 54, 242, 8);
+    }
+
+    g.fillStyle(tier.table, 1);
+    g.fillRect(0, h * 0.54, w, h * 0.46);
+    g.fillStyle(0x27272a, 1);
+    g.fillRect(0, h * 0.54, w, 12);
+    g.fillStyle(0x71717a, 1);
+    g.fillRect(0, h * 0.54, w, 3);
+  }
+
+  createTopBar(w, tier) {
+    const g = this.add.graphics();
+    g.fillStyle(0x14161b, 0.95);
+    g.fillRect(0, 0, w, 64);
+    g.lineStyle(2, tier.accent, 0.65);
+    g.lineBetween(0, 64, w, 64);
+
+    this.moneyTxt = this.add.text(20, 20, `💰 ${Storage.getMoney()} ₽`, {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '18px',
+      fontWeight: '700',
+      color: '#facc15'
+    });
+
+    this.add.text(195, 20, `★ ${Storage.getReputation()}`, {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '18px',
+      fontWeight: '700',
+      color: '#38bdf8'
+    });
+
+    const soundBtn = this.add.text(w - 22, 18, Storage.isSoundEnabled() ? '🔊' : '🔇', {
+      fontSize: '24px'
+    }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
+
+    soundBtn.on('pointerdown', () => {
+      if (performance.now() < this.inputGuardUntil) return;
+      const enabled = Storage.toggleSound();
+      soundBtn.setText(enabled ? '🔊' : '🔇');
+      if (enabled) AudioManager.playClick();
+    });
+  }
+
+  createCenterWorkbench(w, h, tier, labLvl) {
+    const cy = h * 0.46;
+    const coffeeLvl = Storage.getPerkLevel('coffee');
+
+    const g = this.add.graphics();
+    g.fillStyle(0x3f3f46, 1);
+    g.fillRect(w / 2 - 76, cy - 96, 16, 134);
+    g.fillRect(w / 2 + 60, cy - 96, 16, 134);
+    g.fillStyle(tier.accent, 1);
+    g.fillRoundedRect(w / 2 - 86, cy - 110, 172, 22, 6);
+    g.fillRect(w / 2 - 22, cy - 88, 44, 24);
+
+    const core = this.add.image(w / 2, cy - 4, 'rock_core')
+      .setScale(1.22)
+      .setInteractive({ useHandCursor: true });
+
+    if (labLvl >= 4) {
+      const laser = this.add.rectangle(w / 2, cy - 22, 94, 3, 0x34d399, 0.85);
+      this.tweens.add({
+        targets: laser,
+        y: cy + 24,
+        duration: 1200,
+        yoyo: true,
+        repeat: -1
+      });
+    }
+
+    core.on('pointerdown', () => {
+      if (performance.now() < this.inputGuardUntil) return;
+      AudioManager.playCorePickup();
+      this.particles.emitParticleAt(core.x, core.y, 10);
+      this.tweens.add({
+        targets: core,
+        scaleX: 1.36,
+        scaleY: 1.12,
+        duration: 70,
+        yoyo: true
+      });
+    });
+
+    if (coffeeLvl > 0) {
+      const cmX = w - 64;
+      const cmY = cy + 6;
+      const cm = this.add.graphics();
+      cm.fillStyle(0x1f2937, 1);
+      cm.fillRoundedRect(cmX - 28, cmY - 46, 56, 76, 8);
+      cm.fillStyle(0xdc2626, 1);
+      cm.fillRect(cmX - 24, cmY - 40, 48, 16);
+      cm.fillStyle(0xfef3c7, 1);
+      cm.fillRect(cmX - 8, cmY + 6, 16, 18);
+
+      const cmZone = this.add.zone(cmX, cmY - 8, 64, 84).setInteractive({ useHandCursor: true });
+      cmZone.on('pointerdown', () => {
+        if (performance.now() < this.inputGuardUntil) return;
+        AudioManager.playLatchSnap();
+        this.particles.emitParticleAt(cmX, cmY - 4, 8);
       });
     }
   }
 
-  ensureContext() {
-    if (!Storage.isSoundEnabled() || this.adSuspended) return null;
-    if (!this.ctx) {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return null;
-      this.ctx = new AudioCtx();
+  createMaintenancePanel(w, h) {
+    const panelY = h * 0.585;
+    const panelW = 340;
+    const panelH = 62;
+    const startX = w / 2 - panelW / 2;
 
-      this.compressor = this.ctx.createDynamicsCompressor();
-      this.compressor.threshold.setValueAtTime(-16, this.ctx.currentTime);
-      this.compressor.knee.setValueAtTime(12, this.ctx.currentTime);
-      this.compressor.ratio.setValueAtTime(5, this.ctx.currentTime);
-      this.compressor.attack.setValueAtTime(0.005, this.ctx.currentTime);
-      this.compressor.release.setValueAtTime(0.12, this.ctx.currentTime);
-
-      this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.setValueAtTime(0.75, this.ctx.currentTime);
-
-      this.compressor.connect(this.masterGain);
-      this.masterGain.connect(this.ctx.destination);
-
-      this.buildNoiseBuffer();
+    if (this.maintContainer) {
+      this.maintContainer.destroy();
     }
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume().catch(() => {});
-    }
-    if (!this.musicPlaying) {
-      this.startMusic();
-    }
-    return this.ctx;
-  }
+    this.maintContainer = this.add.container(0, 0);
 
-  getOut() {
-    return this.compressor || this.ctx?.destination;
-  }
+    const items = [
+      { key: 'saw', label: '🪚 Диск пилы', cost: 25 },
+      { key: 'grinder', label: '⚙️ Абразив', cost: 25 },
+      { key: 'calibration', label: '📐 Поверка', cost: 35 }
+    ];
 
-  buildNoiseBuffer() {
-    if (!this.ctx) return;
-    const len = this.ctx.sampleRate * 1.5;
-    const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
-    const data = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) {
-      data[i] = Math.random() * 2 - 1;
-    }
-    this.noiseBuffer = buf;
-  }
+    const colW = (panelW - 12) / 3;
+    items.forEach((item, idx) => {
+      const x = startX + idx * (colW + 6);
+      const pct = Storage.getWear(item.key);
+      const isLow = pct < 50;
+      const needsService = pct < 100;
 
-  getCurrentTrack() {
-    const rawIdx = Number(Storage.getMusicTrack()) || 0;
-    const idx = ((rawIdx % MUSIC_TRACKS.length) + MUSIC_TRACKS.length) % MUSIC_TRACKS.length;
-    return MUSIC_TRACKS[idx] || MUSIC_TRACKS[0];
-  }
+      const card = this.add.graphics();
+      card.fillStyle(0x14161b, 0.94);
+      card.fillRoundedRect(x, panelY, colW, panelH, 8);
+      card.lineStyle(1.5, isLow ? 0xf59e0b : 0x475569, 0.9);
+      card.strokeRoundedRect(x, panelY, colW, panelH, 8);
 
-  nextTrack() {
-    const rawIdx = Number(Storage.getMusicTrack()) || 0;
-    const nextIdx = (rawIdx + 1) % MUSIC_TRACKS.length;
-    Storage.setMusicTrack(nextIdx);
-    this.musicStep = 0;
-    const ctx = this.ensureContext();
-    if (ctx) {
-      this.nextNoteTime = ctx.currentTime + 0.05;
-      if (!this.musicPlaying) this.startMusic();
-    }
-    this.playLatchSnap();
-    return MUSIC_TRACKS[nextIdx];
-  }
+      const t1 = this.add.text(x + colW / 2, panelY + 12, item.label, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '10px',
+        fontWeight: '700',
+        color: '#e2e8f0'
+      }).setOrigin(0.5);
 
-  suspendForAd() {
-    this.adSuspended = true;
-    this.stopPressHum();
-    this.stopMusic();
-    if (this.ctx && this.ctx.state === 'running') {
-      this.ctx.suspend().catch(() => {});
-    }
-  }
+      const pctColor = pct >= 70 ? '#4ade80' : pct >= 40 ? '#facc15' : '#f87171';
+      const t2 = this.add.text(x + colW / 2, panelY + 29, `${pct}%`, {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '13px',
+        fontWeight: '700',
+        color: pctColor
+      }).setOrigin(0.5);
 
-  resumeAfterAd() {
-    this.adSuspended = false;
-    if (this.ctx && Storage.isSoundEnabled() && !document.hidden) {
-      this.ctx.resume().catch(() => {});
-      this.startMusic();
-    }
-  }
+      const actionLabel = needsService ? `ТО · ${item.cost} ₽` : 'В НОРМЕ';
+      const canPay = needsService && Storage.getMoney() >= item.cost;
+      const t3 = this.add.text(x + colW / 2, panelY + 48, actionLabel, {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '9px',
+        fontWeight: '700',
+        color: canPay ? '#0f172a' : '#94a3b8',
+        backgroundColor: canPay ? '#facc15' : '#27272a',
+        padding: { x: 6, y: 2 }
+      }).setOrigin(0.5);
 
-  startMusic() {
-    if (!Storage.isSoundEnabled() || this.adSuspended || !this.ctx) return;
-    if (this.musicPlaying && this.musicRafId) return;
+      this.maintContainer.add([card, t1, t2, t3]);
 
-    this.musicPlaying = true;
-    this.musicStep = 0;
-    this.nextNoteTime = this.ctx.currentTime + 0.06;
-
-    const scheduler = () => {
-      if (!this.musicPlaying) {
-        this.musicRafId = null;
-        return;
-      }
-
-      try {
-        if (this.ctx && Storage.isSoundEnabled() && !this.adSuspended) {
-          if (this.ctx.state === 'suspended') {
-            this.ctx.resume().catch(() => {});
-            this.nextNoteTime = this.ctx.currentTime + 0.06;
-          } else if (this.ctx.state === 'running') {
-            if (this.nextNoteTime < this.ctx.currentTime - 0.5) {
-              this.nextNoteTime = this.ctx.currentTime + 0.05;
-            }
-
-            while (this.nextNoteTime < this.ctx.currentTime + 0.14) {
-              const track = this.getCurrentTrack();
-              const step = this.musicStep % 16;
-              const t = this.nextNoteTime;
-
-              if (track.mode === 'rhodes') {
-                if (step === 0 || step === 8) this.triggerSoftPulse(t);
-                const bassFreq = track.bass[step];
-                if (bassFreq > 0) this.triggerSmoothBass(t, bassFreq, track.stepSec * 3.6);
-                const leadFreq = track.lead[step];
-                if (leadFreq > 0) this.triggerSmoothPad(t, leadFreq, track.stepSec * 2.4);
-              } else {
-                if (step === 0 || step === 6 || step === 8 || step === 14) {
-                  this.triggerRockKick(t);
-                }
-                if (step === 4 || step === 12) {
-                  this.triggerRockSnare(t);
-                }
-                const riffFreq = track.riff[step];
-                if (riffFreq > 0) {
-                  const dur = step === 8 ? track.stepSec * 1.8 : track.stepSec * 1.15;
-                  this.triggerPowerChordGuitar(t, riffFreq, dur);
-                }
-              }
-
-              this.nextNoteTime += track.stepSec;
-              this.musicStep += 1;
-            }
+      if (canPay) {
+        const zone = this.add.zone(x + colW / 2, panelY + panelH / 2, colW, panelH)
+          .setInteractive({ useHandCursor: true });
+        zone.on('pointerdown', () => {
+          if (performance.now() < this.inputGuardUntil) return;
+          if (Storage.spendMoney(item.cost)) {
+            Storage.restoreWear(item.key);
+            AudioManager.playLatchSnap();
+            if (this.moneyTxt) this.moneyTxt.setText(`💰 ${Storage.getMoney()} ₽`);
+            this.createMaintenancePanel(w, h);
           }
-        }
-      } catch (err) {
-        if (this.ctx) this.nextNoteTime = this.ctx.currentTime + 0.1;
+        });
+        this.maintContainer.add(zone);
       }
+    });
+  }
 
-      this.musicRafId = requestAnimationFrame(scheduler);
+  createMiniPlayer(w, h, tier) {
+    const px = w / 2;
+    const py = h * 0.695;
+    const pw = 340;
+    const ph = 46;
+
+    const container = this.add.container(px, py);
+    const bg = this.add.graphics();
+    bg.fillStyle(0x14161b, 0.96);
+    bg.fillRoundedRect(-pw / 2, -ph / 2, pw, ph, 10);
+    bg.lineStyle(2, tier.accent, 0.75);
+    bg.strokeRoundedRect(-pw / 2, -ph / 2, pw, ph, 10);
+
+    const icon = this.add.text(-pw / 2 + 14, 0, '📻', {
+      fontSize: '20px'
+    }).setOrigin(0, 0.5);
+
+    const curTrack = AudioManager.getCurrentTrack();
+    const trackTxt = this.add.text(-pw / 2 + 44, -7, curTrack.name, {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '12px',
+      fontWeight: '700',
+      color: '#fef3c7'
+    }).setOrigin(0, 0.5);
+
+    const subLabel = this.add.text(-pw / 2 + 44, 10, 'ТАПНИ ЧТОБЫ СМЕНИТЬ ТРЕК ⏭', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '9px',
+      fontWeight: '600',
+      color: '#94a3b8'
+    }).setOrigin(0, 0.5);
+
+    this.eqBars = [];
+    for (let i = 0; i < 5; i++) {
+      const bar = this.add.rectangle(pw / 2 - 54 + i * 8, 12, 5, 16, tier.accent)
+        .setOrigin(0.5, 1);
+      this.eqBars.push(bar);
+    }
+
+    const zone = this.add.zone(0, 0, pw, ph).setInteractive({ useHandCursor: true });
+    zone.on('pointerdown', () => {
+      if (performance.now() < this.inputGuardUntil) return;
+      const next = AudioManager.nextTrack();
+      trackTxt.setText(next.name);
+      this.tweens.add({
+        targets: container,
+        scaleX: 0.97,
+        scaleY: 0.97,
+        duration: 65,
+        yoyo: true
+      });
+    });
+
+    container.add([bg, icon, trackTxt, subLabel, ...this.eqBars, zone]);
+  }
+
+  update(time, delta) {
+    if (!this.eqBars.length) return;
+    this.eqTimer += delta;
+    if (this.eqTimer >= 130) {
+      this.eqTimer = 0;
+      const active = Storage.isSoundEnabled();
+      this.eqBars.forEach((bar) => {
+        bar.height = active ? 4 + Math.random() * 14 : 3;
+      });
+    }
+  }
+
+  createActionButton(x, y, w, h, label, bgColor, textColor, onClick, fontSize = 17) {
+    const container = this.add.container(x, y);
+    const bg = this.add.graphics();
+    let isPressed = false;
+
+    const drawBtn = (pressed = false) => {
+      bg.clear();
+      const offsetY = pressed ? 3 : 0;
+      bg.fillStyle(0x000000, 0.45);
+      bg.fillRoundedRect(-w / 2, -h / 2 + 5, w, h, 12);
+      bg.fillStyle(bgColor, 1);
+      bg.fillRoundedRect(-w / 2, -h / 2 + offsetY, w, h, 12);
+      bg.lineStyle(2, 0xffffff, 0.25);
+      bg.strokeRoundedRect(-w / 2, -h / 2 + offsetY, w, h, 12);
     };
 
-    this.musicRafId = requestAnimationFrame(scheduler);
-  }
-
-  stopMusic() {
-    this.musicPlaying = false;
-    if (this.musicRafId) {
-      cancelAnimationFrame(this.musicRafId);
-      this.musicRafId = null;
-    }
-  }
-
-  triggerSoftPulse(now) {
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(82, now);
-    osc.frequency.exponentialRampToValueAtTime(38, now + 0.18);
-
-    gain.gain.setValueAtTime(0.001, now);
-    gain.gain.linearRampToValueAtTime(0.055, now + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0008, now + 0.22);
-
-    osc.connect(gain);
-    gain.connect(this.getOut());
-    osc.start(now);
-    osc.stop(now + 0.24);
-  }
-
-  triggerSmoothBass(now, freq, duration) {
-    const osc = this.ctx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, now);
-
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(220, now);
-
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.0008, now);
-    gain.gain.linearRampToValueAtTime(0.042, now + 0.08);
-    gain.gain.exponentialRampToValueAtTime(0.0008, now + duration);
-
-    osc.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.getOut());
-    osc.start(now);
-    osc.stop(now + duration + 0.02);
-  }
-
-  triggerSmoothPad(now, freq, duration) {
-    const osc1 = this.ctx.createOscillator();
-    const osc2 = this.ctx.createOscillator();
-    osc1.type = 'sine';
-    osc2.type = 'sine';
-    osc1.frequency.setValueAtTime(freq, now);
-    osc2.frequency.setValueAtTime(freq * 0.5, now);
-
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(520, now);
-    filter.frequency.linearRampToValueAtTime(340, now + duration);
-
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.0005, now);
-    gain.gain.linearRampToValueAtTime(0.024, now + 0.09);
-    gain.gain.exponentialRampToValueAtTime(0.0005, now + duration);
-
-    osc1.connect(filter);
-    osc2.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.getOut());
-
-    osc1.start(now);
-    osc2.start(now);
-    osc1.stop(now + duration + 0.03);
-    osc2.stop(now + duration + 0.03);
-  }
-
-  triggerRockKick(now) {
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(122, now);
-    osc.frequency.exponentialRampToValueAtTime(42, now + 0.11);
-
-    gain.gain.setValueAtTime(0.095, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-
-    osc.connect(gain);
-    gain.connect(this.getOut());
-    osc.start(now);
-    osc.stop(now + 0.13);
-  }
-
-  triggerRockSnare(now) {
-    if (!this.noiseBuffer) return;
-    const noise = this.ctx.createBufferSource();
-    noise.buffer = this.noiseBuffer;
-
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.setValueAtTime(1180, now);
-    filter.Q.setValueAtTime(0.95, now);
-
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.048, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-
-    noise.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.getOut());
-    noise.start(now);
-    noise.stop(now + 0.13);
-  }
-
-  triggerPowerChordGuitar(now, freq, duration) {
-    const rootOsc = this.ctx.createOscillator();
-    const fifthOsc = this.ctx.createOscillator();
-    rootOsc.type = 'triangle';
-    fifthOsc.type = 'sawtooth';
-
-    rootOsc.frequency.setValueAtTime(freq, now);
-    fifthOsc.frequency.setValueAtTime(freq * 1.498, now);
-
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(640, now);
-    filter.frequency.exponentialRampToValueAtTime(290, now + duration);
-
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.001, now);
-    gain.gain.linearRampToValueAtTime(0.038, now + 0.014);
-    gain.gain.exponentialRampToValueAtTime(0.0008, now + duration);
-
-    rootOsc.connect(filter);
-    fifthOsc.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.getOut());
-
-    rootOsc.start(now);
-    fifthOsc.start(now);
-    rootOsc.stop(now + duration + 0.015);
-    fifthOsc.stop(now + duration + 0.015);
-  }
-
-  playClick() {
-    const ctx = this.ensureContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(320, now);
-    osc.frequency.exponentialRampToValueAtTime(140, now + 0.035);
-
-    gain.gain.setValueAtTime(0.11, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
-
-    osc.connect(gain);
-    gain.connect(this.getOut());
-    osc.start(now);
-    osc.stop(now + 0.045);
-  }
-
-  playDrillTick() {
-    const ctx = this.ensureContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-
-    const motor = ctx.createOscillator();
-    motor.type = 'triangle';
-    motor.frequency.setValueAtTime(215 + Math.random() * 25, now);
-    motor.frequency.linearRampToValueAtTime(245, now + 0.055);
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.setValueAtTime(520, now);
-    filter.Q.setValueAtTime(2.2, now);
-
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.09, now);
-    gain.gain.exponentialRampToValueAtTime(0.002, now + 0.06);
-
-    motor.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.getOut());
-    motor.start(now);
-    motor.stop(now + 0.065);
-  }
-
-  playCrowbarPry() {
-    const ctx = this.ensureContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-
-    const creak = ctx.createOscillator();
-    creak.type = 'triangle';
-    creak.frequency.setValueAtTime(150 + Math.random() * 40, now);
-    creak.frequency.exponentialRampToValueAtTime(260, now + 0.09);
-
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.13, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-
-    creak.connect(gain);
-    gain.connect(this.getOut());
-    creak.start(now);
-    creak.stop(now + 0.11);
-  }
-
-  playCorePickup() {
-    const ctx = this.ensureContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-
-    const body = ctx.createOscillator();
-    body.type = 'sine';
-    body.frequency.setValueAtTime(260, now);
-    body.frequency.exponentialRampToValueAtTime(145, now + 0.075);
-
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.16, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.085);
-
-    body.connect(gain);
-    gain.connect(this.getOut());
-    body.start(now);
-    body.stop(now + 0.09);
-
-    if (this.noiseBuffer) {
-      const rustle = ctx.createBufferSource();
-      rustle.buffer = this.noiseBuffer;
-
-      const lp = ctx.createBiquadFilter();
-      lp.type = 'lowpass';
-      lp.frequency.setValueAtTime(900, now);
-
-      const rGain = ctx.createGain();
-      rGain.gain.setValueAtTime(0.045, now);
-      rGain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
-
-      rustle.connect(lp);
-      lp.connect(rGain);
-      rGain.connect(this.getOut());
-      rustle.start(now);
-      rustle.stop(now + 0.075);
-    }
-  }
-
-  playSawCut() {
-    const ctx = this.ensureContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-
-    const motor = ctx.createOscillator();
-    motor.type = 'triangle';
-    motor.frequency.setValueAtTime(148 + Math.random() * 18, now);
-    motor.frequency.linearRampToValueAtTime(165, now + 0.065);
-
-    const motorGain = ctx.createGain();
-    motorGain.gain.setValueAtTime(0.07, now);
-    motorGain.gain.exponentialRampToValueAtTime(0.002, now + 0.07);
-
-    motor.connect(motorGain);
-    motorGain.connect(this.getOut());
-    motor.start(now);
-    motor.stop(now + 0.075);
-
-    if (this.noiseBuffer) {
-      const grit = this.ctx.createBufferSource();
-      grit.buffer = this.noiseBuffer;
-
-      const bp = ctx.createBiquadFilter();
-      bp.type = 'bandpass';
-      bp.frequency.setValueAtTime(950 + Math.random() * 180, now);
-      bp.Q.setValueAtTime(1.6, now);
-
-      const gritGain = ctx.createGain();
-      gritGain.gain.setValueAtTime(0.06, now);
-      gritGain.gain.exponentialRampToValueAtTime(0.002, now + 0.07);
-
-      grit.connect(bp);
-      bp.connect(gritGain);
-      gritGain.connect(this.getOut());
-      grit.start(now);
-      grit.stop(now + 0.075);
-    }
-  }
-
-  playLatchSnap() {
-    const ctx = this.ensureContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-
-    const click = ctx.createOscillator();
-    click.type = 'triangle';
-    click.frequency.setValueAtTime(860, now);
-    click.frequency.exponentialRampToValueAtTime(340, now + 0.045);
-
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.13, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-
-    click.connect(gain);
-    gain.connect(this.getOut());
-    click.start(now);
-    click.stop(now + 0.055);
-  }
-
-  playRockCrack() {
-    const ctx = this.ensureContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-
-    const thud = ctx.createOscillator();
-    thud.type = 'sine';
-    thud.frequency.setValueAtTime(110, now);
-    thud.frequency.exponentialRampToValueAtTime(34, now + 0.16);
-    const thudGain = ctx.createGain();
-    thudGain.gain.setValueAtTime(0.26, now);
-    thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.17);
-    thud.connect(thudGain);
-    thudGain.connect(this.getOut());
-    thud.start(now);
-    thud.stop(now + 0.18);
-
-    if (this.noiseBuffer) {
-      const debris = ctx.createBufferSource();
-      debris.buffer = this.noiseBuffer;
-
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(680, now);
-      filter.Q.setValueAtTime(1.1, now);
-
-      const dGain = ctx.createGain();
-      dGain.gain.setValueAtTime(0.22, now);
-      dGain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
-
-      debris.connect(filter);
-      filter.connect(dGain);
-      dGain.connect(this.getOut());
-      debris.start(now);
-      debris.stop(now + 0.25);
-    }
-  }
-
-  updatePressHum(loadRatio) {
-    const ctx = this.ensureContext();
-    if (!ctx) return;
-    if (!this.pressOsc) {
-      this.pressOsc = ctx.createOscillator();
-      this.pressSubOsc = ctx.createOscillator();
-      this.pressGain = ctx.createGain();
-
-      this.pressOsc.type = 'sine';
-      this.pressSubOsc.type = 'triangle';
-
-      this.pressOsc.frequency.setValueAtTime(52, ctx.currentTime);
-      this.pressSubOsc.frequency.setValueAtTime(104, ctx.currentTime);
-      this.pressGain.gain.setValueAtTime(0.001, ctx.currentTime);
-
-      this.pressOsc.connect(this.pressGain);
-      this.pressSubOsc.connect(this.pressGain);
-      this.pressGain.connect(this.getOut());
-
-      this.pressOsc.start();
-      this.pressSubOsc.start();
-    }
-    const now = ctx.currentTime;
-    const clamped = Math.max(0, Math.min(1, loadRatio));
-    this.pressOsc.frequency.setTargetAtTime(50 + clamped * 45, now, 0.05);
-    this.pressSubOsc.frequency.setTargetAtTime(100 + clamped * 90, now, 0.05);
-    this.pressGain.gain.setTargetAtTime(0.05 + clamped * 0.08, now, 0.05);
-  }
-
-  stopPressHum() {
-    if (this.pressOsc && this.ctx) {
-      try {
-        this.pressGain.gain.setTargetAtTime(0.0001, this.ctx.currentTime, 0.02);
-        this.pressOsc.stop(this.ctx.currentTime + 0.05);
-        if (this.pressSubOsc) this.pressSubOsc.stop(this.ctx.currentTime + 0.05);
-      } catch {}
-    }
-    this.pressOsc = null;
-    this.pressSubOsc = null;
-    this.pressGain = null;
-  }
-
-  playStamp() {
-    const ctx = this.ensureContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(135, now);
-    osc.frequency.exponentialRampToValueAtTime(38, now + 0.13);
-
-    gain.gain.setValueAtTime(0.22, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
-
-    osc.connect(gain);
-    gain.connect(this.getOut());
-    osc.start(now);
-    osc.stop(now + 0.15);
+    drawBtn(false);
+
+    const txt = this.add.text(0, 0, label, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: `${fontSize}px`,
+      fontWeight: '700',
+      color: Phaser.Display.Color.IntegerToColor(textColor).rgba
+    }).setOrigin(0.5);
+
+    container.add([bg, txt]);
+    container.setSize(w, h);
+    container.setInteractive({ useHandCursor: true });
+
+    container.on('pointerdown', () => {
+      if (performance.now() < this.inputGuardUntil) return;
+      isPressed = true;
+      drawBtn(true);
+      txt.y = 3;
+    });
+    container.on('pointerup', () => {
+      if (!isPressed) return;
+      isPressed = false;
+      drawBtn(false);
+      txt.y = 0;
+      onClick();
+    });
+    container.on('pointerout', () => {
+      isPressed = false;
+      drawBtn(false);
+      txt.y = 0;
+    });
+
+    return container;
   }
 }
-
-export const AudioManager = new AudioController();
