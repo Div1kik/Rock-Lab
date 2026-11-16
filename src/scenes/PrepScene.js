@@ -24,7 +24,6 @@ export class PrepScene extends Phaser.Scene {
     const needsSplit = tests.includes('shear_crack');
 
     if (needsCylinder) {
-      // Цилиндр: длина (высота H = 100 мм) по горизонтали, диаметр (D = 50 мм) по вертикали
       specs.push({
         mode: 'cylinder',
         label: 'Цилиндр (H=100 × D=50 мм)',
@@ -38,7 +37,6 @@ export class PrepScene extends Phaser.Scene {
     }
 
     if (needsTwoDiscs) {
-      // Шайба сдвига: толщина (высота H = 35 мм) по горизонтали, диаметр (D = 70 мм) по вертикали
       specs.push({
         mode: 'two_discs',
         label: 'Две шайбы (H=35 × D=70 мм)',
@@ -140,6 +138,20 @@ export class PrepScene extends Phaser.Scene {
       this.startSplitCrackPhase(spec);
     } else {
       this.startSawPhase(spec);
+    }
+  }
+
+  afterCutOrSplit(spec) {
+    const grinderLvl = Storage.getUpgradeLevel('grinder');
+    // Если шлифовальный станок куплен и это пилёный образец (цилиндр или шайбы) -> этап шлифовки торцов!
+    if (grinderLvl > 0 && spec.mode !== 'split_core') {
+      this.startGrinderPhase(spec, grinderLvl);
+    } else {
+      // Без шлифовального станка остаётся небольшой природный перекос торцов
+      if (spec.mode !== 'split_core') {
+        this.prepScores.push(82);
+      }
+      this.startMeasurePhase(spec);
     }
   }
 
@@ -334,8 +346,8 @@ export class PrepScene extends Phaser.Scene {
               duration: 340
             });
 
-            this.time.delayedCall(700, () => {
-              this.startMeasurePhase(spec);
+            this.time.delayedCall(650, () => {
+              this.afterCutOrSplit(spec);
             });
           }
         }
@@ -344,7 +356,7 @@ export class PrepScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // ФАЗА 1Б: ГИДРОКЛИН-КОЛУН
+  // ФАЗА 1Б: ГИДРОКЛИН-КОЛУН (Отцентрован строго по стыку половинок!)
   // =========================================================================
   startSplitCrackPhase(spec) {
     const { width, height } = this.scale;
@@ -364,16 +376,33 @@ export class PrepScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     const cx = width / 2;
-    const cy = 335;
+    const cy = 345;
 
+    // Нижняя опора-призма
     const anvil = this.add.rectangle(cx, cy + 56, 220, 26, 0x3f3f46);
+
+    // Две половинки керна со стыком ровно на cx
     const leftHalf = this.add.rectangle(cx - 46, cy + 8, 92, 70, this.contract.rock.color)
       .setStrokeStyle(2, 0x1c1917);
     const rightHalf = this.add.rectangle(cx + 46, cy + 8, 92, 70, this.contract.rock.color)
       .setStrokeStyle(2, 0x1c1917);
 
-    const wedge = this.add.triangle(cx, cy - 82, 0, 44, -22, 0, 22, 0, 0xfacc15);
-    const ram = this.add.rectangle(cx, cy - 115, 24, 50, 0x94a3b8);
+    // Ось симметрии штока и клина строго на cx (через Graphics с локальным (0,0) = остриё клина)
+    const ram = this.add.rectangle(cx, cy - 122, 24, 52, 0x94a3b8);
+
+    const wedgeStartY = cy - 60;
+    const wedge = this.add.graphics();
+    wedge.x = cx;
+    wedge.y = wedgeStartY;
+    wedge.fillStyle(0xfacc15, 1);
+    wedge.lineStyle(2, 0xb45309, 1);
+    wedge.beginPath();
+    wedge.moveTo(0, 0);      // Остриё клина строго в (cx, wedge.y)
+    wedge.lineTo(-24, -44);  // Левый верхний угол
+    wedge.lineTo(24, -44);   // Правый верхний угол
+    wedge.closePath();
+    wedge.fillPath();
+    wedge.strokePath();
 
     const btn = this.createActionBtn(width / 2, height - 110, 310, 74, 'УДЕРЖИВАТЬ: РАСКОЛОТЬ КЕРН');
 
@@ -392,8 +421,8 @@ export class PrepScene extends Phaser.Scene {
       if (holding) {
         pressure = Math.min(1, pressure + 0.72 * dt);
         AudioManager.updatePressHum(pressure);
-        wedge.y = cy - 82 + pressure * 42;
-        ram.y = wedge.y - 33;
+        wedge.y = wedgeStartY + pressure * 42;
+        ram.y = wedge.y - 62;
 
         if (pressure >= 1) {
           splitDone = true;
@@ -407,7 +436,131 @@ export class PrepScene extends Phaser.Scene {
           this.tweens.add({ targets: leftHalf, x: cx - 64, angle: -8, duration: 280 });
           this.tweens.add({ targets: rightHalf, x: cx + 64, angle: 8, duration: 280 });
 
-          this.time.delayedCall(750, () => {
+          this.time.delayedCall(720, () => {
+            this.afterCutOrSplit(spec);
+          });
+        }
+      }
+    };
+  }
+
+  // =========================================================================
+  // ФАЗА 1В: ТОРЦЕШЛИФОВАЛЬНЫЙ СТАНОК (Выравнивание торцов после распила!)
+  // =========================================================================
+  startGrinderPhase(spec, grinderLvl) {
+    const { width, height } = this.scale;
+    this.stageContainer.removeAll(true);
+    this.titleTxt.setText(`ТОРЦЕШЛИФОВАЛЬНЫЙ СТАНОК [Ур. ${grinderLvl}]`);
+
+    const hint = this.add.text(
+      width / 2,
+      128,
+      'Зажми подачу шлифовального круга, чтобы вывести\nидеальную плоскопараллельность торцов (ГОСТ 21153.2)!',
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '13px',
+        color: '#e7e5e4',
+        align: 'center'
+      }
+    ).setOrigin(0.5);
+
+    const cx = width / 2;
+    const cy = 325;
+
+    // Вращающаяся планшайба шлифовального станка
+    const wheelColors = [0x64748b, 0x38bdf8, 0x22c55e, 0xa855f7, 0xfacc15];
+    const wColor = wheelColors[Math.min(wheelColors.length - 1, grinderLvl - 1)];
+
+    const wheelContainer = this.add.container(cx, cy);
+    const outerDisc = this.add.circle(0, 0, 112, 0x334155).setStrokeStyle(5, wColor);
+    const innerDisc = this.add.circle(0, 0, 78, 0x475569).setStrokeStyle(2, 0x94a3b8);
+    const gritMarks = this.add.graphics();
+    gritMarks.lineStyle(2, wColor, 0.7);
+    for (let a = 0; a < 360; a += 30) {
+      const rad = Phaser.Math.DegToRad(a);
+      gritMarks.lineBetween(Math.cos(rad) * 30, Math.sin(rad) * 30, Math.cos(rad) * 104, Math.sin(rad) * 104);
+    }
+    wheelContainer.add([outerDisc, innerDisc, gritMarks]);
+
+    // Образец прижатый к шлифовальному диску и заусенцы на торцах (которые исчезают при шлифовке)
+    const core = this.add.rectangle(cx, cy, spec.calCoreW, spec.calCoreH, this.contract.rock.color)
+      .setStrokeStyle(2, 0x1c1917);
+
+    const burrs = this.add.graphics();
+    const drawBurrs = (roughness) => {
+      burrs.clear();
+      if (roughness <= 0.05) return;
+      burrs.lineStyle(3, 0xfacc15, roughness);
+      const halfW = spec.calCoreW / 2;
+      const halfH = spec.calCoreH / 2;
+      for (let y = -halfH + 6; y <= halfH - 6; y += 12) {
+        const jag = 6 * roughness;
+        burrs.lineBetween(cx - halfW, cy + y, cx - halfW - jag, cy + y + 4);
+        burrs.lineBetween(cx + halfW, cy + y, cx + halfW + jag, cy + y + 4);
+      }
+    };
+    drawBurrs(1.0);
+
+    // Шкала гладкости торцов
+    const barW = 280;
+    const barX = width / 2 - barW / 2;
+    const barY = 462;
+    const barBg = this.add.graphics();
+    barBg.fillStyle(0x141210, 1);
+    barBg.fillRoundedRect(barX, barY, barW, 22, 6);
+    const barFill = this.add.rectangle(barX + 3, barY + 3, 2, 16, wColor).setOrigin(0, 0);
+
+    const statusTxt = this.add.text(width / 2, 498, 'Неплоскостность торцов: 0.45 мм', {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '13px',
+      fontWeight: '700',
+      color: '#fde68a'
+    }).setOrigin(0.5);
+
+    const btn = this.createActionBtn(width / 2, height - 110, 310, 74, 'УДЕРЖИВАТЬ: ШЛИФОВКА ТОРЦОВ');
+
+    this.stageContainer.add([
+      hint, wheelContainer, core, burrs, barBg, barFill, statusTxt, btn.container
+    ]);
+
+    let polish = 0; // 0..1
+    let grinding = false;
+    let done = false;
+    const grindSpeed = 0.58 + (grinderLvl - 1) * 0.14;
+
+    btn.zone.on('pointerdown', () => { if (!done) grinding = true; });
+    btn.zone.on('pointerup', () => { grinding = false; });
+    btn.zone.on('pointerout', () => { grinding = false; });
+
+    this.currentUpdate = (dt) => {
+      if (done) return;
+      gritMarks.angle += grinding ? 620 * dt : 90 * dt;
+
+      if (grinding) {
+        polish = Math.min(1, polish + grindSpeed * dt);
+        barFill.width = Math.max(2, (barW - 6) * polish);
+        drawBurrs(1 - polish);
+
+        const dev = Math.max(0.01, (0.45 * (1 - polish))).toFixed(2);
+        statusTxt.setText(`Неплоскостность торцов: ${dev} мм (допуск ≤ 0.05)`);
+
+        this.sawSoundTimer += dt * 1000;
+        if (this.sawSoundTimer >= 70) {
+          this.sawSoundTimer = 0;
+          AudioManager.playSawCut();
+          this.particles.emitParticleAt(cx + (Math.random() - 0.5) * spec.calCoreW, cy, 4);
+        }
+
+        if (polish >= 1) {
+          done = true;
+          grinding = false;
+          AudioManager.playLatchSnap();
+          statusTxt.setText('✓ Торцы отшлифованы в зеркало (0.01 мм)!');
+          statusTxt.setColor('#4ade80');
+          // Бонус за шлифовку повышает итоговую точность подготовки до 100%
+          this.prepScores.push(Math.min(100, 96 + grinderLvl));
+
+          this.time.delayedCall(650, () => {
             this.startMeasurePhase(spec);
           });
         }
@@ -416,7 +569,7 @@ export class PrepScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // ФАЗА 2: ЗАМЕР ГАБАРИТОВ ШТАНГЕНЦИРКУЛЕМ (без наложения на дисплей!)
+  // ФАЗА 2: ЗАМЕР ГАБАРИТОВ ШТАНГЕНЦИРКУЛЕМ
   // =========================================================================
   startMeasurePhase(spec) {
     const { width, height } = this.scale;
@@ -437,7 +590,7 @@ export class PrepScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     const cx = width / 2;
-    const cy = 278; // Поднято выше, чтобы штанга не задевала дисплей на y=455
+    const cy = 278;
 
     const calThemes = [
       { bar: 0x94a3b8, slider: 0x475569, accent: 0x38bdf8 },
@@ -510,7 +663,6 @@ export class PrepScene extends Phaser.Scene {
     vSlider.add(vSliderG);
     vCaliperGroup.add([vBeam, vSlider]);
 
-    // Цифровой дисплей (строго ниже максимального хода штанги!)
     const lcdBg = this.add.graphics();
     lcdBg.fillStyle(0x0f172a, 1);
     lcdBg.fillRoundedRect(cx - 165, 456, 330, 54, 10);
@@ -543,7 +695,7 @@ export class PrepScene extends Phaser.Scene {
     ]);
 
     let step = 'height_axis';
-    let gap = 1.0; // 1.0 (открыто на +25 мм) -> 0.0 (упор в торец) -> -0.2 (пережим)
+    let gap = 1.0;
     let holding = false;
     let measuredH = spec.targetH;
     let measuredD = spec.targetD;
