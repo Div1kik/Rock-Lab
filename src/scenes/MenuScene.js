@@ -31,32 +31,38 @@ export class MenuScene extends Phaser.Scene {
     this.drawLabRoom(width, height, tier, labLvl);
     this.createTopBar(width, tier);
 
-    this.add.text(width / 2, 102, 'ROCK LAB', {
+    this.add.text(width / 2, 98, 'ROCK LAB', {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '38px',
+      fontSize: '36px',
       fontWeight: '700',
       color: '#fef3c7',
       stroke: '#1c1917',
       strokeThickness: 6
     }).setOrigin(0.5);
 
-    this.add.text(width / 2, 140, `Ур. ${labLvl} · ${tier.name}`, {
+    const auditLeft = Storage.getAuditBonus();
+    const subLabel = auditLeft > 0
+      ? `Ур. ${labLvl} · ${tier.name} · 🛡️ Аккредитация (+15% ×${auditLeft})`
+      : `Ур. ${labLvl} · ${tier.name}`;
+
+    this.add.text(width / 2, 134, subLabel, {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '12px',
+      fontSize: '11px',
       fontWeight: '600',
-      color: '#fde68a',
+      color: auditLeft > 0 ? '#4ade80' : '#fde68a',
       backgroundColor: '#1c1917cc',
-      padding: { x: 12, y: 4 }
+      padding: { x: 10, y: 4 }
     }).setOrigin(0.5);
 
     this.createCenterWorkbench(width, height, tier, labLvl);
+    this.createMaintenancePanel(width, height);
     this.createMiniPlayer(width, height, tier);
 
     this.createActionButton(
       width / 2,
-      height - 188,
+      height - 178,
       340,
-      56,
+      54,
       'ДОСКА ЗАКАЗОВ',
       0xd97706,
       0xffffff,
@@ -69,9 +75,9 @@ export class MenuScene extends Phaser.Scene {
     const halfW = 165;
     this.createActionButton(
       width / 2 - halfW / 2 - 5,
-      height - 118,
+      height - 110,
       halfW,
-      50,
+      48,
       '⚙️ МАГАЗИН',
       0x334155,
       0xf8fafc,
@@ -84,9 +90,9 @@ export class MenuScene extends Phaser.Scene {
 
     this.createActionButton(
       width / 2 + halfW / 2 + 5,
-      height - 118,
+      height - 110,
       halfW,
-      50,
+      48,
       '📖 ГОСТы',
       0x0369a1,
       0xf0f9ff,
@@ -97,7 +103,7 @@ export class MenuScene extends Phaser.Scene {
       14
     );
 
-    this.add.text(width / 2, height - 20, 'EASY DOPAMINE GAMES', {
+    this.add.text(width / 2, height - 18, 'EASY DOPAMINE GAMES', {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '11px',
       fontWeight: '700',
@@ -114,72 +120,66 @@ export class MenuScene extends Phaser.Scene {
     g.fillStyle(tier.wall, 1);
     g.fillRect(0, 0, w, h);
 
-    // Мягкий тёплый конус света от лампы над столом
     g.fillStyle(0xfef3c7, 0.06 + decorLvl * 0.02);
-    g.fillTriangle(w / 2, 64, 40, h * 0.62, w - 40, h * 0.62);
+    g.fillTriangle(w / 2, 64, 40, h * 0.56, w - 40, h * 0.56);
 
-    // Плиточная кладка стены
     g.lineStyle(1.5, 0x000000, 0.18);
     for (let x = 0; x < w; x += 40) {
       g.moveTo(x, 64);
-      g.lineTo(x, h * 0.62);
+      g.lineTo(x, h * 0.56);
     }
-    for (let y = 64; y < h * 0.62; y += 40) {
+    for (let y = 64; y < h * 0.56; y += 40) {
       g.moveTo(0, y);
       g.lineTo(w, y);
     }
     g.strokePath();
 
-    // Кабель-канал и труба вентиляции под потолком
     g.fillStyle(0x3f3f46, 1);
     g.fillRect(0, 68, w, 10);
     g.fillStyle(tier.accent, 0.25 + decorLvl * 0.06);
     g.fillRect(0, 78, w, 4);
 
-    // Центральный экран / окно карьера
     if (labLvl >= 5) {
       g.fillStyle(0x0284c9, 0.45);
-      g.fillRoundedRect(w / 2 - 175, 166, 350, 120, 10);
+      g.fillRoundedRect(w / 2 - 175, 160, 350, 112, 10);
       g.lineStyle(4, 0x94a3b8, 1);
-      g.strokeRoundedRect(w / 2 - 175, 166, 350, 120, 10);
+      g.strokeRoundedRect(w / 2 - 175, 160, 350, 112, 10);
       g.fillStyle(0x334155, 0.9);
-      g.fillTriangle(w / 2 - 165, 284, w / 2 - 70, 200, w / 2 + 25, 284);
-      g.fillTriangle(w / 2 - 20, 284, w / 2 + 85, 190, w / 2 + 170, 284);
+      g.fillTriangle(w / 2 - 165, 270, w / 2 - 70, 192, w / 2 + 25, 270);
+      g.fillTriangle(w / 2 - 20, 270, w / 2 + 85, 184, w / 2 + 170, 270);
     } else {
       g.fillStyle(0x14161b, 1);
-      g.fillRoundedRect(w / 2 - 135, 170, 270, 108, 8);
+      g.fillRoundedRect(w / 2 - 135, 162, 270, 102, 8);
       g.lineStyle(3, 0x4b5563, 1);
-      g.strokeRoundedRect(w / 2 - 135, 170, 270, 108, 8);
+      g.strokeRoundedRect(w / 2 - 135, 162, 270, 102, 8);
 
       g.fillStyle(0x0ea5e9, 0.12);
-      g.fillRect(w / 2 - 127, 178, 254, 92);
+      g.fillRect(w / 2 - 127, 170, 254, 86);
 
-      // Сетка осциллографа и кривая напряжений
       g.lineStyle(1, 0x334155, 0.6);
-      g.lineBetween(w / 2 - 120, 224, w / 2 + 120, 224);
+      g.lineBetween(w / 2 - 120, 212, w / 2 + 120, 212);
       g.lineStyle(2.5, tier.accent, 0.9);
       g.beginPath();
-      g.moveTo(w / 2 - 110, 256);
-      g.lineTo(w / 2 - 50, 232);
-      g.lineTo(w / 2 + 10, 198);
-      g.lineTo(w / 2 + 55, 192);
-      g.lineTo(w / 2 + 95, 252);
+      g.moveTo(w / 2 - 110, 244);
+      g.lineTo(w / 2 - 50, 222);
+      g.lineTo(w / 2 + 10, 190);
+      g.lineTo(w / 2 + 55, 184);
+      g.lineTo(w / 2 + 95, 240);
       g.strokePath();
     }
 
-    // Витрина минералов слева
     if (showcaseLvl > 0 || labLvl >= 2) {
       const shelfX = 20;
-      const shelfY = 196;
+      const shelfY = 186;
       g.fillStyle(0x18181b, 0.95);
-      g.fillRoundedRect(shelfX, shelfY, 62, 146, 6);
+      g.fillRoundedRect(shelfX, shelfY, 62, 140, 6);
       g.lineStyle(2, tier.accent, 0.7);
-      g.strokeRoundedRect(shelfX, shelfY, 62, 146, 6);
+      g.strokeRoundedRect(shelfX, shelfY, 62, 140, 6);
 
       const gemColors = [0x38bdf8, 0xfacc15, 0x34d399, 0xf43f5e];
       const count = Math.max(1, showcaseLvl);
       for (let i = 0; i < count; i++) {
-        const sy = shelfY + 24 + i * 31;
+        const sy = shelfY + 22 + i * 29;
         g.fillStyle(0x52525b, 1);
         g.fillRect(shelfX + 8, sy + 14, 46, 4);
         g.fillStyle(gemColors[i % gemColors.length], 1);
@@ -187,27 +187,26 @@ export class MenuScene extends Phaser.Scene {
       }
     }
 
-    // Плакат ГОСТ / Сертификат справа
     g.fillStyle(0xfef3c7, 0.9);
-    g.fillRect(w - 82, 198, 56, 72);
+    g.fillRect(w - 82, 188, 56, 70);
     g.lineStyle(2, 0x78350f, 1);
-    g.strokeRect(w - 82, 198, 56, 72);
+    g.strokeRect(w - 82, 188, 56, 70);
     g.fillStyle(0x78350f, 0.75);
-    g.fillRect(w - 74, 210, 40, 5);
-    g.fillRect(w - 74, 222, 32, 4);
-    g.fillRect(w - 74, 232, 36, 4);
+    g.fillRect(w - 74, 200, 40, 5);
+    g.fillRect(w - 74, 212, 32, 4);
+    g.fillRect(w - 74, 222, 36, 4);
     if (labLvl >= 3) {
       g.fillStyle(0xd97706, 1);
-      g.fillCircle(w - 54, 254, 8);
+      g.fillCircle(w - 54, 242, 8);
     }
 
-    // Массивный лабораторный верстак со стальной кромкой
+    // Лабораторный верстак
     g.fillStyle(tier.table, 1);
-    g.fillRect(0, h * 0.60, w, h * 0.40);
+    g.fillRect(0, h * 0.54, w, h * 0.46);
     g.fillStyle(0x27272a, 1);
-    g.fillRect(0, h * 0.60, w, 12);
+    g.fillRect(0, h * 0.54, w, 12);
     g.fillStyle(0x71717a, 1);
-    g.fillRect(0, h * 0.60, w, 3);
+    g.fillRect(0, h * 0.54, w, 3);
   }
 
   createTopBar(w, tier) {
@@ -217,7 +216,7 @@ export class MenuScene extends Phaser.Scene {
     g.lineStyle(2, tier.accent, 0.65);
     g.lineBetween(0, 64, w, 64);
 
-    this.add.text(20, 20, `💰 ${Storage.getMoney()} ₽`, {
+    this.moneyTxt = this.add.text(20, 20, `💰 ${Storage.getMoney()} ₽`, {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '18px',
       fontWeight: '700',
@@ -243,27 +242,26 @@ export class MenuScene extends Phaser.Scene {
   }
 
   createCenterWorkbench(w, h, tier, labLvl) {
-    const cy = h * 0.51;
+    const cy = h * 0.46;
     const coffeeLvl = Storage.getPerkLevel('coffee');
 
-    // Лабораторный пресс на верстаке
     const g = this.add.graphics();
     g.fillStyle(0x3f3f46, 1);
-    g.fillRect(w / 2 - 76, cy - 108, 16, 148);
-    g.fillRect(w / 2 + 60, cy - 108, 16, 148);
+    g.fillRect(w / 2 - 76, cy - 96, 16, 134);
+    g.fillRect(w / 2 + 60, cy - 96, 16, 134);
     g.fillStyle(tier.accent, 1);
-    g.fillRoundedRect(w / 2 - 86, cy - 122, 172, 22, 6);
-    g.fillRect(w / 2 - 22, cy - 100, 44, 26);
+    g.fillRoundedRect(w / 2 - 86, cy - 110, 172, 22, 6);
+    g.fillRect(w / 2 - 22, cy - 88, 44, 24);
 
-    const core = this.add.image(w / 2, cy - 6, 'rock_core')
-      .setScale(1.3)
+    const core = this.add.image(w / 2, cy - 4, 'rock_core')
+      .setScale(1.22)
       .setInteractive({ useHandCursor: true });
 
     if (labLvl >= 4) {
-      const laser = this.add.rectangle(w / 2, cy - 26, 94, 3, 0x34d399, 0.85);
+      const laser = this.add.rectangle(w / 2, cy - 22, 94, 3, 0x34d399, 0.85);
       this.tweens.add({
         targets: laser,
-        y: cy + 28,
+        y: cy + 24,
         duration: 1200,
         yoyo: true,
         repeat: -1
@@ -275,17 +273,16 @@ export class MenuScene extends Phaser.Scene {
       this.particles.emitParticleAt(core.x, core.y, 10);
       this.tweens.add({
         targets: core,
-        scaleX: 1.44,
-        scaleY: 1.18,
+        scaleX: 1.36,
+        scaleY: 1.12,
         duration: 70,
         yoyo: true
       });
     });
 
-    // Кофемашина справа на столе
     if (coffeeLvl > 0) {
       const cmX = w - 64;
-      const cmY = cy + 8;
+      const cmY = cy + 6;
       const cm = this.add.graphics();
       cm.fillStyle(0x1f2937, 1);
       cm.fillRoundedRect(cmX - 28, cmY - 46, 56, 76, 8);
@@ -302,12 +299,86 @@ export class MenuScene extends Phaser.Scene {
     }
   }
 
-  // Встроенный на верстак мини-плеер (тап переключает фоновый 16-bit трек!)
+  // Панель ТО и метрологической поверки оборудования (Пила / Шлифовка / Датчики)
+  createMaintenancePanel(w, h) {
+    const panelY = h * 0.585;
+    const panelW = 340;
+    const panelH = 62;
+    const startX = w / 2 - panelW / 2;
+
+    if (this.maintContainer) {
+      this.maintContainer.destroy();
+    }
+    this.maintContainer = this.add.container(0, 0);
+
+    const items = [
+      { key: 'saw', label: '🪚 Диск пилы', cost: 25 },
+      { key: 'grinder', label: '⚙️ Абразив', cost: 25 },
+      { key: 'calibration', label: '📐 Поверка', cost: 35 }
+    ];
+
+    const colW = (panelW - 12) / 3;
+    items.forEach((item, idx) => {
+      const x = startX + idx * (colW + 6);
+      const pct = Storage.getWear(item.key);
+      const isLow = pct < 50;
+      const needsService = pct < 100;
+
+      const card = this.add.graphics();
+      card.fillStyle(0x14161b, 0.94);
+      card.fillRoundedRect(x, panelY, colW, panelH, 8);
+      card.lineStyle(1.5, isLow ? 0xf59e0b : 0x475569, 0.9);
+      card.strokeRoundedRect(x, panelY, colW, panelH, 8);
+
+      const t1 = this.add.text(x + colW / 2, panelY + 12, item.label, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '10px',
+        fontWeight: '700',
+        color: '#e2e8f0'
+      }).setOrigin(0.5);
+
+      const pctColor = pct >= 70 ? '#4ade80' : pct >= 40 ? '#facc15' : '#f87171';
+      const t2 = this.add.text(x + colW / 2, panelY + 29, `${pct}%`, {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '13px',
+        fontWeight: '700',
+        color: pctColor
+      }).setOrigin(0.5);
+
+      const actionLabel = needsService ? `ТО · ${item.cost} ₽` : 'В НОРМЕ';
+      const canPay = needsService && Storage.getMoney() >= item.cost;
+      const t3 = this.add.text(x + colW / 2, panelY + 48, actionLabel, {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '9px',
+        fontWeight: '700',
+        color: canPay ? '#0f172a' : '#94a3b8',
+        backgroundColor: canPay ? '#facc15' : '#27272a',
+        padding: { x: 6, y: 2 }
+      }).setOrigin(0.5);
+
+      this.maintContainer.add([card, t1, t2, t3]);
+
+      if (canPay) {
+        const zone = this.add.zone(x + colW / 2, panelY + panelH / 2, colW, panelH)
+          .setInteractive({ useHandCursor: true });
+        zone.on('pointerdown', () => {
+          if (Storage.spendMoney(item.cost)) {
+            Storage.restoreWear(item.key);
+            AudioManager.playLatchSnap();
+            if (this.moneyTxt) this.moneyTxt.setText(`💰 ${Storage.getMoney()} ₽`);
+            this.createMaintenancePanel(w, h);
+          }
+        });
+        this.maintContainer.add(zone);
+      }
+    });
+  }
+
   createMiniPlayer(w, h, tier) {
     const px = w / 2;
-    const py = h * 0.655;
+    const py = h * 0.695;
     const pw = 340;
-    const ph = 48;
+    const ph = 46;
 
     const container = this.add.container(px, py);
     const bg = this.add.graphics();
@@ -316,7 +387,6 @@ export class MenuScene extends Phaser.Scene {
     bg.lineStyle(2, tier.accent, 0.75);
     bg.strokeRoundedRect(-pw / 2, -ph / 2, pw, ph, 10);
 
-    // Иконка кассеты / динамика слева
     const icon = this.add.text(-pw / 2 + 14, 0, '📻', {
       fontSize: '20px'
     }).setOrigin(0, 0.5);
@@ -336,7 +406,6 @@ export class MenuScene extends Phaser.Scene {
       color: '#94a3b8'
     }).setOrigin(0, 0.5);
 
-    // Живой эквалайзер справа
     this.eqBars = [];
     for (let i = 0; i < 5; i++) {
       const bar = this.add.rectangle(pw / 2 - 54 + i * 8, 12, 5, 16, tier.accent)
@@ -363,11 +432,11 @@ export class MenuScene extends Phaser.Scene {
   update(time, delta) {
     if (!this.eqBars.length) return;
     this.eqTimer += delta;
-    if (this.eqTimer >= 95) {
+    if (this.eqTimer >= 130) {
       this.eqTimer = 0;
       const active = Storage.isSoundEnabled();
       this.eqBars.forEach((bar) => {
-        bar.height = active ? 4 + Math.random() * 18 : 3;
+        bar.height = active ? 4 + Math.random() * 14 : 3;
       });
     }
   }
