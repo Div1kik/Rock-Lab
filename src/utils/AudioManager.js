@@ -2,55 +2,83 @@ import { Storage } from './Storage.js';
 
 export const MUSIC_TRACKS = [
   {
-    name: '01. SEGA Garage Riff',
-    stepSec: 0.132,
-    wave1: 'triangle',
-    wave2: 'sawtooth',
-    filterFreq: 620,
-    notes: [
-      82.41, 0, 82.41, 98.00,
-      110.00, 0, 82.41, 0,
-      116.54, 110.00, 98.00, 0,
-      82.41, 0, 73.42, 82.41
+    name: '01. Vice Neon FM',
+    stepSec: 0.135,
+    leadWave: 'sawtooth',
+    bassWave: 'triangle',
+    filterFreq: 1150,
+    // Мелодия синтвейва 80-х (Am - F - C - G)
+    lead: [
+      440.00, 0, 523.25, 659.25,
+      587.33, 523.25, 440.00, 0,
+      349.23, 0, 440.00, 523.25,
+      493.88, 0, 392.00, 329.63
+    ],
+    bass: [
+      110.00, 110.00, 220.00, 110.00,
+      87.31, 87.31, 174.61, 87.31,
+      130.81, 130.81, 261.63, 130.81,
+      98.00, 98.00, 196.00, 98.00
     ]
   },
   {
-    name: '02. Deep Core Synth',
-    stepSec: 0.125,
-    wave1: 'sawtooth',
-    wave2: 'square',
-    filterFreq: 540,
-    notes: [
-      65.41, 65.41, 0, 77.78,
-      87.31, 0, 98.00, 77.78,
-      65.41, 0, 116.54, 0,
-      98.00, 87.31, 77.78, 58.27
+    name: '02. Ocean Drive Funk',
+    stepSec: 0.138,
+    leadWave: 'square',
+    bassWave: 'sawtooth',
+    filterFreq: 980,
+    // Солнечный фанк / диско в духе Fever 105
+    lead: [
+      329.63, 392.00, 0, 493.88,
+      587.33, 0, 493.88, 392.00,
+      349.23, 440.00, 0, 523.25,
+      493.88, 392.00, 329.63, 0
+    ],
+    bass: [
+      82.41, 0, 164.81, 82.41,
+      98.00, 0, 146.83, 164.81,
+      87.31, 0, 174.61, 87.31,
+      98.00, 110.00, 123.47, 146.83
     ]
   },
   {
-    name: '03. Granite Heavy',
-    stepSec: 0.142,
-    wave1: 'sawtooth',
-    wave2: 'triangle',
-    filterFreq: 680,
-    notes: [
-      73.42, 0, 73.42, 73.42,
-      87.31, 0, 98.00, 0,
-      110.00, 0, 98.00, 87.31,
-      73.42, 65.41, 73.42, 0
+    name: '03. V-Rock Hard Riff',
+    stepSec: 0.128,
+    leadWave: 'sawtooth',
+    bassWave: 'sawtooth',
+    filterFreq: 860,
+    // Стадионный хард-рок 80-х
+    lead: [
+      329.63, 0, 329.63, 392.00,
+      440.00, 0, 493.88, 440.00,
+      392.00, 329.63, 293.66, 329.63,
+      392.00, 0, 493.88, 0
+    ],
+    bass: [
+      82.41, 82.41, 82.41, 98.00,
+      110.00, 110.00, 82.41, 82.41,
+      73.42, 73.42, 73.42, 82.41,
+      98.00, 98.00, 123.47, 110.00
     ]
   },
   {
     name: '04. Night Lab FM',
     stepSec: 0.155,
-    wave1: 'sine',
-    wave2: 'triangle',
-    filterFreq: 480,
-    notes: [
-      110.00, 0, 130.81, 0,
-      146.83, 0, 164.81, 146.83,
-      130.81, 0, 98.00, 0,
-      110.00, 0, 82.41, 0
+    leadWave: 'triangle',
+    bassWave: 'sine',
+    filterFreq: 740,
+    // Атмосферный ночной электро-синт
+    lead: [
+      261.63, 329.63, 392.00, 493.88,
+      523.25, 493.88, 392.00, 329.63,
+      293.66, 349.23, 440.00, 523.25,
+      493.88, 392.00, 329.63, 246.94
+    ],
+    bass: [
+      65.41, 0, 130.81, 0,
+      65.41, 0, 130.81, 0,
+      73.42, 0, 146.83, 0,
+      98.00, 0, 196.00, 0
     ]
   }
 ];
@@ -164,7 +192,7 @@ class AudioController {
   }
 
   // =========================================================================
-  // ФОНОВЫЙ ПРОИГРЫВАТЕЛЬ (4 ТРЕКА)
+  // МНОГОГОЛОСЫЙ СИНТЕЗАТОР (Мелодия + Бас + Ударные 80-х)
   // =========================================================================
   startMusic() {
     if (this.musicPlaying || !Storage.isSoundEnabled() || this.adSuspended || !this.ctx) return;
@@ -180,19 +208,27 @@ class AudioController {
           const step = this.musicStep % 16;
           const t = this.nextNoteTime;
 
-          if (step === 0 || step === 6 || step === 8 || step === 14) {
+          // Ударные 80-х (прямая бочка + плотный малый на 4 и 12)
+          if (step % 4 === 0) {
             this.triggerKick(t);
           }
           if (step === 4 || step === 12) {
             this.triggerSnare(t);
           }
-          if (step % 2 === 0) {
-            this.triggerHiHat(t, step % 4 === 2 ? 0.018 : 0.009);
+          if (step % 2 === 1) {
+            this.triggerHiHat(t, 0.015);
           }
 
-          const freq = track.notes[step];
-          if (freq > 0) {
-            this.triggerSynthLead(t, freq, step === 8 ? 0.22 : 0.125, track);
+          // Басовая линия
+          const bassFreq = track.bass[step];
+          if (bassFreq > 0) {
+            this.triggerBassVoice(t, bassFreq, track.stepSec * 0.9, track.bassWave);
+          }
+
+          // Соло / мелодическая партия
+          const leadFreq = track.lead[step];
+          if (leadFreq > 0) {
+            this.triggerLeadVoice(t, leadFreq, track.stepSec * 1.45, track);
           }
 
           this.nextNoteTime += track.stepSec;
@@ -220,10 +256,10 @@ class AudioController {
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(118, now);
-    osc.frequency.exponentialRampToValueAtTime(44, now + 0.1);
+    osc.frequency.setValueAtTime(120, now);
+    osc.frequency.exponentialRampToValueAtTime(42, now + 0.1);
 
-    gain.gain.setValueAtTime(0.09, now);
+    gain.gain.setValueAtTime(0.085, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
 
     osc.connect(gain);
@@ -239,18 +275,18 @@ class AudioController {
 
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'bandpass';
-    filter.frequency.setValueAtTime(1250, now);
-    filter.Q.setValueAtTime(1.0, now);
+    filter.frequency.setValueAtTime(1350, now);
+    filter.Q.setValueAtTime(0.9, now);
 
     const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.042, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+    gain.gain.setValueAtTime(0.045, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
 
     noise.connect(filter);
     filter.connect(gain);
     gain.connect(this.getOut());
     noise.start(now);
-    noise.stop(now + 0.11);
+    noise.stop(now + 0.14);
   }
 
   triggerHiHat(now, vol) {
@@ -260,7 +296,7 @@ class AudioController {
 
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'highpass';
-    filter.frequency.setValueAtTime(6200, now);
+    filter.frequency.setValueAtTime(6500, now);
 
     const gain = this.ctx.createGain();
     gain.gain.setValueAtTime(vol, now);
@@ -273,21 +309,43 @@ class AudioController {
     noise.stop(now + 0.038);
   }
 
-  triggerSynthLead(now, freq, duration, track) {
+  triggerBassVoice(now, freq, duration, waveType) {
+    const osc = this.ctx.createOscillator();
+    osc.type = waveType;
+    osc.frequency.setValueAtTime(freq, now);
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(420, now);
+    filter.frequency.exponentialRampToValueAtTime(190, now + duration);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.036, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.getOut());
+    osc.start(now);
+    osc.stop(now + duration + 0.01);
+  }
+
+  triggerLeadVoice(now, freq, duration, track) {
     const osc1 = this.ctx.createOscillator();
     const osc2 = this.ctx.createOscillator();
-    osc1.type = track.wave1;
-    osc2.type = track.wave2;
+    osc1.type = track.leadWave;
+    osc2.type = 'triangle';
     osc1.frequency.setValueAtTime(freq, now);
-    osc2.frequency.setValueAtTime(freq * 1.498, now);
+    // Лёгкий хорус-детюн 80-х
+    osc2.frequency.setValueAtTime(freq * 1.004, now);
 
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'lowpass';
     filter.frequency.setValueAtTime(track.filterFreq, now);
-    filter.frequency.exponentialRampToValueAtTime(260, now + duration);
+    filter.frequency.exponentialRampToValueAtTime(380, now + duration);
 
     const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.034, now);
+    gain.gain.setValueAtTime(0.026, now);
     gain.gain.exponentialRampToValueAtTime(0.0008, now + duration);
 
     osc1.connect(filter);
