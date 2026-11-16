@@ -176,11 +176,12 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 1. ОДНООСНОЕ СЖАТИЕ (Верхняя плита плотно касается и сжимает образец!)
+  // 1. ОДНООСНОЕ СЖАТИЕ (Эволюция пресса: гидроаккумуляторы, лазерные датчики, сервопривод)
   // =========================================================================
   buildUniaxialTest() {
     const { width, height } = this.scale;
     const pressLvl = Storage.getUpgradeLevel('press');
+    const sensorsLvl = Storage.getUpgradeLevel('sensors');
     const isBrittle = this.contract?.rock?.trait === 'brittle';
     const frameColors = [0x64748b, 0x0284c9, 0x059669, 0x7c3aed, 0xbe123c, 0xd97706];
     const pressAccent = frameColors[Math.min(frameColors.length - 1, pressLvl - 1)];
@@ -203,24 +204,49 @@ export class TestScene extends Phaser.Scene {
     const cy = 335;
 
     const frame = this.add.graphics();
+    // Силовые колонны (на Ур. 3+ утолщённые с резьбовыми муфтами)
+    const colW = pressLvl >= 3 ? 22 : 18;
     frame.fillStyle(0x64748b, 1);
-    frame.fillRect(cx - 102, cy - 124, 18, 224);
-    frame.fillRect(cx + 84, cy - 124, 18, 224);
+    frame.fillRect(cx - 104, cy - 124, colW, 224);
+    frame.fillRect(cx + 82, cy - 124, colW, 224);
     frame.fillStyle(pressAccent, 1);
-    frame.fillRoundedRect(cx - 114, cy - 140, 228, 26, 6);
+    frame.fillRoundedRect(cx - 116, cy - 142, 232, 28, 6);
     frame.fillStyle(0x334155, 1);
-    frame.fillRoundedRect(cx - 114, cy + 94, 228, 26, 6);
+    frame.fillRoundedRect(cx - 116, cy + 94, 232, 26, 6);
 
-    // Нижняя опорная плита: верхняя плоскость на cy + 75
+    // На Ур. 2+ гидроаккумулятор и медная магистраль слева от стойки
+    if (pressLvl >= 2) {
+      frame.fillStyle(0x1e293b, 1);
+      frame.fillRoundedRect(cx - 142, cy - 20, 24, 96, 8);
+      frame.lineStyle(2, pressAccent, 0.9);
+      frame.strokeRoundedRect(cx - 142, cy - 20, 24, 96, 8);
+      frame.lineStyle(3, 0xf59e0b, 0.85);
+      frame.lineBetween(cx - 130, cy - 20, cx - 130, cy - 128);
+      frame.lineBetween(cx - 130, cy - 128, cx - 116, cy - 128);
+    }
+
+    // На Ур. 4+ верхний сервоцилиндр с радиатором над траверсой
+    if (pressLvl >= 4) {
+      frame.fillStyle(0x475569, 1);
+      frame.fillRoundedRect(cx - 34, cy - 166, 68, 24, 5);
+    }
+
+    // Лазерные тензодатчики деформации на колоннах (при прокачке sensors >= 2)
+    if (sensorsLvl >= 2) {
+      frame.fillStyle(0x38bdf8, 1);
+      frame.fillRect(cx - 82, cy + 12, 8, 22);
+      frame.fillRect(cx + 74, cy + 12, 8, 22);
+      frame.lineStyle(1, 0x38bdf8, 0.5);
+      frame.lineBetween(cx - 74, cy + 23, cx + 74, cy + 23);
+    }
+
     const lowerPlaten = this.add.rectangle(cx, cy + 84, 118, 18, 0x94a3b8);
 
-    // Образец высотой 116 px стоит строго на нижней плите (от cy - 41 до cy + 75)
     const baseCoreH = 116;
     const baseCoreW = 68;
     const coreBottomY = cy + 75;
     const core = this.createRockBlock(cx, coreBottomY - baseCoreH / 2, baseCoreW, baseCoreH);
 
-    // Верхняя нажимная плита (высота 20 px): стартует чуть выше торца (на cy - 58), быстро подходит и сжимает!
     const piston = this.add.rectangle(cx, cy - 58, 118, 20, 0xf59e0b);
     const rod = this.add.rectangle(cx, cy - 96, 30, 58, 0xcbd5e1);
     const cracks = this.add.graphics();
@@ -304,7 +330,6 @@ export class TestScene extends Phaser.Scene {
         load += speed * dt;
         AudioManager.updatePressHum(load);
 
-        // Первые 12% хода плита подходит к образцу, дальше сжимает его вместе с верхним торцом!
         const approach = Math.min(1, load / 0.12);
         const compress = Math.max(0, (load - 0.12) / 0.88);
         const curCoreH = baseCoreH - compress * 16;
@@ -314,7 +339,6 @@ export class TestScene extends Phaser.Scene {
         core.height = curCoreH;
         core.y = coreBottomY - curCoreH / 2;
 
-        // Нижняя грань верхней плиты (piston.y + 10) плотно лежит на верхнем торце (coreBottomY - curCoreH)
         const targetPistonY = (coreBottomY - curCoreH) - 10;
         piston.y = (cy - 58) * (1 - approach) + targetPistonY * approach;
         rod.y = piston.y - 38;
@@ -556,7 +580,7 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 5. ВОДОПОГЛОЩЕНИЕ И СУШКА (Вода рисуется через Graphics строго внутри ванночки!)
+  // 5. ВОДОПОГЛОЩЕНИЕ И СУШКА
   // =========================================================================
   buildWaterSaturationTest() {
     const { width, height } = this.scale;
@@ -583,21 +607,18 @@ export class TestScene extends Phaser.Scene {
     scaleBase.fillStyle(0x0f172a, 1);
     scaleBase.fillRoundedRect(cx - 82, cy + 77, 164, 28, 5);
 
-    // Стеклянная ванночка (единые координаты левого верхнего угла)
     const tankW = 152;
     const tankH = 134;
     const tankLeftX = cx - tankW / 2;
     const tankTopY = cy - 68;
-    const tankBottomY = tankTopY + tankH; // cy + 66
+    const tankBottomY = tankTopY + tankH;
 
     const tankBg = this.add.graphics();
     tankBg.fillStyle(0x0f172a, 0.85);
     tankBg.fillRect(tankLeftX, tankTopY, tankW, tankH);
 
-    // Образец породы внутри ванночки
     const core = this.createRockBlock(cx, cy + 16, 62, 92);
 
-    // Динамический слой воды + пузырьки + обводка ванночки поверх
     const waterG = this.add.graphics();
     const tankBorder = this.add.graphics();
     tankBorder.lineStyle(3, 0x38bdf8, 0.95);
@@ -702,7 +723,7 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 6. МОРОЗОСТОЙКОСТЬ (Криокамера F200 с текстурированным образцом и инеем)
+  // 6. МОРОЗОСТОЙКОСТЬ (Криокамера F200)
   // =========================================================================
   buildFrostResistanceTest() {
     const { width, height } = this.scale;
@@ -977,7 +998,6 @@ export class TestScene extends Phaser.Scene {
     const cx = width / 2 + 12;
     const cy = 310;
 
-    // 1. Внешняя силовая рама пресса
     const pressFrame = this.add.graphics();
     pressFrame.fillStyle(0x64748b, 1);
     pressFrame.fillRect(cx - 122, cy - 135, 16, 250);
@@ -987,7 +1007,6 @@ export class TestScene extends Phaser.Scene {
     pressFrame.fillStyle(0x334155, 1);
     pressFrame.fillRoundedRect(cx - 134, cy + 108, 268, 22, 6);
 
-    // 2. Слева — насос бокового обжима
     const pumpG = this.add.graphics();
     pumpG.fillStyle(0x334155, 1);
     pumpG.fillRoundedRect(26, cy + 28, 56, 86, 8);
@@ -1003,18 +1022,16 @@ export class TestScene extends Phaser.Scene {
     pumpG.lineTo(cx - 68, cy + 72);
     pumpG.strokePath();
 
-    // 3. Камера стабилометра (единые координаты для стекла и жидкости!)
     const cellW = 136;
     const cellH = 168;
     const cellLeftX = cx - cellW / 2;
     const cellTopY = cy - 84;
-    const cellBottomY = cellTopY + cellH; // cy + 84
+    const cellBottomY = cellTopY + cellH;
 
     const cellBg = this.add.graphics();
     cellBg.fillStyle(0x090d16, 0.94);
     cellBg.fillRect(cellLeftX, cellTopY, cellW, cellH);
 
-    // Жидкость рисуется через Graphics строго внутри колбы [cellLeftX+2 .. cellLeftX+cellW-2]
     const fluidG = this.add.graphics();
     const drawCellFluid = (ratio) => {
       fluidG.clear();
@@ -1041,7 +1058,6 @@ export class TestScene extends Phaser.Scene {
     cellFrame.fillRoundedRect(cellLeftX - 14, cellTopY - 14, cellW + 28, 16, 5);
     cellFrame.fillRoundedRect(cellLeftX - 14, cellBottomY - 2, cellW + 28, 16, 5);
 
-    // 4. Керн на пьедестале внутри камеры (верхний торец на cellBottomY - 24 - 84 = cy - 24)
     const pedestal = this.add.rectangle(cx, cellBottomY - 14, 62, 20, 0x64748b);
     const coreH = 84;
     const coreW = 46;
@@ -1052,7 +1068,6 @@ export class TestScene extends Phaser.Scene {
 
     const sideArrows = this.add.graphics();
 
-    // 5. Подвижный осевой шток пресса σ1 (верхний торец образца = cy - 24, плита стартует на cy - 34)
     const pistonStartY = cy - 34;
     const axialCap = this.add.rectangle(cx, pistonStartY, 56, 14, 0xf59e0b);
     const axialRod = this.add.rectangle(cx, pistonStartY - 46, 20, 82, 0xe2e8f0);
@@ -1077,7 +1092,7 @@ export class TestScene extends Phaser.Scene {
       sideArrows, axialRod, axialCap, barBg, marker, statusTxt, btn.container
     ]);
 
-    let phase = 'confine'; // 'confine' -> 'transition_pause' -> 'axial'
+    let phase = 'confine';
     let sigma3 = 0;
     let axialLoad = 0;
     let holdingAxial = false;
@@ -1110,7 +1125,6 @@ export class TestScene extends Phaser.Scene {
         sigma3 = Math.min(1, sigma3 + 0.135);
         AudioManager.playDrillTick();
         if (sigma3 >= 0.74) {
-          // Переходная пауза 1.1 сек, чтобы случайный тап не сбил осевой пресс!
           phase = 'transition_pause';
           AudioManager.playLatchSnap();
 
@@ -1200,7 +1214,6 @@ export class TestScene extends Phaser.Scene {
         return;
       }
 
-      // Фаза 2: Осевой шток пресса σ1 касается образца и реально сжимает его!
       if (holdingAxial) {
         const axialSpeed = Math.max(0.34, 0.54 - (pressLvl - 1) * 0.04);
         axialLoad += axialSpeed * dt;
