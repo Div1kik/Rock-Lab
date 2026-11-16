@@ -76,17 +76,14 @@ export class PrepScene extends Phaser.Scene {
     return specs;
   }
 
-  // Создаёт текстурированный блок породы вместо плоского одноцветного прямоугольника
   createRockBlock(x, y, w, h) {
-    const block = this.add.tileSprite(x, y, w, h, 'rock_tex')
+    return this.add.tileSprite(x, y, w, h, 'rock_tex')
       .setTint(this.contract.rock.color);
-    return block;
   }
 
   create() {
     const { width, height } = this.scale;
 
-    // Мягкий, комфортный для глаз фон рабочего места
     const bg = this.add.graphics();
     bg.fillStyle(0x181e29, 1);
     bg.fillRect(0, 0, width, height);
@@ -159,7 +156,7 @@ export class PrepScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // ФАЗА 1А: ОТРЕЗНОЙ СТАНОК
+  // ФАЗА 1А: ОТРЕЗНОЙ СТАНОК (Конструктивная эволюция каретки и рельсы 1→6)
   // =========================================================================
   startSawPhase(spec) {
     const { width, height } = this.scale;
@@ -187,14 +184,20 @@ export class PrepScene extends Phaser.Scene {
     const cx = width / 2;
     const cy = 335;
 
+    // Станина с поддоном СОЖ и пневмотисками на старших уровнях
     const bed = this.add.graphics();
     bed.fillStyle(0x475569, 1);
     bed.fillRoundedRect(cx - 185, cy + 44, 370, 34, 8);
+    if (sawLvl >= 2) {
+      // Лоток сбора охлаждающей жидкости
+      bed.fillStyle(0x0284c9, 0.35);
+      bed.fillRect(cx - 140, cy + 46, 280, 10);
+    }
     bed.fillStyle(0x64748b, 1);
     bed.fillRect(cx - 165, cy - 38, 24, 82);
-    bed.fillStyle(0x94a3b8, 1);
-    bed.fillRect(cx - 182, cy - 8, 17, 10);
-    bed.fillCircle(cx - 182, cy - 3, 12);
+    bed.fillStyle(sawLvl >= 4 ? 0x38bdf8 : 0x94a3b8, 1);
+    bed.fillRect(cx - 186, cy - 10, 21, 14);
+    bed.fillCircle(cx - 186, cy - 3, sawLvl >= 4 ? 14 : 11);
 
     const discW = spec.sawKeepW;
     const coreH = spec.sawCoreH;
@@ -248,6 +251,7 @@ export class PrepScene extends Phaser.Scene {
     };
     drawCutMarks();
 
+    // Направляющая рельса (на Ур. 3+ двойная прецизионная рельса)
     const railY = cy - 94;
     const railStartX = cx - 155;
     const railG = this.add.graphics();
@@ -255,28 +259,50 @@ export class PrepScene extends Phaser.Scene {
     railG.fillRect(cx - 176, railY - 6, 16, 144);
     railG.fillRect(cx + 160, railY - 6, 16, 144);
     railG.fillStyle(0x94a3b8, 1);
-    railG.fillRoundedRect(cx - 180, railY - 8, 360, 16, 4);
+    railG.fillRoundedRect(cx - 180, railY - 8, 360, 14, 4);
+    if (sawLvl >= 3) {
+      railG.fillStyle(0xcbd5e1, 1);
+      railG.fillRoundedRect(cx - 180, railY - 18, 360, 7, 3);
+    }
 
-    // Спокойная благородная палитра каретки
     const carriageColors = [0xd97706, 0xca8a04, 0x059669, 0x0284c9, 0x4f46e5, 0xbe123c];
     const cColor = carriageColors[Math.min(carriageColors.length - 1, sawLvl - 1)];
     const sawContainer = this.add.container(railStartX, railY);
     const bladeOffsetY = 94;
 
-    const blade = this.add.circle(0, bladeOffsetY, 44, 0xcbd5e1).setStrokeStyle(4, 0xf8fafc);
+    // Алмазный диск (на Ур. 4+ золотая алмазная коронка с вентиляционными прорезями)
+    const bladeRimColor = sawLvl >= 4 ? 0xfacc15 : 0xf8fafc;
+    const blade = this.add.circle(0, bladeOffsetY, 44, 0xcbd5e1).setStrokeStyle(4, bladeRimColor);
     const teeth = this.add.graphics();
     teeth.y = bladeOffsetY;
     teeth.lineStyle(2, 0x334155, 1);
     teeth.lineBetween(-36, 0, 36, 0);
     teeth.lineBetween(0, -36, 0, 36);
+    if (sawLvl >= 3) {
+      teeth.lineBetween(-25, -25, 25, 25);
+      teeth.lineBetween(-25, 25, 25, -25);
+    }
 
     const carriageBody = this.add.graphics();
     carriageBody.fillStyle(0x1e293b, 1);
-    carriageBody.fillRoundedRect(-26, -18, 52, 36, 6);
+    carriageBody.fillRoundedRect(-28, -22, 56, 38, 6);
     carriageBody.fillStyle(cColor, 1);
-    carriageBody.fillRoundedRect(-22, 16, 44, 48, 6);
-    carriageBody.fillStyle(0x38bdf8, 1);
-    carriageBody.fillRect(-30, 32, 8, 36);
+    carriageBody.fillRoundedRect(-24, 14, 48, 48, 6);
+
+    // На Ур. 2+ форсунка СОЖ, на Ур. 4+ радиатор мотора, на Ур. 5+ лазерный блок
+    if (sawLvl >= 2) {
+      carriageBody.fillStyle(0x38bdf8, 1);
+      carriageBody.fillRect(-32, 28, 8, 40);
+    }
+    if (sawLvl >= 4) {
+      carriageBody.fillStyle(0x94a3b8, 1);
+      carriageBody.fillRect(-18, -32, 36, 10);
+    }
+    if (sawLvl >= 5) {
+      carriageBody.fillStyle(0xef4444, 1);
+      carriageBody.fillCircle(24, 24, 5);
+    }
+
     carriageBody.fillStyle(cColor, 1);
     carriageBody.slice(0, bladeOffsetY, 48, Phaser.Math.DegToRad(180), Phaser.Math.DegToRad(360), false);
     carriageBody.fillPath();
@@ -459,7 +485,7 @@ export class PrepScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // ФАЗА 1В: ТОРЦЕШЛИФОВАЛЬНЫЙ СТАНОК
+  // ФАЗА 1В: ТОРЦЕШЛИФОВАЛЬНЫЙ СТАНОК (Конструктивная эволюция 1→5)
   // =========================================================================
   startGrinderPhase(spec, grinderLvl) {
     const { width, height } = this.scale;
@@ -484,14 +510,36 @@ export class PrepScene extends Phaser.Scene {
     const wheelColors = [0x94a3b8, 0x38bdf8, 0x34d399, 0x818cf8, 0xfbbf24];
     const wColor = wheelColors[Math.min(wheelColors.length - 1, grinderLvl - 1)];
 
+    // Защитный кожух планшайбы (на Ур. 2+) и патрубок пылеотсоса (на Ур. 3+)
+    const guardG = this.add.graphics();
+    if (grinderLvl >= 2) {
+      guardG.lineStyle(6, 0x475569, 1);
+      guardG.strokeCircle(cx, cy, 122);
+    }
+    if (grinderLvl >= 3) {
+      guardG.fillStyle(0x334155, 1);
+      guardG.fillRect(cx + 106, cy - 18, 42, 36);
+      guardG.fillStyle(0x38bdf8, 1);
+      guardG.fillRect(cx + 114, cy - 10, 10, 20);
+    }
+
     const wheelContainer = this.add.container(cx, cy);
     const outerDisc = this.add.circle(0, 0, 112, 0x334155).setStrokeStyle(5, wColor);
     const innerDisc = this.add.circle(0, 0, 78, 0x475569).setStrokeStyle(2, 0x94a3b8);
     const gritMarks = this.add.graphics();
-    gritMarks.lineStyle(2, wColor, 0.7);
-    for (let a = 0; a < 360; a += 30) {
+    gritMarks.lineStyle(2, wColor, 0.75);
+    const stepDeg = grinderLvl >= 4 ? 20 : 30;
+    for (let a = 0; a < 360; a += stepDeg) {
       const rad = Phaser.Math.DegToRad(a);
       gritMarks.lineBetween(Math.cos(rad) * 30, Math.sin(rad) * 30, Math.cos(rad) * 104, Math.sin(rad) * 104);
+    }
+    // Алмазные сегменты по периметру диска на Ур. 3+
+    if (grinderLvl >= 3) {
+      gritMarks.fillStyle(wColor, 0.9);
+      for (let a = 0; a < 360; a += 45) {
+        const rad = Phaser.Math.DegToRad(a);
+        gritMarks.fillCircle(Math.cos(rad) * 94, Math.sin(rad) * 94, 5);
+      }
     }
     wheelContainer.add([outerDisc, innerDisc, gritMarks]);
 
@@ -530,7 +578,7 @@ export class PrepScene extends Phaser.Scene {
     const btn = this.createActionBtn(width / 2, height - 110, 310, 74, 'УДЕРЖИВАТЬ: ШЛИФОВКА ТОРЦОВ');
 
     this.stageContainer.add([
-      hint, wheelContainer, core, burrs, barBg, barFill, statusTxt, btn.container
+      hint, guardG, wheelContainer, core, burrs, barBg, barFill, statusTxt, btn.container
     ]);
 
     let polish = 0;
@@ -578,7 +626,7 @@ export class PrepScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // ФАЗА 2: ЗАМЕР ГАБАРИТОВ ШТАНГЕНЦИРКУЛЕМ (Мягкие стальные тона + текстура камня)
+  // ФАЗА 2: ЗАМЕР ГАБАРИТОВ ШТАНГЕНЦИРКУЛЕМ (Визуальная эволюция 1→6)
   // =========================================================================
   startMeasurePhase(spec) {
     const { width, height } = this.scale;
@@ -601,7 +649,6 @@ export class PrepScene extends Phaser.Scene {
     const cx = width / 2;
     const cy = 278;
 
-    // Приятная для глаз палитра нержавеющей/сатинированной стали без кислотных обводок
     const calThemes = [
       { bar: 0x94a3b8, slider: 0x334155, accent: 0x38bdf8 },
       { bar: 0xcbd5e1, slider: 0x1e293b, accent: 0xfbbf24 },
@@ -616,6 +663,7 @@ export class PrepScene extends Phaser.Scene {
     const coreH = spec.calCoreH;
     const core = this.createRockBlock(cx, cy, coreW, coreH);
 
+    // 1. Горизонтальный штангенциркуль
     const hCaliperGroup = this.add.container(0, 0);
     const beamY = cy - coreH / 2 - 22;
     const beamStartX = cx - coreW / 2 - 12;
@@ -638,11 +686,25 @@ export class PrepScene extends Phaser.Scene {
     hSliderG.fillRoundedRect(-6, -16, 62, 32, 6);
     hSliderG.lineStyle(2, theme.accent, 0.85);
     hSliderG.strokeRoundedRect(-6, -16, 62, 32, 6);
+    // Конструктивные детали на каретке: стопорный винт (Ур.2+), ЖК-окно (Ур.3+), микрометр (Ур.4+)
+    if (calLvl >= 2) {
+      hSliderG.fillStyle(0x94a3b8, 1);
+      hSliderG.fillRect(20, -23, 10, 7);
+    }
+    if (calLvl >= 3) {
+      hSliderG.fillStyle(theme.accent, 0.35);
+      hSliderG.fillRect(6, -10, 38, 20);
+    }
+    if (calLvl >= 4) {
+      hSliderG.fillStyle(0x64748b, 1);
+      hSliderG.fillRect(56, -8, 18, 16);
+    }
     hSliderG.fillStyle(theme.bar, 1);
     hSliderG.fillRect(0, 11, 10, coreH + 12);
     hSlider.add(hSliderG);
     hCaliperGroup.add([hBeam, hSlider]);
 
+    // 2. Вертикальный штангенциркуль
     const vCaliperGroup = this.add.container(0, 0).setVisible(false);
     const vBeamX = cx - coreW / 2 - 24;
     const vBeamTopY = cy - coreH / 2 - 12;
@@ -665,6 +727,10 @@ export class PrepScene extends Phaser.Scene {
     vSliderG.fillRoundedRect(-16, -6, 32, 44, 6);
     vSliderG.lineStyle(2, theme.accent, 0.85);
     vSliderG.strokeRoundedRect(-16, -6, 32, 44, 6);
+    if (calLvl >= 3) {
+      vSliderG.fillStyle(theme.accent, 0.35);
+      vSliderG.fillRect(-10, 4, 20, 26);
+    }
     vSliderG.fillStyle(theme.bar, 1);
     vSliderG.fillRect(11, 0, coreW + 24, 10);
     vSlider.add(vSliderG);
