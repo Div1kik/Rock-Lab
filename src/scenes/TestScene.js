@@ -844,135 +844,240 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 8. ТРЁХОСНАЯ КАМЕРА (СТАБИЛОМЕТР — жидкость строго внутри колбы!)
+  // 8. ТРЁХОСНОЕ СЖАТИЕ: Стабилометр внутри силовой рамы пресса!
+  //    Фаза 1: Накачка бокового обжима (σ3) от насоса
+  //    Фаза 2: Осевое нагружение штоком пресса (σ1) до пика разрушения
   // =========================================================================
   buildTriaxialTest() {
     const { width, height } = this.scale;
     const pressLvl = Storage.getUpgradeLevel('press');
 
-    const hint = this.add.text(width / 2, 134, 'Фаза 1: Быстрыми тапами накачай\nдавление обжима в камере до отметки!', {
-      fontFamily: '"Rubik", sans-serif',
-      fontSize: '14px',
-      color: '#e7e5e4',
-      align: 'center'
-    }).setOrigin(0.5);
+    const hint = this.add.text(
+      width / 2,
+      130,
+      'Фаза 1: Быстрыми тапами накачай боковой обжим (σ₃)\nот гидронасоса в камеру стабилометра!',
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '13px',
+        color: '#e7e5e4',
+        align: 'center'
+      }
+    ).setOrigin(0.5);
 
-    const cx = width / 2;
-    const cy = 315;
-    const chamberTopY = cy - 108;
-    const chamberH = 206;
-    const chamberBottomY = chamberTopY + chamberH; // cy + 98
+    const cx = width / 2 + 12;
+    const cy = 310;
 
-    // Стеклянная колба камеры
-    const chamber = this.add.graphics();
-    chamber.fillStyle(0x0f172a, 1);
-    chamber.fillRoundedRect(cx - 78, chamberTopY, 156, chamberH, 16);
-    chamber.lineStyle(4, 0x38bdf8, 0.85);
-    chamber.strokeRoundedRect(cx - 78, chamberTopY, 156, chamberH, 16);
+    // 1. Внешняя силовая рама пресса (охватывает всю камеру стабилометра)
+    const pressFrame = this.add.graphics();
+    // Стойки пресса
+    pressFrame.fillStyle(0x52525b, 1);
+    pressFrame.fillRect(cx - 122, cy - 135, 16, 250);
+    pressFrame.fillRect(cx + 106, cy - 135, 16, 250);
+    // Верхняя траверса и нижний опорный стол пресса
+    pressFrame.fillStyle(0x0284c9, 1);
+    pressFrame.fillRoundedRect(cx - 134, cy - 150, 268, 22, 6);
+    pressFrame.fillStyle(0x3f3f46, 1);
+    pressFrame.fillRoundedRect(cx - 134, cy + 108, 268, 22, 6);
 
-    // Верхняя крышка, шток и нижнее основание камеры
-    chamber.fillStyle(0x475569, 1);
-    chamber.fillRoundedRect(cx - 86, chamberTopY - 14, 172, 18, 6);
-    chamber.fillRoundedRect(cx - 86, chamberBottomY - 4, 172, 18, 6);
-    chamber.fillRect(cx - 12, chamberTopY - 40, 24, 28);
+    // 2. Слева от пресса — насосная станция и шланг подачи бокового давления σ3
+    const pumpG = this.add.graphics();
+    pumpG.fillStyle(0x334155, 1);
+    pumpG.fillRoundedRect(26, cy + 28, 56, 86, 8);
+    pumpG.lineStyle(2, 0x38bdf8, 0.8);
+    pumpG.strokeRoundedRect(26, cy + 28, 56, 86, 8);
+    // Манометр на насосе
+    pumpG.fillStyle(0x0f172a, 1);
+    pumpG.fillCircle(54, cy + 52, 14);
+    pumpG.lineStyle(2, 0xfacc15, 1);
+    pumpG.lineBetween(54, cy + 52, 62, cy + 44);
+    // Шланг высокого давления в камеру
+    pumpG.lineStyle(5, 0x38bdf8, 0.85);
+    pumpG.beginPath();
+    pumpG.moveTo(82, cy + 72);
+    pumpG.lineTo(cx - 72, cy + 72);
+    pumpG.strokePath();
 
-    // Жидкость строго внутри колбы: дно = chamberBottomY - 6, макс. высота = chamberH - 12
-    const fluidBaseY = chamberBottomY - 6;
-    const fluidMaxH = chamberH - 12;
-    const fluid = this.add.rectangle(cx, fluidBaseY, 148, 8, 0x0284c9, 0.5).setOrigin(0.5, 1);
+    // 3. Камера стабилометра внутри рамы (стальные крышки на шпильках + прозрачный корпус)
+    const cellTopY = cy - 84;
+    const cellH = 168;
+    const cellBottomY = cellTopY + cellH; // cy + 84
 
-    const core = this.add.image(cx, cy + 4, 'rock_core')
-      .setScale(1.22)
+    const cellBody = this.add.graphics();
+    // Внутренняя полость камеры
+    cellBody.fillStyle(0x090d16, 0.92);
+    cellBody.fillRoundedRect(cx - 68, cellTopY, 136, cellH, 10);
+    // Толстые прозрачные стенки со стальной окантовкой
+    cellBody.lineStyle(4, 0x94a3b8, 0.9);
+    cellBody.strokeRoundedRect(cx - 68, cellTopY, 136, cellH, 10);
+    // Стяжные шпильки по краям камеры
+    cellBody.fillStyle(0x64748b, 1);
+    cellBody.fillRect(cx - 76, cellTopY - 12, 6, cellH + 24);
+    cellBody.fillRect(cx + 70, cellTopY - 12, 6, cellH + 24);
+    // Верхний и нижний стальные фланцы камеры
+    cellBody.fillStyle(0x475569, 1);
+    cellBody.fillRoundedRect(cx - 82, cellTopY - 14, 164, 16, 5);
+    cellBody.fillRoundedRect(cx - 82, cellBottomY - 2, 164, 16, 5);
+
+    // 4. Рабочая жидкость внутри камеры (заполняет полость строго от cellBottomY - 3 вверх)
+    const fluidMaxH = cellH - 8;
+    const fluid = this.add.rectangle(cx, cellBottomY - 3, 128, 4, 0x0284c9, 0.42).setOrigin(0.5, 1);
+
+    // 5. Керн в резиновой оболочке на нижнем пьедестале камеры
+    const pedestal = this.add.rectangle(cx, cellBottomY - 14, 62, 20, 0x64748b);
+    const core = this.add.image(cx, cy + 16, 'rock_core')
+      .setScale(1.12)
       .setTint(this.contract.rock.color);
+    // Резиновая мембрана вокруг образца
+    const membrane = this.add.rectangle(cx, cy + 16, 48, 84)
+      .setStrokeStyle(2, 0x1e293b, 0.95);
 
+    // Стрелки бокового обжима σ3 (появляются при накачке камеры)
+    const sideArrows = this.add.graphics();
+
+    // 6. Подвижный осевой шток пресса σ1 (проходит сверху через траверсу и крышку камеры)
+    const pistonStartY = cy - 42;
+    const axialCap = this.add.rectangle(cx, pistonStartY, 56, 14, 0xd97706);
+    const axialRod = this.add.rectangle(cx, pistonStartY - 46, 20, 82, 0xe2e8f0);
+
+    // Шкала управления (для Фазы 1: давление σ3; для Фазы 2: осевая нагрузка σ1)
     const barW = 320;
     const barX = width / 2 - barW / 2;
-    const barY = 455;
+    const barY = 456;
     const barBg = this.add.graphics();
-    barBg.fillStyle(0x141210, 1);
-    barBg.fillRoundedRect(barX, barY, barW, 28, 8);
-
-    barBg.fillStyle(0x22c55e, 0.85);
-    barBg.fillRect(barX + barW * 0.68, barY + 3, barW * 0.24, 22);
-
     const marker = this.add.rectangle(barX + 6, barY + 14, 10, 34, 0xfacc15);
 
-    const statusTxt = this.add.text(width / 2, 505, 'Давление обжима: 0 кПа', {
+    const statusTxt = this.add.text(width / 2, 504, 'Боковой обжим σ₃: 0 кПа', {
       fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '15px',
+      fontSize: '14px',
       fontWeight: '700',
       color: '#38bdf8'
     }).setOrigin(0.5);
 
-    const btn = this.createHoldButton(width / 2, height - 110, 310, 74, 'ТАПАЙ: НАКАЧАТЬ КАМЕРУ!');
+    const btn = this.createHoldButton(width / 2, height - 110, 310, 74, 'ТАПАЙ: НАКАЧАТЬ ОБЖИМ σ₃');
 
-    this.stageContainer.add([hint, chamber, fluid, core, barBg, marker, statusTxt, btn.container]);
+    this.stageContainer.add([
+      hint, pressFrame, pumpG, cellBody, fluid, pedestal, core, membrane,
+      sideArrows, axialRod, axialCap, barBg, marker, statusTxt, btn.container
+    ]);
 
-    let phase = 'pump';
-    let pressure = 0;
-    let holdTimer = 0;
-    const holdRequired = 2.6;
-    let inZoneTime = 0;
-    let isHoldingBtn = false;
+    let phase = 'confine'; // 'confine' (боковой обжим σ3) -> 'axial' (осевой пресс σ1)
+    let sigma3 = 0; // 0..1
+    let axialLoad = 0; // 0..1
+    let holdingAxial = false;
 
+    const axialTargetMin = 0.68 - Math.min(0.1, (pressLvl - 1) * 0.02);
+    const axialTargetMax = 0.87 + Math.min(0.05, (pressLvl - 1) * 0.015);
+
+    const drawGauge = (isAxialMode) => {
+      barBg.clear();
+      barBg.fillStyle(0x141210, 1);
+      barBg.fillRoundedRect(barX, barY, barW, 28, 8);
+      if (!isAxialMode) {
+        // Синяя зона целевого бокового обжима (68%..92%)
+        barBg.fillStyle(0x38bdf8, 0.85);
+        barBg.fillRect(barX + barW * 0.68, barY + 3, barW * 0.24, 22);
+      } else {
+        // Зелёная зона пика осевого сжатия + красная зона перегруза
+        barBg.fillStyle(0x22c55e, 0.85);
+        barBg.fillRect(barX + barW * axialTargetMin, barY + 3, barW * (axialTargetMax - axialTargetMin), 22);
+        barBg.fillStyle(0xef4444, 0.85);
+        barBg.fillRect(barX + barW * axialTargetMax, barY + 3, barW * (1 - axialTargetMax) - 3, 22);
+      }
+    };
+
+    drawGauge(false);
     this.phaseActive = true;
 
     btn.zone.on('pointerdown', () => {
       if (!this.phaseActive) return;
 
-      if (phase === 'pump') {
-        pressure = Math.min(1, pressure + 0.115);
+      if (phase === 'confine') {
+        sigma3 = Math.min(1, sigma3 + 0.135);
         AudioManager.playDrillTick();
-        if (pressure >= 0.72) {
-          phase = 'hold';
+        if (sigma3 >= 0.72) {
+          phase = 'axial';
           AudioManager.playLatchSnap();
-          hint.setText('Фаза 2: Удерживай кнопку 2.6 сек,\nдержа стрелку в зелёном секторе!');
-          btn.setLabel('УДЕРЖИВАЙ БАЛАНС');
+          drawGauge(true);
+          hint.setText('Фаза 2: Боковой обжим σ₃ зафиксирован!\nТеперь зажми пресс (σ₁) и отпусти в ЗЕЛЁНОЙ зоне!');
+          btn.setLabel('УДЕРЖИВАТЬ: ОСЕВОЙ ПРЕСС σ₁');
         }
       } else {
-        isHoldingBtn = true;
+        holdingAxial = true;
       }
     });
 
-    btn.zone.on('pointerup', () => { isHoldingBtn = false; });
-    btn.zone.on('pointerout', () => { isHoldingBtn = false; });
+    const releaseAxial = () => {
+      if (phase !== 'axial' || !holdingAxial || !this.phaseActive) return;
+      holdingAxial = false;
+      AudioManager.stopPressHum();
+
+      if (axialLoad >= axialTargetMin && axialLoad <= axialTargetMax) {
+        const center = (axialTargetMin + axialTargetMax) / 2;
+        const dist = Math.abs(axialLoad - center) / ((axialTargetMax - axialTargetMin) / 2);
+        const acc = 100 - dist * 20;
+        AudioManager.playRockCrack();
+        this.particles.emitParticleAt(cx, cy + 16, 18);
+        this.completeCurrentTest(acc, 'ТРЁХОСНОЕ РАЗРУШЕНИЕ ЗАФИКСИРОВАНО!');
+      } else if (axialLoad < axialTargetMin) {
+        const acc = Math.max(20, (axialLoad / axialTargetMin) * 65);
+        AudioManager.playClick();
+        this.completeCurrentTest(acc, 'НЕДОГРУЗ ПО ОСИ σ₁!');
+      } else {
+        const over = (axialLoad - axialTargetMax) / Math.max(0.05, 1 - axialTargetMax);
+        const acc = Math.max(35, Math.round(70 - over * 32));
+        AudioManager.playRockCrack();
+        this.particles.emitParticleAt(cx, cy + 16, 20);
+        this.completeCurrentTest(acc, 'ПЕРЕДЕРЖКА ПО ОСИ σ₁!');
+      }
+    };
+
+    btn.zone.on('pointerup', releaseAxial);
+    btn.zone.on('pointerout', releaseAxial);
 
     this.updateHandler = (dt) => {
       if (!this.phaseActive) return;
 
-      if (phase === 'pump') {
-        pressure = Math.max(0, pressure - 0.22 * dt);
-        fluid.height = 8 + pressure * (fluidMaxH - 8);
-        marker.x = barX + barW * pressure;
-        statusTxt.setText(`Давление обжима: ${Math.round(pressure * 600)} кПа`);
+      if (phase === 'confine') {
+        sigma3 = Math.max(0, sigma3 - 0.18 * dt);
+        fluid.height = 4 + sigma3 * (fluidMaxH - 4);
+        marker.x = barX + barW * sigma3;
+        statusTxt.setText(`Боковой обжим σ₃: ${Math.round(sigma3 * 600)} кПа`);
+
+        // Рисуем стрелки бокового давления жидкости на образец
+        sideArrows.clear();
+        if (sigma3 > 0.25) {
+          sideArrows.lineStyle(2, 0x38bdf8, 0.9);
+          [-8, 16, 40].forEach((dy) => {
+            sideArrows.lineBetween(cx - 56, cy + dy, cx - 32, cy + dy);
+            sideArrows.lineBetween(cx + 56, cy + dy, cx + 32, cy + dy);
+          });
+        }
         return;
       }
 
-      holdTimer += dt;
-      const drift = Math.max(0.24, 0.38 - (pressLvl - 1) * 0.03);
-      if (isHoldingBtn) {
-        pressure = Math.min(1, pressure + drift * 1.35 * dt);
-        AudioManager.updatePressHum(pressure);
-      } else {
-        pressure = Math.max(0, pressure - drift * dt);
-      }
+      // Фаза 2: Осевой шток пресса σ1 опускается сверху в камеру
+      if (holdingAxial) {
+        const axialSpeed = Math.max(0.34, 0.54 - (pressLvl - 1) * 0.04);
+        axialLoad += axialSpeed * dt;
+        AudioManager.updatePressHum(axialLoad);
 
-      fluid.height = 8 + pressure * (fluidMaxH - 8);
-      marker.x = barX + barW * pressure;
+        axialCap.y = pistonStartY + axialLoad * 18;
+        axialRod.y = axialCap.y - 46;
+        marker.x = barX + barW * Math.min(1, axialLoad);
 
-      if (pressure >= 0.68 && pressure <= 0.92) {
-        inZoneTime += dt;
-      }
+        const devMpa = (axialLoad * (this.contract.trueStrengthMpa / 0.77)).toFixed(1);
+        statusTxt.setText(`Обжим σ₃: 450 кПа | Ось σ₁: ${devMpa} МПа`);
+        statusTxt.setColor('#facc15');
 
-      const left = Math.max(0, holdRequired - holdTimer).toFixed(1);
-      statusTxt.setText(`Стабилизация: ${left} сек`);
-
-      if (holdTimer >= holdRequired) {
-        const ratio = inZoneTime / holdRequired;
-        const acc = 30 + ratio * 70;
-        AudioManager.playRockCrack();
-        this.particles.emitParticleAt(cx, cy + 10, 16);
-        this.completeCurrentTest(acc, 'ТРЁХОСНОЕ СЖАТИЕ ЗАВЕРШЕНО!');
+        if (axialLoad >= 1) {
+          holdingAxial = false;
+          AudioManager.stopPressHum();
+          AudioManager.playRockCrack();
+          this.cameras.main.shake(170, 0.011);
+          this.particles.emitParticleAt(cx, cy + 16, 28);
+          core.setAlpha(0.3);
+          this.completeCurrentTest(25, 'СМЯТИЕ ОБРАЗЦА В КАМЕРЕ!');
+        }
       }
     };
   }
