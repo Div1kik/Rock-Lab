@@ -9,9 +9,10 @@ export class TestScene extends Phaser.Scene {
 
   init(data) {
     this.contract = data?.contract || Storage.getActiveContract();
+    this.prepAccuracy = data?.prepAccuracy ?? 90;
     this.testsQueue = [...(this.contract?.tests || ['uniaxial'])];
     this.currentTestIdx = 0;
-    this.scores = []; // массив оценок точности 0..100 за каждый стенд
+    this.scores = [];
     this.phaseActive = false;
     this.updateHandler = null;
   }
@@ -19,7 +20,6 @@ export class TestScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
 
-    // Фон испытательного зала
     const bg = this.add.graphics();
     bg.fillStyle(0x1c1917, 1);
     bg.fillRect(0, 0, width, height);
@@ -28,7 +28,6 @@ export class TestScene extends Phaser.Scene {
     bg.lineStyle(2, 0x44403c, 1);
     bg.strokeRoundedRect(14, 96, width - 28, height - 114, 16);
 
-    // Шапка
     this.stepTxt = this.add.text(width / 2, 26, '', {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '13px',
@@ -74,7 +73,7 @@ export class TestScene extends Phaser.Scene {
     const testKey = this.testsQueue[this.currentTestIdx];
     const meta = TEST_CATALOG[testKey] || { name: 'Испытание грунта' };
 
-    this.stepTxt.setText(`СТЕНД ${this.currentTestIdx + 1} ИЗ ${this.testsQueue.length}`);
+    this.stepTxt.setText(`ЭТАП 3 · СТЕНД ${this.currentTestIdx + 1} ИЗ ${this.testsQueue.length}`);
     this.titleTxt.setText(meta.name.toUpperCase());
 
     if (testKey === 'uniaxial') {
@@ -114,53 +113,61 @@ export class TestScene extends Phaser.Scene {
 
     this.stageContainer.add(banner);
 
-    this.time.delayedCall(1050, () => {
+    this.time.delayedCall(950, () => {
       this.currentTestIdx += 1;
       this.startNextTest();
     });
   }
 
   // =========================================================================
-  // 1. ОДНООСНОЕ СЖАТИЕ: Плавное наращивание давления до пика разрушения
+  // 1. ОДНООСНОЕ СЖАТИЕ (Цилиндр 100×50 мм под гидропрессом)
   // =========================================================================
   buildUniaxialTest() {
     const { width, height } = this.scale;
     const pressLvl = Storage.getUpgradeLevel('press');
+    const frameColors = [0x3f3f46, 0x475569, 0x0284c9, 0x059669, 0x7c3aed, 0xe11d48];
+    const pressAccent = frameColors[Math.min(frameColors.length - 1, pressLvl - 1)];
 
-    const hint = this.add.text(width / 2, 128, 'Зажми пресс и отпусти в ЗЕЛЁНОЙ зоне\nпрямо перед разрушением керна', {
+    const hint = this.add.text(width / 2, 128, 'Зажми пресс и отпусти в ЗЕЛЁНОЙ зоне\nпрямо перед разрушением цилиндра (100×50 мм)', {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '14px',
+      fontSize: '13px',
       color: '#e7e5e4',
       align: 'center'
     }).setOrigin(0.5);
 
-    // Рама пресса
-    const frame = this.add.graphics();
-    const cx = width / 2;
+    const cx = width / 2 - 18;
     const cy = 330;
-    frame.fillStyle(0x3f3f46, 1);
-    frame.fillRect(cx - 105, cy - 120, 18, 220);
-    frame.fillRect(cx + 87, cy - 120, 18, 220);
-    frame.fillRect(cx - 115, cy - 135, 230, 24);
-    frame.fillRect(cx - 115, cy + 95, 230, 24);
 
-    // Нижняя опора и керн
-    const core = this.add.image(cx, cy + 36, 'rock_core')
-      .setScale(1.45)
+    // Силовая рама пресса и защитный кожух
+    const frame = this.add.graphics();
+    frame.fillStyle(0x52525b, 1);
+    frame.fillRect(cx - 102, cy - 124, 18, 224);
+    frame.fillRect(cx + 84, cy - 124, 18, 224);
+    frame.fillStyle(pressAccent, 1);
+    frame.fillRoundedRect(cx - 114, cy - 140, 228, 26, 6);
+    frame.fillStyle(0x3f3f46, 1);
+    frame.fillRoundedRect(cx - 114, cy + 94, 228, 26, 6);
+    // Полупрозрачный защитный экран
+    frame.fillStyle(0x38bdf8, 0.08);
+    frame.fillRect(cx - 84, cy - 98, 168, 192);
+
+    // Нижний штамп и цилиндрический керн
+    const lowerPlaten = this.add.rectangle(cx, cy + 84, 118, 18, 0x71717a);
+    const core = this.add.image(cx, cy + 32, 'rock_core')
+      .setScale(1.42)
       .setTint(this.contract.rock.color);
 
-    // Подвижная верхняя плита поршня
-    const piston = this.add.rectangle(cx, cy - 75, 130, 22, 0xd97706);
-    const rod = this.add.rectangle(cx, cy - 105, 28, 45, 0x71717a);
+    // Верхняя нажимная плита и шток гидроцилиндра
+    const piston = this.add.rectangle(cx, cy - 75, 118, 20, 0xd97706);
+    const rod = this.add.rectangle(cx, cy - 105, 30, 44, 0x94a3b8);
 
-    // Линии трещин (появляются при росте нагрузки)
     const cracks = this.add.graphics();
 
     // Вертикальный манометр нагрузки (справа от пресса)
-    const barX = width - 64;
+    const barX = width - 58;
     const barY = 210;
     const barH = 240;
-    const barW = 24;
+    const barW = 26;
 
     const targetMin = 0.68 - Math.min(0.12, (pressLvl - 1) * 0.025);
     const targetMax = 0.86 + Math.min(0.06, (pressLvl - 1) * 0.015);
@@ -169,30 +176,29 @@ export class TestScene extends Phaser.Scene {
     gaugeBg.fillStyle(0x141210, 1);
     gaugeBg.fillRoundedRect(barX - barW / 2, barY, barW, barH, 6);
 
-    // Зелёная зона пика
     const greenTop = barY + barH * (1 - targetMax);
     const greenH = barH * (targetMax - targetMin);
     gaugeBg.fillStyle(0x22c55e, 0.85);
     gaugeBg.fillRect(barX - barW / 2 + 3, greenTop, barW - 6, greenH);
 
-    // Красная зона перегруза
     gaugeBg.fillStyle(0xef4444, 0.85);
     gaugeBg.fillRect(barX - barW / 2 + 3, barY + 3, barW - 6, barH * (1 - targetMax) - 3);
 
     const needle = this.add.rectangle(barX, barY + barH, barW + 14, 5, 0xfacc15);
-    const mpaReadout = this.add.text(cx, cy + 145, '0.0 МПа', {
+    const mpaReadout = this.add.text(cx, cy + 146, '0.0 МПа', {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '20px',
       fontWeight: '700',
       color: '#facc15'
     }).setOrigin(0.5);
 
-    // Большая педаль/кнопка гидропресса
     const btn = this.createHoldButton(width / 2, height - 110, 310, 74, 'УДЕРЖИВАТЬ: ПОДАЧА ПРЕССА');
 
-    this.stageContainer.add([hint, frame, core, cracks, rod, piston, gaugeBg, needle, mpaReadout, btn.container]);
+    this.stageContainer.add([
+      hint, frame, lowerPlaten, core, cracks, rod, piston, gaugeBg, needle, mpaReadout, btn.container
+    ]);
 
-    let load = 0; // 0..1
+    let load = 0;
     let holding = false;
     this.phaseActive = true;
 
@@ -237,7 +243,6 @@ export class TestScene extends Phaser.Scene {
         const displayMpa = (load * (this.contract.trueStrengthMpa / 0.77)).toFixed(1);
         mpaReadout.setText(`${displayMpa} МПа`);
 
-        // Трещины при приближении к пику
         cracks.clear();
         if (load > 0.45) {
           cracks.lineStyle(2, 0x1c1917, 0.9);
@@ -252,7 +257,6 @@ export class TestScene extends Phaser.Scene {
           cracks.strokePath();
         }
 
-        // Перегруз!
         if (load >= 1) {
           holding = false;
           AudioManager.playRockCrack();
@@ -266,7 +270,7 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 2 & 3. ПРЯМОЙ СДВИГ / СДВИГ СО СЖАТИЕМ: Прижим + ловля ползунка
+  // 2 & 3. ПРЯМОЙ СДВИГ / СДВИГ СО СЖАТИЕМ (Кольцо 35×70 мм в сдвиговой обойме)
   // =========================================================================
   buildShearTest(withVerticalLoad) {
     const { width, height } = this.scale;
@@ -277,7 +281,7 @@ export class TestScene extends Phaser.Scene {
       width / 2,
       128,
       withVerticalLoad
-        ? 'Сначала зажми вертикальный прижим,\nзатем поймай срез в зелёной зоне (×2)'
+        ? 'Сначала зажми вертикальный прижим (σ),\nзатем поймай срез кольца 35×70 мм (×2)'
         : 'Нажимай ФИКСИРОВАТЬ СРЕЗ, когда\nбегунок проходит зелёную зону (×3)',
       {
         fontFamily: '"Rubik", sans-serif',
@@ -288,15 +292,14 @@ export class TestScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     const cx = width / 2;
-    const cy = 300;
+    const cy = 305;
 
-    // Сдвиговая каретка (нижняя неподвижная + верхняя сдвигаемая)
-    const lowerBox = this.add.rectangle(cx, cy + 28, 150, 48, 0x57534e).setStrokeStyle(2, 0x1c1917);
-    const coreSlice = this.add.rectangle(cx, cy, 110, 64, this.contract.rock.color);
-    const upperBox = this.add.rectangle(cx, cy - 28, 150, 48, 0x78716c).setStrokeStyle(2, 0x1c1917);
-    const clampPlate = this.add.rectangle(cx, cy - 88, 120, 18, 0x38bdf8);
+    // Сдвиговая каретка под низкое широкое кольцо 35×70 мм
+    const lowerBox = this.add.rectangle(cx, cy + 22, 180, 42, 0x57534e).setStrokeStyle(2, 0x1c1917);
+    const coreSlice = this.add.rectangle(cx, cy, 142, 46, this.contract.rock.color).setStrokeStyle(2, 0x1c1917);
+    const upperBox = this.add.rectangle(cx, cy - 22, 180, 42, 0x78716c).setStrokeStyle(2, 0x1c1917);
+    const clampPlate = this.add.rectangle(cx, cy - 82, 136, 18, 0x38bdf8);
 
-    // Шкала бегунка
     const trackW = 330;
     const trackH = 34;
     const trackX = width / 2 - trackW / 2;
@@ -320,14 +323,13 @@ export class TestScene extends Phaser.Scene {
       trackBg, zoneGraphic, slider, statusTxt, btn.container
     ]);
 
-    // Состояние мини-игры
     let mode = withVerticalLoad ? 'clamp' : 'slide';
     let clampVal = 0;
     let clampHolding = false;
 
     let hitsDone = 0;
     let hitAccuracies = [];
-    let sliderPos = 0; // 0..1
+    let sliderPos = 0;
     let sliderDir = 1;
     let zoneStart = 0.35;
     let zoneWidth = Math.min(0.36, 0.24 + (pressLvl - 1) * 0.025);
@@ -378,7 +380,6 @@ export class TestScene extends Phaser.Scene {
         return;
       }
 
-      // Режим ловли бегунка
       const zoneCenter = zoneStart + zoneWidth / 2;
       const half = zoneWidth / 2;
       const dist = Math.abs(sliderPos - zoneCenter);
@@ -395,8 +396,7 @@ export class TestScene extends Phaser.Scene {
       hitAccuracies.push(passScore);
       hitsDone += 1;
 
-      // Визуальный сдвиг верхней обоймы
-      upperBox.x = cx + hitsDone * 12;
+      upperBox.x = cx + hitsDone * 14;
       this.particles.emitParticleAt(cx, cy, 10);
 
       if (hitsDone >= totalHitsNeeded) {
@@ -427,7 +427,7 @@ export class TestScene extends Phaser.Scene {
         if (clampHolding) {
           clampVal = Math.min(1, clampVal + 0.65 * dt);
           AudioManager.updatePressHum(clampVal);
-          clampPlate.y = cy - 88 + clampVal * 34;
+          clampPlate.y = cy - 82 + clampVal * 32;
           slider.x = trackX + trackW * clampVal;
           if (clampVal >= 1) {
             clampHolding = false;
@@ -453,13 +453,13 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 4. ТРЁХОСНАЯ КАМЕРА (СТАБИЛОМЕТР): Быстрые тапы + удержание баланса
+  // 4. ТРЁХОСНАЯ КАМЕРА (СТАБИЛОМЕТР)
   // =========================================================================
   buildTriaxialTest() {
     const { width, height } = this.scale;
     const pressLvl = Storage.getUpgradeLevel('press');
 
-    const hint = this.add.text(width / 2, 128, 'Фаза 1: Быстрыми тапами накачай\nдавление жидкости до отметки!', {
+    const hint = this.add.text(width / 2, 128, 'Фаза 1: Быстрыми тапами накачай\nдавление обжима в камере до отметки!', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '14px',
       color: '#e7e5e4',
@@ -469,22 +469,22 @@ export class TestScene extends Phaser.Scene {
     const cx = width / 2;
     const cy = 315;
 
-    // Прозрачная колба стабилометра
     const chamber = this.add.graphics();
     chamber.fillStyle(0x0f172a, 1);
-    chamber.fillRoundedRect(cx - 75, cy - 110, 150, 210, 18);
-    chamber.lineStyle(4, 0x38bdf8, 0.8);
-    chamber.strokeRoundedRect(cx - 75, cy - 110, 150, 210, 18);
+    chamber.fillRoundedRect(cx - 78, cy - 112, 156, 214, 18);
+    chamber.lineStyle(4, 0x38bdf8, 0.85);
+    chamber.strokeRoundedRect(cx - 78, cy - 112, 156, 214, 18);
+    // Крышка и шток стабилометра
+    chamber.fillStyle(0x475569, 1);
+    chamber.fillRoundedRect(cx - 86, cy - 126, 172, 18, 6);
+    chamber.fillRect(cx - 12, cy - 152, 24, 28);
 
-    // Уровень жидкости в камере
-    const fluid = this.add.rectangle(cx, cy + 96, 142, 10, 0x0284c9, 0.45).setOrigin(0.5, 1);
+    const fluid = this.add.rectangle(cx, cy + 98, 148, 10, 0x0284c9, 0.45).setOrigin(0.5, 1);
 
-    // Керн в резиновой оболочке внутри камеры
     const core = this.add.image(cx, cy + 12, 'rock_core')
       .setScale(1.25)
       .setTint(this.contract.rock.color);
 
-    // Индикатор давления / баланса
     const barW = 320;
     const barX = width / 2 - barW / 2;
     const barY = 455;
@@ -492,7 +492,6 @@ export class TestScene extends Phaser.Scene {
     barBg.fillStyle(0x141210, 1);
     barBg.fillRoundedRect(barX, barY, barW, 28, 8);
 
-    // Целевой коридор (70%..92%)
     barBg.fillStyle(0x22c55e, 0.85);
     barBg.fillRect(barX + barW * 0.68, barY + 3, barW * 0.24, 22);
 
@@ -509,8 +508,8 @@ export class TestScene extends Phaser.Scene {
 
     this.stageContainer.add([hint, chamber, fluid, core, barBg, marker, statusTxt, btn.container]);
 
-    let phase = 'pump'; // 'pump' -> 'hold'
-    let pressure = 0; // 0..1
+    let phase = 'pump';
+    let pressure = 0;
     let holdTimer = 0;
     const holdRequired = 2.6;
     let inZoneTime = 0;
@@ -543,13 +542,12 @@ export class TestScene extends Phaser.Scene {
 
       if (phase === 'pump') {
         pressure = Math.max(0, pressure - 0.22 * dt);
-        fluid.height = 10 + pressure * 190;
+        fluid.height = 10 + pressure * 194;
         marker.x = barX + barW * pressure;
         statusTxt.setText(`Давление обжима: ${Math.round(pressure * 600)} кПа`);
         return;
       }
 
-      // Фаза удержания баланса 2.6 сек
       holdTimer += dt;
       const drift = Math.max(0.24, 0.38 - (pressLvl - 1) * 0.03);
       if (isHoldingBtn) {
@@ -559,7 +557,7 @@ export class TestScene extends Phaser.Scene {
         pressure = Math.max(0, pressure - drift * dt);
       }
 
-      fluid.height = 10 + pressure * 190;
+      fluid.height = 10 + pressure * 194;
       marker.x = barX + barW * pressure;
 
       if (pressure >= 0.68 && pressure <= 0.92) {
@@ -579,9 +577,6 @@ export class TestScene extends Phaser.Scene {
     };
   }
 
-  // =========================================================================
-  // Вспомогательная кнопка и завершение всех стендов
-  // =========================================================================
   createHoldButton(x, y, w, h, label) {
     const container = this.add.container(x, y);
     const bg = this.add.graphics();
@@ -628,47 +623,25 @@ export class TestScene extends Phaser.Scene {
 
   finishAllTests() {
     const sensorsLvl = Storage.getUpgradeLevel('sensors');
-    const avgAccuracy = this.scores.length
-      ? Math.round(this.scores.reduce((a, b) => a + b, 0) / this.scores.length)
+    const testsAvg = this.scores.length
+      ? this.scores.reduce((a, b) => a + b, 0) / this.scores.length
       : 70;
 
-    // Расчёт погрешности протокола: чем хуже пройдены стенды, тем сильнее врёт прибор
+    // Комбинируем точность распила/обмера (25%) и точность на стендах (75%)
+    const avgAccuracy = Math.round(testsAvg * 0.75 + this.prepAccuracy * 0.25);
+
     const rawErrorPct = Math.max(2, Math.round((100 - avgAccuracy) * 0.42 - (sensorsLvl - 1) * 2.5));
     const errorPct = Math.max(2, Math.min(38, rawErrorPct));
 
-    // Отклонение измеренного МПа от истинной прочности породы
     const sign = Math.random() < 0.5 ? -1 : 1;
     const distortion = (errorPct / 100) * (0.4 + Math.random() * 0.6) * sign;
     const measuredMpa = Math.max(5, Math.round(this.contract.trueStrengthMpa * (1 + distortion)));
 
-    const testSummary = {
+    this.scene.start('ReportScene', {
       contract: this.contract,
       avgAccuracy,
       errorPct,
       measuredMpa
-    };
-
-    if (this.scene.get('ReportScene')) {
-      this.scene.start('ReportScene', testSummary);
-    } else {
-      // Временная заглушка до подключения Этапа 4
-      const { width, height } = this.scale;
-      this.stageContainer.removeAll(true);
-      this.titleTxt.setText('ЗАМЕРЫ ЗАВЕРШЕНЫ');
-      this.add.text(
-        width / 2,
-        height * 0.48,
-        `Точность испытаний: ${avgAccuracy}%\nПогрешность датчиков: ±${errorPct}%\nПоказание прибора: ${measuredMpa} МПа\n(Норма объекта: ≥ ${this.contract.reqMpa} МПа)\n\nЭтап 4 подключит бланк вердикта и финал!`,
-        {
-          fontFamily: '"Rubik", sans-serif',
-          fontSize: '15px',
-          color: '#fef3c7',
-          align: 'center',
-          lineSpacing: 6
-        }
-      ).setOrigin(0.5);
-
-      this.time.delayedCall(2800, () => this.scene.start('MenuScene'));
-    }
+    });
   }
 }
