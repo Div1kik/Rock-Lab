@@ -2,7 +2,7 @@ export const TOOL_UPGRADES = [
   {
     key: 'drill',
     name: 'Аккумуляторный шуруповёрт',
-    desc: 'Быстрее выкручивает болты; меняет корпус инструмента',
+    desc: 'Быстрее крутит болты и орудует ломиком; меняет корпус',
     baseCost: 110,
     costMult: 1.6,
     maxLevel: 6
@@ -10,7 +10,7 @@ export const TOOL_UPGRADES = [
   {
     key: 'saw',
     name: 'Камнерезный станок (Пила)',
-    desc: 'Ускоряет ход каретки по рельсе и улучшает диск',
+    desc: 'Ускоряет каретку на рельсе; на Ур.3+ лазерный прицел',
     baseCost: 140,
     costMult: 1.65,
     maxLevel: 6
@@ -18,7 +18,7 @@ export const TOOL_UPGRADES = [
   {
     key: 'caliper',
     name: 'Цифровой штангенциркуль',
-    desc: 'Замедляет ход губок для точного замера и обновляет шкалу',
+    desc: 'Плавный ход губок для точного замера H и D',
     baseCost: 130,
     costMult: 1.6,
     maxLevel: 6
@@ -49,6 +49,41 @@ export const TOOL_UPGRADES = [
   }
 ];
 
+export const PERK_UPGRADES = [
+  {
+    key: 'coffee',
+    name: 'Кофемашина на верстак',
+    desc: 'Появляется в лаборатории! Даёт +15 ₽ бодрых чаевых за заказ',
+    baseCost: 220,
+    costMult: 1.8,
+    maxLevel: 3
+  },
+  {
+    key: 'showcase',
+    name: 'Витрина редких минералов',
+    desc: 'Украшает стену образцами породы и приносит +30 ₽/контракт',
+    baseCost: 300,
+    costMult: 1.85,
+    maxLevel: 4
+  },
+  {
+    key: 'assistant',
+    name: 'Стажёр-лаборант',
+    desc: 'Автоматически выкручивает 1 болт в каждом новом ящике (до 3)',
+    baseCost: 420,
+    costMult: 2.0,
+    maxLevel: 3
+  },
+  {
+    key: 'decor',
+    name: 'LED-свет и вытяжка',
+    desc: 'Преображает интерьер лабы и даёт +1 ★ репутации за контракт',
+    baseCost: 260,
+    costMult: 1.8,
+    maxLevel: 3
+  }
+];
+
 export const LAB_UPGRADES = [
   { level: 1, name: 'Гаражная геолаборатория', cost: 0, reqRep: 0 },
   { level: 2, name: 'Участковый пост контроля', cost: 350, reqRep: 18 },
@@ -57,6 +92,10 @@ export const LAB_UPGRADES = [
   { level: 5, name: 'Геотех-комплекс «Атлант»', cost: 3500, reqRep: 95 }
 ];
 
-export function getToolCost(tool, currentLevel) {
-  return Math.round(tool.baseCost * Math.pow(tool.costMult, currentLevel - 1));
+export function getToolCost(item, currentLevel) {
+  return Math.round(item.baseCost * Math.pow(item.costMult, Math.max(0, currentLevel - 1)));
+}
+
+export function getPerkCost(item, currentLevel) {
+  return Math.round(item.baseCost * Math.pow(item.costMult, currentLevel));
 }
