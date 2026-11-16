@@ -7,6 +7,7 @@ import { PrepScene } from './scenes/PrepScene.js';
 import { TestScene } from './scenes/TestScene.js';
 import { ReportScene } from './scenes/ReportScene.js';
 import { UpgradeScene } from './scenes/UpgradeScene.js';
+import { GuideScene } from './scenes/GuideScene.js';
 
 const initGame = async () => {
   await PlatformSDK.init();
@@ -30,7 +31,8 @@ const initGame = async () => {
       PrepScene,
       TestScene,
       ReportScene,
-      UpgradeScene
+      UpgradeScene,
+      GuideScene
     ]
   };
 
