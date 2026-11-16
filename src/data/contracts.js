@@ -1,11 +1,51 @@
 import { Storage } from '../utils/Storage.js';
 
 export const ROCK_TYPES = [
-  { id: 'limestone', name: 'Известняк', minMpa: 22, maxMpa: 45, color: 0xd6d3d1 },
-  { id: 'sandstone', name: 'Песчаник', minMpa: 35, maxMpa: 68, color: 0xd97706 },
-  { id: 'granite', name: 'Гранит', minMpa: 65, maxMpa: 115, color: 0x94a3b8 },
-  { id: 'basalt', name: 'Базальт', minMpa: 85, maxMpa: 145, color: 0x475569 },
-  { id: 'permafrost', name: 'Мёрзлый суглинок', minMpa: 14, maxMpa: 34, color: 0x38bdf8 }
+  {
+    id: 'limestone',
+    name: 'Известняк',
+    trait: 'standard',
+    traitLabel: 'Однородный карбонат',
+    minMpa: 22,
+    maxMpa: 45,
+    color: 0xd6d3d1
+  },
+  {
+    id: 'sandstone',
+    name: 'Песчаник водонасыщенный',
+    trait: 'wet',
+    traitLabel: '💧 Влагонасыщен (размягчается)',
+    minMpa: 32,
+    maxMpa: 64,
+    color: 0xd97706
+  },
+  {
+    id: 'granite',
+    name: 'Гранит трещиноватый',
+    trait: 'brittle',
+    traitLabel: '⚡ Хрупкий скол (узкий пик)',
+    minMpa: 65,
+    maxMpa: 115,
+    color: 0x94a3b8
+  },
+  {
+    id: 'basalt',
+    name: 'Базальт монолитный',
+    trait: 'dense',
+    traitLabel: '🛡️ Сверхплотный массив',
+    minMpa: 85,
+    maxMpa: 145,
+    color: 0x475569
+  },
+  {
+    id: 'permafrost',
+    name: 'Мёрзлый суглинок',
+    trait: 'frozen',
+    traitLabel: '❄️ Мерзлота (оттаивает на столе!)',
+    minMpa: 14,
+    maxMpa: 36,
+    color: 0x38bdf8
+  }
 ];
 
 export const TEST_CATALOG = {
@@ -27,17 +67,29 @@ export const TEST_CATALOG = {
     short: 'Срез (трещина)',
     prepType: 'split_core'
   },
-  shear_load: {
-    id: 'shear_load',
-    name: 'Сдвиг со сжатием (σ+τ)',
-    short: 'Сдвиг+Р',
-    prepType: 'two_discs'
+  water_sat: {
+    id: 'water_sat',
+    name: 'Водопоглощение и сушка',
+    short: 'Водопоглощение',
+    prepType: 'cylinder'
+  },
+  frost_test: {
+    id: 'frost_test',
+    name: 'Морозостойкость (Криокамера)',
+    short: 'Морозостойкость',
+    prepType: 'cylinder'
   },
   ultrasonic: {
     id: 'ultrasonic',
     name: 'Ультразвук (трещиноватость)',
     short: 'УЗК волна',
     prepType: 'cylinder'
+  },
+  shear_load: {
+    id: 'shear_load',
+    name: 'Сдвиг со сжатием (σ+τ)',
+    short: 'Сдвиг+Р',
+    prepType: 'two_discs'
   },
   triaxial: {
     id: 'triaxial',
@@ -46,6 +98,14 @@ export const TEST_CATALOG = {
     prepType: 'cylinder'
   }
 };
+
+export const RARE_INCLUSIONS = [
+  { id: 'pyrite', name: 'Друза золотистого пирита', value: 140, color: 0xfacc15 },
+  { id: 'quartz', name: 'Кристалл горного хрусталя', value: 190, color: 0xe2e8f0 },
+  { id: 'ammonite', name: 'Отпечаток древнего аммонита', value: 260, color: 0xf59e0b },
+  { id: 'malachite', name: 'Жилка уральского малахита', value: 340, color: 0x34d399 },
+  { id: 'diamond_kimberlite', name: 'Алмаз в кимберлите', value: 550, color: 0x38bdf8 }
+];
 
 const COMPANIES = [
   'ООО «СтройФундамент»',
@@ -69,14 +129,13 @@ const SITES = [
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-export function generateContract(labLevel = 1, completedCount = 0) {
+export function generateContract(labLevel = 1, completedCount = 0, forceVip = false) {
   const maxTier = Math.min(5, Math.max(1, labLevel + (completedCount >= 3 ? 1 : 0)));
   const pool = SITES.filter((s) => s.tier <= maxTier);
   const site = pick(pool);
   const rock = pick(ROCK_TYPES);
   const company = pick(COMPANIES);
 
-  // Формируем список испытаний только из открытых игроком стендов
   const unlocked = Storage.getUnlockedTests();
   const shuffled = [...unlocked].sort(() => Math.random() - 0.5);
   const testsCount = Math.min(shuffled.length, Math.max(1, site.maxTests));
@@ -86,18 +145,23 @@ export function generateContract(labLevel = 1, completedCount = 0) {
   const trueStrengthMpa = Math.max(10, Math.min(160, site.reqMpa + swing));
   const isActuallySafe = trueStrengthMpa >= site.reqMpa;
 
-  // Бонус к гонорару за продвинутые испытания (трещина, УЗК, стабилометр)
+  const isVip = forceVip || (completedCount >= 2 && Math.random() < 0.28);
+  const vipMult = isVip ? 1.75 : 1;
+
   const premiumCount = selectedTests.filter((t) =>
-    ['shear_crack', 'ultrasonic', 'triaxial', 'shear_load'].includes(t)
+    ['shear_crack', 'water_sat', 'frost_test', 'ultrasonic', 'triaxial', 'shear_load'].includes(t)
   ).length;
 
-  const baseReward = 95 + site.tier * 65 + selectedTests.length * 35 + premiumCount * 45;
+  const baseReward = Math.round(
+    (95 + site.tier * 65 + selectedTests.length * 35 + premiumCount * 45) * vipMult
+  );
 
   return {
     id: `cnt_${Date.now()}_${randInt(100, 999)}`,
     company,
-    title: site.title,
+    title: isVip ? `⚡ СРОЧНО: ${site.title}` : site.title,
     tier: site.tier,
+    isVip,
     rock,
     reqMpa: site.reqMpa,
     trueStrengthMpa,
@@ -105,14 +169,14 @@ export function generateContract(labLevel = 1, completedCount = 0) {
     boxesCount: site.boxes,
     tests: selectedTests,
     reward: baseReward,
-    repReward: site.tier * 2 + selectedTests.length + premiumCount
+    repReward: Math.round((site.tier * 2 + selectedTests.length + premiumCount) * (isVip ? 1.5 : 1))
   };
 }
 
 export function generateContractBoard(labLevel = 1, completedCount = 0, count = 3) {
   const list = [];
   for (let i = 0; i < count; i++) {
-    list.push(generateContract(labLevel, completedCount));
+    list.push(generateContract(labLevel, completedCount, i === 0 && completedCount >= 2 && Math.random() < 0.45));
   }
   return list;
 }
