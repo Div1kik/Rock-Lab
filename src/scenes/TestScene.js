@@ -16,7 +16,6 @@ export class TestScene extends Phaser.Scene {
     this.phaseActive = false;
     this.updateHandler = null;
 
-    // Физика мёрзлых грунтов: температура начинает подниматься от -12°C к 0°C
     this.isFrozenRock = this.contract?.rock?.trait === 'frozen';
     this.coreTempC = -12.0;
     this.thawPenalty = 0;
@@ -145,7 +144,7 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 1. ОДНООСНОЕ СЖАТИЕ (с остановкой в красной зоне и учётом хрупкого гранита)
+  // 1. ОДНООСНОЕ СЖАТИЕ
   // =========================================================================
   buildUniaxialTest() {
     const { width, height } = this.scale;
@@ -250,7 +249,6 @@ export class TestScene extends Phaser.Scene {
         AudioManager.playClick();
         this.completeCurrentTest(acc, 'НЕДОГРУЗ: КЕРН НЕ ДОВЕДЁН ДО ПИКА');
       } else {
-        // Остановились в красной зоне передержки (не доводя до полного взрыва в пыль)
         const over = (load - targetMax) / Math.max(0.05, 1 - targetMax);
         const acc = Math.max(32, Math.round(68 - over * 34));
         AudioManager.playRockCrack();
@@ -846,7 +844,7 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 8. ТРЁХОСНАЯ КАМЕРА (СТАБИЛОМЕТР)
+  // 8. ТРЁХОСНАЯ КАМЕРА (СТАБИЛОМЕТР — жидкость строго внутри колбы!)
   // =========================================================================
   buildTriaxialTest() {
     const { width, height } = this.scale;
@@ -861,20 +859,30 @@ export class TestScene extends Phaser.Scene {
 
     const cx = width / 2;
     const cy = 315;
+    const chamberTopY = cy - 108;
+    const chamberH = 206;
+    const chamberBottomY = chamberTopY + chamberH; // cy + 98
 
+    // Стеклянная колба камеры
     const chamber = this.add.graphics();
     chamber.fillStyle(0x0f172a, 1);
-    chamber.fillRoundedRect(cx - 78, cy - 112, 156, 214, 18);
+    chamber.fillRoundedRect(cx - 78, chamberTopY, 156, chamberH, 16);
     chamber.lineStyle(4, 0x38bdf8, 0.85);
-    chamber.strokeRoundedRect(cx - 78, cy - 112, 156, 214, 18);
+    chamber.strokeRoundedRect(cx - 78, chamberTopY, 156, chamberH, 16);
+
+    // Верхняя крышка, шток и нижнее основание камеры
     chamber.fillStyle(0x475569, 1);
-    chamber.fillRoundedRect(cx - 86, cy - 126, 172, 18, 6);
-    chamber.fillRect(cx - 12, cy - 152, 24, 28);
+    chamber.fillRoundedRect(cx - 86, chamberTopY - 14, 172, 18, 6);
+    chamber.fillRoundedRect(cx - 86, chamberBottomY - 4, 172, 18, 6);
+    chamber.fillRect(cx - 12, chamberTopY - 40, 24, 28);
 
-    const fluid = this.add.rectangle(cx, cy + 98, 148, 10, 0x0284c9, 0.45).setOrigin(0.5, 1);
+    // Жидкость строго внутри колбы: дно = chamberBottomY - 6, макс. высота = chamberH - 12
+    const fluidBaseY = chamberBottomY - 6;
+    const fluidMaxH = chamberH - 12;
+    const fluid = this.add.rectangle(cx, fluidBaseY, 148, 8, 0x0284c9, 0.5).setOrigin(0.5, 1);
 
-    const core = this.add.image(cx, cy + 12, 'rock_core')
-      .setScale(1.25)
+    const core = this.add.image(cx, cy + 4, 'rock_core')
+      .setScale(1.22)
       .setTint(this.contract.rock.color);
 
     const barW = 320;
@@ -934,7 +942,7 @@ export class TestScene extends Phaser.Scene {
 
       if (phase === 'pump') {
         pressure = Math.max(0, pressure - 0.22 * dt);
-        fluid.height = 10 + pressure * 194;
+        fluid.height = 8 + pressure * (fluidMaxH - 8);
         marker.x = barX + barW * pressure;
         statusTxt.setText(`Давление обжима: ${Math.round(pressure * 600)} кПа`);
         return;
@@ -949,7 +957,7 @@ export class TestScene extends Phaser.Scene {
         pressure = Math.max(0, pressure - drift * dt);
       }
 
-      fluid.height = 10 + pressure * 194;
+      fluid.height = 8 + pressure * (fluidMaxH - 8);
       marker.x = barX + barW * pressure;
 
       if (pressure >= 0.68 && pressure <= 0.92) {
