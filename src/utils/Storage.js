@@ -4,6 +4,7 @@ const DEFAULT_STATE = {
   money: 150,
   reputation: 10,
   completedContracts: 0,
+  contractsSinceAudit: 0, // Счётчик заказов с последней проверки аккредитации
   labLevel: 1,
   upgrades: {
     drill: 1,
@@ -21,6 +22,12 @@ const DEFAULT_STATE = {
     decor: 0,
     cryobox: 0
   },
+  wear: {
+    saw: 100,         // Состояние алмазного диска (0..100%)
+    grinder: 100,     // Состояние шлифовального круга (0..100%)
+    calibration: 100  // Поверка датчиков и манометров (0..100%)
+  },
+  auditBonusContracts: 0,
   unlockedTests: ['uniaxial', 'shear_cut'],
   foundGems: [],
   siteHistory: [],
@@ -53,6 +60,10 @@ class StorageManager {
         perks: {
           ...DEFAULT_STATE.perks,
           ...(parsed.perks || {})
+        },
+        wear: {
+          ...DEFAULT_STATE.wear,
+          ...(parsed.wear || {})
         },
         unlockedTests: Array.isArray(parsed.unlockedTests) && parsed.unlockedTests.length
           ? parsed.unlockedTests
@@ -133,6 +144,55 @@ class StorageManager {
     return this.state.perks[key];
   }
 
+  getWear(key) {
+    return Math.max(0, Math.min(100, this.state.wear?.[key] ?? 100));
+  }
+
+  applyContractWear(testsCount = 1) {
+    if (!this.state.wear) this.state.wear = { saw: 100, grinder: 100, calibration: 100 };
+    const factor = 1 + (testsCount - 1) * 0.2;
+    this.state.wear.saw = Math.max(10, Math.round(this.state.wear.saw - 11 * factor));
+    this.state.wear.grinder = Math.max(10, Math.round(this.state.wear.grinder - 12 * factor));
+    this.state.wear.calibration = Math.max(10, Math.round(this.state.wear.calibration - 10 * factor));
+    this.save();
+  }
+
+  restoreWear(key) {
+    if (!this.state.wear) this.state.wear = { saw: 100, grinder: 100, calibration: 100 };
+    this.state.wear[key] = 100;
+    this.save();
+  }
+
+  shouldTriggerAudit() {
+    const total = this.state.completedContracts || 0;
+    const since = this.state.contractsSinceAudit || 0;
+    // Первая проверка после 5 сданных объектов, далее каждые 9 объектов
+    if (total === 5 && since >= 5) return true;
+    if (total > 5 && since >= 9) return true;
+    return false;
+  }
+
+  resetAuditCounter() {
+    this.state.contractsSinceAudit = 0;
+    this.save();
+  }
+
+  getAuditBonus() {
+    return this.state.auditBonusContracts || 0;
+  }
+
+  setAuditBonus(count) {
+    this.state.auditBonusContracts = Math.max(0, count);
+    this.save();
+  }
+
+  consumeAuditBonus() {
+    if (this.state.auditBonusContracts > 0) {
+      this.state.auditBonusContracts -= 1;
+      this.save();
+    }
+  }
+
   getUnlockedTests() {
     return this.state.unlockedTests || ['uniaxial', 'shear_cut'];
   }
@@ -198,6 +258,7 @@ class StorageManager {
 
   incrementCompleted() {
     this.state.completedContracts += 1;
+    this.state.contractsSinceAudit = (this.state.contractsSinceAudit || 0) + 1;
     this.save();
   }
 }
