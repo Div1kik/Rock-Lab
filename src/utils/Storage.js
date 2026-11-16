@@ -4,14 +4,20 @@ const DEFAULT_STATE = {
   money: 150,
   reputation: 10,
   completedContracts: 0,
-  labLevel: 1, // 1..5 визуальный уровень лаборатории
+  labLevel: 1, // 1..5
   upgrades: {
-    drill: 1,   // скорость и визуал шуруповёрта
-    saw: 1,     // скорость и визуал отрезной пилы на рельсе
-    caliper: 1, // плавность и визуал штангенциркуля
-    press: 1,   // плавность гидропресса
-    sensors: 1, // снижение погрешности датчиков
-    loader: 1   // бонус к гонорару за контракт
+    drill: 1,
+    saw: 1,
+    caliper: 1,
+    press: 1,
+    sensors: 1,
+    loader: 1
+  },
+  perks: {
+    coffee: 0,    // 0..3 Кофемашина на верстаке
+    showcase: 0,  // 0..4 Витрина минералов (+доход)
+    assistant: 0, // 0..3 Лаборант-помощник (авто-болты)
+    decor: 0      // 0..3 Освещение и вытяжка (+репутация)
   },
   soundEnabled: true,
   activeContract: null
@@ -33,6 +39,10 @@ class StorageManager {
         upgrades: {
           ...DEFAULT_STATE.upgrades,
           ...(parsed.upgrades || {})
+        },
+        perks: {
+          ...DEFAULT_STATE.perks,
+          ...(parsed.perks || {})
         }
       };
     } catch {
@@ -95,6 +105,17 @@ class StorageManager {
     this.state.upgrades[key] += 1;
     this.save();
     return this.state.upgrades[key];
+  }
+
+  getPerkLevel(key) {
+    return this.state.perks?.[key] || 0;
+  }
+
+  upgradePerk(key) {
+    if (!this.state.perks) this.state.perks = {};
+    this.state.perks[key] = (this.state.perks[key] || 0) + 1;
+    this.save();
+    return this.state.perks[key];
   }
 
   isSoundEnabled() {
