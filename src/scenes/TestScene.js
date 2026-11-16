@@ -37,7 +37,7 @@ export class TestScene extends Phaser.Scene {
 
     this.titleTxt = this.add.text(width / 2, 54, '', {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '20px',
+      fontSize: '19px',
       fontWeight: '700',
       color: '#fef3c7'
     }).setOrigin(0.5);
@@ -78,10 +78,14 @@ export class TestScene extends Phaser.Scene {
 
     if (testKey === 'uniaxial') {
       this.buildUniaxialTest();
-    } else if (testKey === 'shear') {
-      this.buildShearTest(false);
+    } else if (testKey === 'shear_cut' || testKey === 'shear') {
+      this.buildShearTest({ withVerticalLoad: false, isCrack: false });
+    } else if (testKey === 'shear_crack') {
+      this.buildShearTest({ withVerticalLoad: false, isCrack: true });
     } else if (testKey === 'shear_load') {
-      this.buildShearTest(true);
+      this.buildShearTest({ withVerticalLoad: true, isCrack: false });
+    } else if (testKey === 'ultrasonic') {
+      this.buildUltrasonicTest();
     } else if (testKey === 'triaxial') {
       this.buildTriaxialTest();
     } else {
@@ -120,7 +124,7 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 1. ОДНООСНОЕ СЖАТИЕ (Цилиндр 100×50 мм под гидропрессом)
+  // 1. ОДНООСНОЕ СЖАТИЕ
   // =========================================================================
   buildUniaxialTest() {
     const { width, height } = this.scale;
@@ -138,7 +142,6 @@ export class TestScene extends Phaser.Scene {
     const cx = width / 2 - 18;
     const cy = 330;
 
-    // Силовая рама пресса и защитный кожух
     const frame = this.add.graphics();
     frame.fillStyle(0x52525b, 1);
     frame.fillRect(cx - 102, cy - 124, 18, 224);
@@ -147,23 +150,18 @@ export class TestScene extends Phaser.Scene {
     frame.fillRoundedRect(cx - 114, cy - 140, 228, 26, 6);
     frame.fillStyle(0x3f3f46, 1);
     frame.fillRoundedRect(cx - 114, cy + 94, 228, 26, 6);
-    // Полупрозрачный защитный экран
     frame.fillStyle(0x38bdf8, 0.08);
     frame.fillRect(cx - 84, cy - 98, 168, 192);
 
-    // Нижний штамп и цилиндрический керн
     const lowerPlaten = this.add.rectangle(cx, cy + 84, 118, 18, 0x71717a);
     const core = this.add.image(cx, cy + 32, 'rock_core')
       .setScale(1.42)
       .setTint(this.contract.rock.color);
 
-    // Верхняя нажимная плита и шток гидроцилиндра
     const piston = this.add.rectangle(cx, cy - 75, 118, 20, 0xd97706);
     const rod = this.add.rectangle(cx, cy - 105, 30, 44, 0x94a3b8);
-
     const cracks = this.add.graphics();
 
-    // Вертикальный манометр нагрузки (справа от пресса)
     const barX = width - 58;
     const barY = 210;
     const barH = 240;
@@ -201,12 +199,9 @@ export class TestScene extends Phaser.Scene {
     let load = 0;
     let holding = false;
     this.phaseActive = true;
-
     const speed = Math.max(0.32, 0.56 - (pressLvl - 1) * 0.045);
 
-    btn.zone.on('pointerdown', () => {
-      if (this.phaseActive) holding = true;
-    });
+    btn.zone.on('pointerdown', () => { if (this.phaseActive) holding = true; });
 
     const releasePress = () => {
       if (!holding || !this.phaseActive) return;
@@ -270,35 +265,49 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 2 & 3. ПРЯМОЙ СДВИГ / СДВИГ СО СЖАТИЕМ (Кольцо 35×70 мм в сдвиговой обойме)
+  // 2, 3, 4. СРЕЗ ПО РАСПИЛУ / СРЕЗ ПО ТРЕЩИНЕ / СДВИГ СО СЖАТИЕМ
   // =========================================================================
-  buildShearTest(withVerticalLoad) {
+  buildShearTest({ withVerticalLoad, isCrack }) {
     const { width, height } = this.scale;
     const pressLvl = Storage.getUpgradeLevel('press');
     const totalHitsNeeded = withVerticalLoad ? 2 : 3;
 
-    const hint = this.add.text(
-      width / 2,
-      128,
-      withVerticalLoad
-        ? 'Сначала зажми вертикальный прижим (σ),\nзатем поймай срез кольца 35×70 мм (×2)'
-        : 'Нажимай ФИКСИРОВАТЬ СРЕЗ, когда\nбегунок проходит зелёную зону (×3)',
-      {
-        fontFamily: '"Rubik", sans-serif',
-        fontSize: '13px',
-        color: '#e7e5e4',
-        align: 'center'
-      }
-    ).setOrigin(0.5);
+    const hintText = isCrack
+      ? 'Срез по неровной трещине (сколу): лови пик\nсопротивления в зелёной зоне (×3)'
+      : withVerticalLoad
+        ? 'Сначала зажми вертикальный прижим (σ),\nзатем поймай срез двух шайб в зелёной зоне (×2)'
+        : 'Срез по гладкому распилу двух шайб:\nфиксируй сдвиг в зелёной зоне (×3)';
+
+    const hint = this.add.text(width / 2, 128, hintText, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '13px',
+      color: '#e7e5e4',
+      align: 'center'
+    }).setOrigin(0.5);
 
     const cx = width / 2;
     const cy = 305;
 
-    // Сдвиговая каретка под низкое широкое кольцо 35×70 мм
-    const lowerBox = this.add.rectangle(cx, cy + 22, 180, 42, 0x57534e).setStrokeStyle(2, 0x1c1917);
-    const coreSlice = this.add.rectangle(cx, cy, 142, 46, this.contract.rock.color).setStrokeStyle(2, 0x1c1917);
-    const upperBox = this.add.rectangle(cx, cy - 22, 180, 42, 0x78716c).setStrokeStyle(2, 0x1c1917);
+    // Визуал обоймы: при срезе по трещине рисуем зубчатую линию разлома, при распиле — две ровные шайбы
+    const lowerBox = this.add.rectangle(cx, cy + 24, 184, 42, 0x57534e).setStrokeStyle(2, 0x1c1917);
+    const lowerCore = this.add.rectangle(cx, cy + 12, 142, 24, this.contract.rock.color).setStrokeStyle(1, 0x1c1917);
+    const upperCore = this.add.rectangle(cx, cy - 12, 142, 24, this.contract.rock.color).setStrokeStyle(1, 0x1c1917);
+    const upperBox = this.add.rectangle(cx, cy - 24, 184, 42, isCrack ? 0x92400e : 0x78716c).setStrokeStyle(2, 0x1c1917);
     const clampPlate = this.add.rectangle(cx, cy - 82, 136, 18, 0x38bdf8);
+
+    const seamG = this.add.graphics();
+    if (isCrack) {
+      seamG.lineStyle(3, 0xfacc15, 0.95);
+      seamG.beginPath();
+      seamG.moveTo(cx - 72, cy);
+      for (let sx = -60; sx <= 72; sx += 16) {
+        seamG.lineTo(cx + sx, cy + (sx % 32 === 0 ? -5 : 5));
+      }
+      seamG.strokePath();
+    } else {
+      seamG.lineStyle(2, 0x38bdf8, 0.9);
+      seamG.lineBetween(cx - 74, cy, cx + 74, cy);
+    }
 
     const trackW = 330;
     const trackH = 34;
@@ -319,7 +328,7 @@ export class TestScene extends Phaser.Scene {
     const btn = this.createHoldButton(width / 2, height - 110, 310, 74, '');
 
     this.stageContainer.add([
-      hint, lowerBox, coreSlice, upperBox, clampPlate,
+      hint, lowerBox, lowerCore, upperCore, upperBox, seamG, clampPlate,
       trackBg, zoneGraphic, slider, statusTxt, btn.container
     ]);
 
@@ -332,7 +341,7 @@ export class TestScene extends Phaser.Scene {
     let sliderPos = 0;
     let sliderDir = 1;
     let zoneStart = 0.35;
-    let zoneWidth = Math.min(0.36, 0.24 + (pressLvl - 1) * 0.025);
+    let zoneWidth = Math.min(0.36, (isCrack ? 0.21 : 0.25) + (pressLvl - 1) * 0.025);
 
     const redrawTrack = () => {
       trackBg.clear();
@@ -342,7 +351,7 @@ export class TestScene extends Phaser.Scene {
       trackBg.strokeRoundedRect(trackX, trackY, trackW, trackH, 8);
 
       zoneGraphic.clear();
-      zoneGraphic.fillStyle(mode === 'clamp' ? 0x38bdf8 : 0x22c55e, 0.85);
+      zoneGraphic.fillStyle(mode === 'clamp' ? 0x38bdf8 : isCrack ? 0xf59e0b : 0x22c55e, 0.85);
       zoneGraphic.fillRect(
         trackX + trackW * zoneStart,
         trackY + 3,
@@ -353,10 +362,11 @@ export class TestScene extends Phaser.Scene {
 
     const setupNextSlidePass = () => {
       mode = 'slide';
-      zoneWidth = Math.max(0.14, (0.25 + (pressLvl - 1) * 0.02) - hitsDone * 0.03);
+      const baseW = isCrack ? 0.21 : 0.25;
+      zoneWidth = Math.max(0.13, (baseW + (pressLvl - 1) * 0.02) - hitsDone * 0.03);
       zoneStart = 0.15 + Math.random() * (0.7 - zoneWidth);
-      statusTxt.setText(`Срез: ${hitsDone} / ${totalHitsNeeded}`);
-      btn.setLabel('ТАП: ФИКСИРОВАТЬ СРЕЗ');
+      statusTxt.setText(`${isCrack ? 'Скол' : 'Срез'}: ${hitsDone} / ${totalHitsNeeded}`);
+      btn.setLabel(isCrack ? 'ТАП: СДВИГ ПО ТРЕЩИНЕ' : 'ТАП: СДВИГ ПО РАСПИЛУ');
       redrawTrack();
     };
 
@@ -397,11 +407,12 @@ export class TestScene extends Phaser.Scene {
       hitsDone += 1;
 
       upperBox.x = cx + hitsDone * 14;
+      upperCore.x = cx + hitsDone * 14;
       this.particles.emitParticleAt(cx, cy, 10);
 
       if (hitsDone >= totalHitsNeeded) {
         const avg = hitAccuracies.reduce((a, b) => a + b, 0) / hitAccuracies.length;
-        this.completeCurrentTest(avg, 'ПЛОСКОСТЬ СДВИГА ОПРЕДЕЛЕНА!');
+        this.completeCurrentTest(avg, isCrack ? 'СРЕЗ ПО ТРЕЩИНЕ ЗАФИКСИРОВАН!' : 'СРЕЗ ПО РАСПИЛУ ЗАВЕРШЁН!');
       } else {
         setupNextSlidePass();
       }
@@ -439,7 +450,8 @@ export class TestScene extends Phaser.Scene {
         return;
       }
 
-      const baseSpeed = Math.max(0.75, 1.15 - (pressLvl - 1) * 0.08) + hitsDone * 0.18;
+      const crackBonusSpeed = isCrack ? 0.14 : 0;
+      const baseSpeed = Math.max(0.75, 1.12 - (pressLvl - 1) * 0.08) + hitsDone * 0.18 + crackBonusSpeed;
       sliderPos += sliderDir * baseSpeed * dt;
       if (sliderPos >= 1) {
         sliderPos = 1;
@@ -453,7 +465,124 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 4. ТРЁХОСНАЯ КАМЕРА (СТАБИЛОМЕТР)
+  // 5. УЛЬТРАЗВУКОВОЕ ПРОЗВУЧИВАНИЕ (УЗК НА ТРЕЩИНОВАТОСТЬ)
+  // =========================================================================
+  buildUltrasonicTest() {
+    const { width, height } = this.scale;
+    const sensorsLvl = Storage.getUpgradeLevel('sensors');
+
+    const hint = this.add.text(
+      width / 2,
+      128,
+      'Зажми кнопку генератора импульсов — поймай\nрезонанс ультразвуковой волны на осциллографе!',
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '13px',
+        color: '#e7e5e4',
+        align: 'center'
+      }
+    ).setOrigin(0.5);
+
+    const cx = width / 2;
+    const cy = 260;
+
+    // Керн между двумя пьезодатчиками УЗК
+    const leftSensor = this.add.rectangle(cx - 95, cy, 26, 56, 0x38bdf8).setStrokeStyle(2, 0x0f172a);
+    const rightSensor = this.add.rectangle(cx + 95, cy, 26, 56, 0x38bdf8).setStrokeStyle(2, 0x0f172a);
+    const core = this.add.rectangle(cx, cy, 160, 64, this.contract.rock.color).setStrokeStyle(2, 0x1c1917);
+
+    // Осциллограф УЗК
+    const scopeW = 340;
+    const scopeH = 130;
+    const scopeX = cx - scopeW / 2;
+    const scopeY = 330;
+
+    const scopeBg = this.add.graphics();
+    scopeBg.fillStyle(0x090d16, 1);
+    scopeBg.fillRoundedRect(scopeX, scopeY, scopeW, scopeH, 10);
+    scopeBg.lineStyle(2, 0x38bdf8, 0.85);
+    scopeBg.strokeRoundedRect(scopeX, scopeY, scopeW, scopeH, 10);
+
+    // Целевая амплитуда (зелёный коридор на экране осциллографа)
+    const targetAmp = 0.72;
+    const tol = 0.12 + (sensorsLvl - 1) * 0.02;
+    scopeBg.fillStyle(0x22c55e, 0.22);
+    scopeBg.fillRect(scopeX + 4, scopeY + scopeH * (1 - targetAmp - tol) / 2, scopeW - 8, scopeH * tol);
+
+    const waveGraphics = this.add.graphics();
+    const vpReadout = this.add.text(cx, 482, 'Скорость волны Vp: 0 м/с', {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '16px',
+      fontWeight: '700',
+      color: '#38bdf8'
+    }).setOrigin(0.5);
+
+    const btn = this.createHoldButton(width / 2, height - 110, 310, 74, 'УДЕРЖИВАТЬ: ИМПУЛЬС УЗК');
+
+    this.stageContainer.add([
+      hint, leftSensor, rightSensor, core, scopeBg, waveGraphics, vpReadout, btn.container
+    ]);
+
+    let freq = 0; // 0..1
+    let holding = false;
+    let phaseShift = 0;
+    this.phaseActive = true;
+
+    btn.zone.on('pointerdown', () => { if (this.phaseActive) holding = true; });
+
+    const releasePulse = () => {
+      if (!holding || !this.phaseActive) return;
+      holding = false;
+      AudioManager.stopPressHum();
+
+      const diff = Math.abs(freq - targetAmp);
+      const acc = diff <= tol ? 100 - (diff / tol) * 20 : Math.max(25, 75 - diff * 130);
+      AudioManager.playLatchSnap();
+      this.completeCurrentTest(acc, 'ПРОЗВУЧИВАНИЕ УЗК ЗАВЕРШЕНО!');
+    };
+
+    btn.zone.on('pointerup', releasePulse);
+    btn.zone.on('pointerout', releasePulse);
+
+    this.updateHandler = (dt) => {
+      if (!this.phaseActive) return;
+      phaseShift += dt * 12;
+
+      if (holding) {
+        freq = Math.min(1, freq + 0.58 * dt);
+        AudioManager.updatePressHum(freq * 0.8);
+      } else {
+        freq = Math.max(0.08, freq - 0.35 * dt);
+      }
+
+      const vp = Math.round(1800 + freq * 3600);
+      vpReadout.setText(`Скорость волны Vp: ${vp} м/с`);
+
+      // Отрисовка синусоиды на осциллографе
+      waveGraphics.clear();
+      const inZone = Math.abs(freq - targetAmp) <= tol;
+      waveGraphics.lineStyle(3, inZone ? 0x4ade80 : 0x38bdf8, 1);
+      waveGraphics.beginPath();
+
+      const midY = scopeY + scopeH / 2;
+      const ampPx = (scopeH * 0.44) * freq;
+      for (let x = 0; x <= scopeW - 16; x += 6) {
+        const y = midY + Math.sin(x * 0.06 + phaseShift) * ampPx;
+        if (x === 0) waveGraphics.moveTo(scopeX + 8 + x, y);
+        else waveGraphics.lineTo(scopeX + 8 + x, y);
+      }
+      waveGraphics.strokePath();
+
+      if (freq >= 1) {
+        holding = false;
+        AudioManager.stopPressHum();
+        this.completeCurrentTest(35, 'ПЕРЕГРУЗ ДАТЧИКА УЗК!');
+      }
+    };
+  }
+
+  // =========================================================================
+  // 6. ТРЁХОСНАЯ КАМЕРА (СТАБИЛОМЕТР)
   // =========================================================================
   buildTriaxialTest() {
     const { width, height } = this.scale;
@@ -474,7 +603,6 @@ export class TestScene extends Phaser.Scene {
     chamber.fillRoundedRect(cx - 78, cy - 112, 156, 214, 18);
     chamber.lineStyle(4, 0x38bdf8, 0.85);
     chamber.strokeRoundedRect(cx - 78, cy - 112, 156, 214, 18);
-    // Крышка и шток стабилометра
     chamber.fillStyle(0x475569, 1);
     chamber.fillRoundedRect(cx - 86, cy - 126, 172, 18, 6);
     chamber.fillRect(cx - 12, cy - 152, 24, 28);
@@ -596,7 +724,7 @@ export class TestScene extends Phaser.Scene {
 
     const txt = this.add.text(0, 0, label, {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '16px',
+      fontSize: '15px',
       fontWeight: '700',
       color: '#ffffff'
     }).setOrigin(0.5);
@@ -627,7 +755,6 @@ export class TestScene extends Phaser.Scene {
       ? this.scores.reduce((a, b) => a + b, 0) / this.scores.length
       : 70;
 
-    // Комбинируем точность распила/обмера (25%) и точность на стендах (75%)
     const avgAccuracy = Math.round(testsAvg * 0.75 + this.prepAccuracy * 0.25);
 
     const rawErrorPct = Math.max(2, Math.round((100 - avgAccuracy) * 0.42 - (sensorsLvl - 1) * 2.5));
