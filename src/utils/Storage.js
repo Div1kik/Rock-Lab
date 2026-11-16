@@ -8,7 +8,7 @@ const DEFAULT_STATE = {
   upgrades: {
     drill: 1,
     saw: 1,
-    grinder: 0, // 0 = не куплен (ручная зачистка), 1..5 = уровни шлифовального станка
+    grinder: 1, // Базовый станок доступен с 1-го уровня и улучшается до 5-го
     caliper: 1,
     press: 1,
     sensors: 1,
@@ -38,13 +38,18 @@ class StorageManager {
       const raw = localStorage.getItem(SAVE_KEY);
       if (!raw) return structuredClone(DEFAULT_STATE);
       const parsed = JSON.parse(raw);
+      const mergedUpgrades = {
+        ...DEFAULT_STATE.upgrades,
+        ...(parsed.upgrades || {})
+      };
+      // Миграция: если в старом сохранении grinder был 0, делаем его базовым Ур. 1
+      if (!mergedUpgrades.grinder || mergedUpgrades.grinder < 1) {
+        mergedUpgrades.grinder = 1;
+      }
       return {
         ...structuredClone(DEFAULT_STATE),
         ...parsed,
-        upgrades: {
-          ...DEFAULT_STATE.upgrades,
-          ...(parsed.upgrades || {})
-        },
+        upgrades: mergedUpgrades,
         perks: {
           ...DEFAULT_STATE.perks,
           ...(parsed.perks || {})
@@ -107,13 +112,12 @@ class StorageManager {
   }
 
   getUpgradeLevel(key) {
-    if (key === 'grinder') return this.state.upgrades?.grinder ?? 0;
-    return this.state.upgrades[key] || 1;
+    return Math.max(1, this.state.upgrades?.[key] || 1);
   }
 
   upgradeTool(key) {
     if (!(key in this.state.upgrades)) return 1;
-    this.state.upgrades[key] += 1;
+    this.state.upgrades[key] = this.getUpgradeLevel(key) + 1;
     this.save();
     return this.state.upgrades[key];
   }
