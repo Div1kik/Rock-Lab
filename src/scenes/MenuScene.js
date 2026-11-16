@@ -21,6 +21,9 @@ export class MenuScene extends Phaser.Scene {
     const labLvl = Storage.getLabLevel();
     const tier = LAB_TIERS[labLvl] || LAB_TIERS[1];
 
+    // Защита от сквозного тапа при переходе из отчёта/магазина (260 мс)
+    this.inputGuardUntil = performance.now() + 260;
+
     this.particles = this.add.particles(0, 0, 'dust_px', {
       speed: { min: 40, max: 120 },
       scale: { start: 1.2, end: 0 },
@@ -200,7 +203,6 @@ export class MenuScene extends Phaser.Scene {
       g.fillCircle(w - 54, 242, 8);
     }
 
-    // Лабораторный верстак
     g.fillStyle(tier.table, 1);
     g.fillRect(0, h * 0.54, w, h * 0.46);
     g.fillStyle(0x27272a, 1);
@@ -235,6 +237,7 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
 
     soundBtn.on('pointerdown', () => {
+      if (performance.now() < this.inputGuardUntil) return;
       const enabled = Storage.toggleSound();
       soundBtn.setText(enabled ? '🔊' : '🔇');
       if (enabled) AudioManager.playClick();
@@ -269,6 +272,7 @@ export class MenuScene extends Phaser.Scene {
     }
 
     core.on('pointerdown', () => {
+      if (performance.now() < this.inputGuardUntil) return;
       AudioManager.playCorePickup();
       this.particles.emitParticleAt(core.x, core.y, 10);
       this.tweens.add({
@@ -293,13 +297,13 @@ export class MenuScene extends Phaser.Scene {
 
       const cmZone = this.add.zone(cmX, cmY - 8, 64, 84).setInteractive({ useHandCursor: true });
       cmZone.on('pointerdown', () => {
+        if (performance.now() < this.inputGuardUntil) return;
         AudioManager.playLatchSnap();
         this.particles.emitParticleAt(cmX, cmY - 4, 8);
       });
     }
   }
 
-  // Панель ТО и метрологической поверки оборудования (Пила / Шлифовка / Датчики)
   createMaintenancePanel(w, h) {
     const panelY = h * 0.585;
     const panelW = 340;
@@ -362,6 +366,7 @@ export class MenuScene extends Phaser.Scene {
         const zone = this.add.zone(x + colW / 2, panelY + panelH / 2, colW, panelH)
           .setInteractive({ useHandCursor: true });
         zone.on('pointerdown', () => {
+          if (performance.now() < this.inputGuardUntil) return;
           if (Storage.spendMoney(item.cost)) {
             Storage.restoreWear(item.key);
             AudioManager.playLatchSnap();
@@ -415,6 +420,7 @@ export class MenuScene extends Phaser.Scene {
 
     const zone = this.add.zone(0, 0, pw, ph).setInteractive({ useHandCursor: true });
     zone.on('pointerdown', () => {
+      if (performance.now() < this.inputGuardUntil) return;
       const next = AudioManager.nextTrack();
       trackTxt.setText(next.name);
       this.tweens.add({
@@ -444,6 +450,7 @@ export class MenuScene extends Phaser.Scene {
   createActionButton(x, y, w, h, label, bgColor, textColor, onClick, fontSize = 17) {
     const container = this.add.container(x, y);
     const bg = this.add.graphics();
+    let isPressed = false;
 
     const drawBtn = (pressed = false) => {
       bg.clear();
@@ -469,9 +476,24 @@ export class MenuScene extends Phaser.Scene {
     container.setSize(w, h);
     container.setInteractive({ useHandCursor: true });
 
-    container.on('pointerdown', () => { drawBtn(true); txt.y = 3; });
-    container.on('pointerup', () => { drawBtn(false); txt.y = 0; onClick(); });
-    container.on('pointerout', () => { drawBtn(false); txt.y = 0; });
+    container.on('pointerdown', () => {
+      if (performance.now() < this.inputGuardUntil) return;
+      isPressed = true;
+      drawBtn(true);
+      txt.y = 3;
+    });
+    container.on('pointerup', () => {
+      if (!isPressed) return;
+      isPressed = false;
+      drawBtn(false);
+      txt.y = 0;
+      onClick();
+    });
+    container.on('pointerout', () => {
+      isPressed = false;
+      drawBtn(false);
+      txt.y = 0;
+    });
 
     return container;
   }
