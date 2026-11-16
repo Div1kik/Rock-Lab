@@ -271,6 +271,23 @@ export class UnpackScene extends Phaser.Scene {
         this.lidContainer.add(bolt);
         this.bolts.push(bolt);
       });
+
+      // Помощь стажёра-лаборанта: автоматически выкручивает 1..3 болта в каждом ящике
+      const assistantLvl = Storage.getPerkLevel('assistant');
+      const autoBolts = Math.min(3, assistantLvl);
+      for (let i = 0; i < autoBolts; i++) {
+        const b = this.bolts[i];
+        if (b) {
+          b.done = true;
+          b.setVisible(false);
+          this.unscrewedCount += 1;
+        }
+      }
+      if (this.unscrewedCount >= this.bolts.length) {
+        this.unlockLid();
+      } else if (autoBolts > 0) {
+        this.hintTxt.setText(`Стажёр снял ${autoBolts} болт(а)! Докрути остальные`);
+      }
     } else {
       this.hintTxt.setText('Зажми или быстро тапай по скобе сбоку,\nчтобы поддеть и сорвать крышку ломиком!');
 
