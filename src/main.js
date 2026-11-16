@@ -3,6 +3,7 @@ import { BootScene } from './scenes/BootScene.js';
 import { MenuScene } from './scenes/MenuScene.js';
 import { ContractsScene } from './scenes/ContractsScene.js';
 import { UnpackScene } from './scenes/UnpackScene.js';
+import { PrepScene } from './scenes/PrepScene.js';
 import { TestScene } from './scenes/TestScene.js';
 import { ReportScene } from './scenes/ReportScene.js';
 import { UpgradeScene } from './scenes/UpgradeScene.js';
@@ -26,6 +27,7 @@ const initGame = async () => {
       MenuScene,
       ContractsScene,
       UnpackScene,
+      PrepScene,
       TestScene,
       ReportScene,
       UpgradeScene
