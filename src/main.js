@@ -4,6 +4,8 @@ import { MenuScene } from './scenes/MenuScene.js';
 import { ContractsScene } from './scenes/ContractsScene.js';
 import { UnpackScene } from './scenes/UnpackScene.js';
 import { TestScene } from './scenes/TestScene.js';
+import { ReportScene } from './scenes/ReportScene.js';
+import { UpgradeScene } from './scenes/UpgradeScene.js';
 
 const initGame = async () => {
   await PlatformSDK.init();
@@ -19,7 +21,15 @@ const initGame = async () => {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH
     },
-    scene: [BootScene, MenuScene, ContractsScene, UnpackScene, TestScene]
+    scene: [
+      BootScene,
+      MenuScene,
+      ContractsScene,
+      UnpackScene,
+      TestScene,
+      ReportScene,
+      UpgradeScene
+    ]
   };
 
   new Phaser.Game(config);
