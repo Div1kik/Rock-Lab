@@ -4,7 +4,7 @@ const DEFAULT_STATE = {
   money: 150,
   reputation: 10,
   completedContracts: 0,
-  contractsSinceAudit: 0, // Счётчик заказов с последней проверки аккредитации
+  contractsSinceAudit: 0,
   labLevel: 1,
   upgrades: {
     drill: 1,
@@ -23,9 +23,9 @@ const DEFAULT_STATE = {
     cryobox: 0
   },
   wear: {
-    saw: 100,         // Состояние алмазного диска (0..100%)
-    grinder: 100,     // Состояние шлифовального круга (0..100%)
-    calibration: 100  // Поверка датчиков и манометров (0..100%)
+    saw: 100,
+    grinder: 100,
+    calibration: 100
   },
   auditBonusContracts: 0,
   unlockedTests: ['uniaxial', 'shear_cut'],
@@ -166,7 +166,6 @@ class StorageManager {
   shouldTriggerAudit() {
     const total = this.state.completedContracts || 0;
     const since = this.state.contractsSinceAudit || 0;
-    // Первая проверка после 5 сданных объектов, далее каждые 9 объектов
     if (total === 5 && since >= 5) return true;
     if (total > 5 && since >= 9) return true;
     return false;
