@@ -13,6 +13,9 @@ export class ReportScene extends Phaser.Scene {
     this.errorPct = data.errorPct;
     this.measuredMpa = data.measuredMpa;
     this.verdictLocked = false;
+    this.leavingScene = false;
+    // Защита от случайного тапа в первые 250 мс после загрузки протокола
+    this.inputReadyAt = performance.now() + 250;
   }
 
   create() {
@@ -158,7 +161,7 @@ export class ReportScene extends Phaser.Scene {
 
     const zone = this.add.zone(0, 0, w, h).setInteractive({ useHandCursor: true });
     zone.on('pointerdown', () => {
-      if (this.verdictLocked) return;
+      if (this.verdictLocked || performance.now() < this.inputReadyAt) return;
       this.verdictLocked = true;
       AudioManager.playStamp();
       onClick();
@@ -172,7 +175,6 @@ export class ReportScene extends Phaser.Scene {
     const isCorrectDecision = approvedByPlayer === actuallySafe;
     const isAudit = Boolean(this.contract.isAudit);
 
-    // Списываем износ расходников и поверки после завершённого испытания
     Storage.applyContractWear(this.contract.tests?.length || 1);
 
     const loaderLvl = Storage.getUpgradeLevel('loader');
@@ -194,7 +196,7 @@ export class ReportScene extends Phaser.Scene {
         outcomeType = 'audit_pass';
         moneyDelta = this.contract.reward;
         repDelta = this.contract.repReward;
-        Storage.setAuditBonus(3); // Повышенный тариф +15% на следующие 3 заказа!
+        Storage.setAuditBonus(3);
       } else {
         outcomeType = 'audit_fail';
         moneyDelta = 0;
@@ -240,8 +242,14 @@ export class ReportScene extends Phaser.Scene {
 
   showAnimatedCutsceneModal(outcomeType, moneyDelta, repDelta) {
     const { width, height } = this.scale;
+    const modalReadyAt = performance.now() + 300;
 
-    const overlay = this.add.graphics();
+    // Интерактивная подложка-блокер, чтобы клики по модалке не проваливались в нижние кнопки печати!
+    const blocker = this.add.zone(width / 2, height / 2, width, height)
+      .setInteractive()
+      .setDepth(20);
+
+    const overlay = this.add.graphics().setDepth(21);
     overlay.fillStyle(0x0b101b, 0.94);
     overlay.fillRect(0, 0, width, height);
 
@@ -261,7 +269,7 @@ export class ReportScene extends Phaser.Scene {
     const sceneW = boxW - 40;
     const sceneH = 206;
 
-    const backdrop = this.add.graphics();
+    const backdrop = this.add.graphics().setDepth(22);
     backdrop.fillStyle(isBad ? 0x3b0d11 : 0x0c4a6e, 1);
     backdrop.fillRoundedRect(sceneX, sceneY, sceneW, sceneH, 10);
 
@@ -271,9 +279,10 @@ export class ReportScene extends Phaser.Scene {
 
     const groundY = sceneY + 144;
     this.add.tileSprite(width / 2, groundY + 31, sceneW, 62, 'rock_tex')
-      .setTint(this.contract.rock.color);
+      .setTint(this.contract.rock.color)
+      .setDepth(22);
 
-    const topCrust = this.add.graphics();
+    const topCrust = this.add.graphics().setDepth(23);
     topCrust.fillStyle(isBad ? 0x78350f : 0x15803d, 1);
     topCrust.fillRect(sceneX, groundY, sceneW, 7);
 
@@ -285,7 +294,7 @@ export class ReportScene extends Phaser.Scene {
     }).setDepth(35);
 
     if (outcomeType === 'success' || outcomeType === 'audit_pass') {
-      const craneG = this.add.graphics();
+      const craneG = this.add.graphics().setDepth(23);
       const mastX = sceneX + sceneW - 52;
       craneG.lineStyle(3, 0xfacc15, 1);
       craneG.strokeRect(mastX - 7, sceneY + 24, 14, 120);
@@ -295,7 +304,8 @@ export class ReportScene extends Phaser.Scene {
       for (let floor = 0; floor < 3; floor++) {
         const fy = groundY - 22 - floor * 26;
         const unit = this.add.rectangle(width / 2 - 16, sceneY + 46, 124, 24, 0xf1f5f9)
-          .setStrokeStyle(2, 0x475569);
+          .setStrokeStyle(2, 0x475569)
+          .setDepth(24);
         this.tweens.add({
           targets: unit,
           y: fy,
@@ -306,8 +316,12 @@ export class ReportScene extends Phaser.Scene {
         });
       }
     } else if (outcomeType === 'collapse') {
-      const leftHalf = this.add.rectangle(width / 2 - 36, groundY - 30, 66, 58, 0xcbd5e1).setStrokeStyle(2, 0x475569);
-      const rightHalf = this.add.rectangle(width / 2 + 36, groundY - 30, 66, 58, 0xcbd5e1).setStrokeStyle(2, 0x475569);
+      const leftHalf = this.add.rectangle(width / 2 - 36, groundY - 30, 66, 58, 0xcbd5e1)
+        .setStrokeStyle(2, 0x475569)
+        .setDepth(24);
+      const rightHalf = this.add.rectangle(width / 2 + 36, groundY - 30, 66, 58, 0xcbd5e1)
+        .setStrokeStyle(2, 0x475569)
+        .setDepth(24);
 
       this.tweens.add({
         targets: leftHalf,
@@ -327,7 +341,8 @@ export class ReportScene extends Phaser.Scene {
         ease: 'Bounce.easeOut'
       });
     } else if (outcomeType === 'saved_lives') {
-      const rig = this.add.triangle(sceneX + 95, groundY - 28, 0, -34, -18, 24, 18, 24, 0x38bdf8);
+      const rig = this.add.triangle(sceneX + 95, groundY - 28, 0, -34, -18, 24, 18, 24, 0x38bdf8)
+        .setDepth(24);
       this.tweens.add({
         targets: rig,
         x: width / 2 + 78,
@@ -335,7 +350,9 @@ export class ReportScene extends Phaser.Scene {
         ease: 'Cubic.easeInOut'
       });
     } else {
-      const van = this.add.rectangle(sceneX + 50, groundY - 18, 74, 26, 0xf8fafc).setStrokeStyle(2, 0x0284c9);
+      const van = this.add.rectangle(sceneX + 50, groundY - 18, 74, 26, 0xf8fafc)
+        .setStrokeStyle(2, 0x0284c9)
+        .setDepth(24);
       this.tweens.add({
         targets: van,
         x: width / 2,
@@ -368,7 +385,7 @@ export class ReportScene extends Phaser.Scene {
       fontWeight: '700',
       color: isBad ? '#f87171' : '#4ade80',
       align: 'center'
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(25);
 
     this.add.text(width / 2, boxY + 308, descriptions[outcomeType], {
       fontFamily: '"Rubik", sans-serif',
@@ -377,7 +394,7 @@ export class ReportScene extends Phaser.Scene {
       align: 'center',
       wordWrap: { width: boxW - 44 },
       lineSpacing: 4
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(25);
 
     const repSign = repDelta >= 0 ? `+${repDelta}` : `${repDelta}`;
     this.add.text(width / 2, boxY + 374, `Гонорар: +${moneyDelta} ₽   |   Репутация: ${repSign} ★`, {
@@ -385,7 +402,7 @@ export class ReportScene extends Phaser.Scene {
       fontSize: '15px',
       fontWeight: '700',
       color: '#facc15'
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(25);
 
     let nextBtnY = boxY + 480;
     if (moneyDelta > 0) {
@@ -396,14 +413,17 @@ export class ReportScene extends Phaser.Scene {
         color: '#0f172a',
         backgroundColor: '#facc15',
         padding: { x: 16, y: 10 }
-      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      }).setOrigin(0.5).setDepth(25).setInteractive({ useHandCursor: true });
 
-      adBtn.once('pointerdown', () => {
+      let adClaimed = false;
+      adBtn.on('pointerdown', () => {
+        if (adClaimed || this.leavingScene || performance.now() < modalReadyAt) return;
+        adClaimed = true;
+        adBtn.disableInteractive();
         PlatformSDK.showRewarded(() => {
           Storage.addMoney(moneyDelta);
           AudioManager.playLatchSnap();
           adBtn.setText(`✅ ПОЛУЧЕНО ЕЩЁ +${moneyDelta} ₽!`);
-          adBtn.disableInteractive();
         });
       });
     } else {
@@ -417,11 +437,17 @@ export class ReportScene extends Phaser.Scene {
       color: '#ffffff',
       backgroundColor: '#d97706',
       padding: { x: 20, y: 12 }
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    }).setOrigin(0.5).setDepth(25).setInteractive({ useHandCursor: true });
 
     continueBtn.on('pointerdown', () => {
+      if (this.leavingScene || performance.now() < modalReadyAt) return;
+      this.leavingScene = true;
+      continueBtn.disableInteractive();
       AudioManager.playClick();
-      this.scene.start('MenuScene');
+      // Небольшая задержка 140 мс гасит остаточный pointerup, чтобы в MenuScene не нажалась кнопка под пальцем
+      this.time.delayedCall(140, () => {
+        this.scene.start('MenuScene');
+      });
     });
   }
 }
