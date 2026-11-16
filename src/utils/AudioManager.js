@@ -2,101 +2,87 @@ import { Storage } from './Storage.js';
 
 export const MUSIC_TRACKS = [
   {
-    name: '01. SEGA Garage Riff',
-    stepSec: 0.132,
-    leadWave: 'triangle',
-    bassWave: 'sawtooth',
-    filterFreq: 680,
-    // Тот самый первый драйвовый гаражный рифф лаборатории
-    lead: [
-      164.81, 0, 164.81, 196.00,
-      220.00, 0, 164.81, 0,
-      233.08, 220.00, 196.00, 0,
-      164.81, 0, 146.83, 164.81
-    ],
-    bass: [
-      82.41, 0, 82.41, 98.00,
-      110.00, 0, 82.41, 0,
-      116.54, 110.00, 98.00, 0,
-      82.41, 0, 73.42, 82.41
-    ]
-  },
-  {
-    name: '02. V-Rock Hard Riff',
-    stepSec: 0.128,
-    leadWave: 'sawtooth',
-    bassWave: 'sawtooth',
-    filterFreq: 860,
-    lead: [
-      329.63, 0, 329.63, 392.00,
-      440.00, 0, 493.88, 440.00,
-      392.00, 329.63, 293.66, 329.63,
-      392.00, 0, 493.88, 0
-    ],
-    bass: [
-      82.41, 82.41, 82.41, 98.00,
-      110.00, 110.00, 82.41, 82.41,
-      73.42, 73.42, 73.42, 82.41,
-      98.00, 98.00, 123.47, 110.00
-    ]
-  },
-  {
-    name: '03. Night Lab FM',
-    stepSec: 0.155,
-    leadWave: 'triangle',
-    bassWave: 'sine',
-    filterFreq: 740,
-    lead: [
-      261.63, 329.63, 392.00, 493.88,
-      523.25, 493.88, 392.00, 329.63,
-      293.66, 349.23, 440.00, 523.25,
-      493.88, 392.00, 329.63, 246.94
-    ],
-    bass: [
-      65.41, 0, 130.81, 0,
-      65.41, 0, 130.81, 0,
-      73.42, 0, 146.83, 0,
-      98.00, 0, 196.00, 0
-    ]
-  },
-  {
-    name: '04. Deep Borehole FM',
-    stepSec: 0.172,
+    name: '01. Warm Lab Rhodes',
+    stepSec: 0.36,
     leadWave: 'sine',
-    bassWave: 'triangle',
-    filterFreq: 560,
-    // Медленный глубокий минор (Dm - Bb - Gm - A) для сосредоточенной работы
-    lead: [
-      293.66, 0, 0, 349.23,
-      440.00, 0, 392.00, 0,
-      349.23, 0, 293.66, 0,
-      261.63, 0, 220.00, 0
-    ],
-    bass: [
-      73.42, 0, 73.42, 0,
-      58.27, 0, 58.27, 0,
-      98.00, 0, 98.00, 0,
-      55.00, 0, 65.41, 0
-    ]
-  },
-  {
-    name: '05. Midnight Core FM',
-    stepSec: 0.180,
-    leadWave: 'triangle',
     bassWave: 'sine',
     filterFreq: 520,
-    // Спокойный ночной ретро-синт (Am - Em - F - Em) без весёлой суеты
+    hasSoftBeat: true,
+    // Мягкие, певучие ноты электропиано (Fmaj7 -> Em7 -> Dm7 -> Cmaj7)
     lead: [
-      220.00, 0, 261.63, 0,
-      329.63, 0, 246.94, 0,
-      196.00, 0, 220.00, 0,
-      174.61, 0, 164.81, 0
+      329.63, 0, 392.00, 493.88,
+      392.00, 0, 329.63, 0,
+      293.66, 0, 349.23, 440.00,
+      329.63, 0, 261.63, 0
     ],
     bass: [
-      55.00, 0, 110.00, 0,
-      82.41, 0, 82.41, 0,
-      87.31, 0, 87.31, 0,
-      82.41, 0, 73.42, 0
+      87.31, 0, 0, 0,
+      82.41, 0, 0, 0,
+      73.42, 0, 0, 0,
+      65.41, 0, 0, 0
+    ]
+  },
+  {
+    name: '02. Subterranean Pad',
+    stepSec: 0.44,
+    leadWave: 'triangle',
+    bassWave: 'sine',
+    filterFreq: 380,
+    hasSoftBeat: false,
+    // Тягучий подземный эмбиент без ударных — только глубокие гармонии
+    lead: [
+      220.00, 0, 261.63, 0,
+      329.63, 0, 0, 293.66,
+      246.94, 0, 0, 220.00,
+      196.00, 0, 0, 0
+    ],
+    bass: [
+      55.00, 0, 0, 0,
+      65.41, 0, 0, 0,
+      49.00, 0, 0, 0,
+      55.00, 0, 0, 0
+    ]
+  },
+  {
+    name: '03. Late Shift Chill',
+    stepSec: 0.38,
+    leadWave: 'sine',
+    bassWave: 'triangle',
+    filterFreq: 460,
+    hasSoftBeat: true,
+    // Спокойный вечерний чилл-синт
+    lead: [
+      392.00, 0, 349.23, 329.63,
+      293.66, 0, 0, 261.63,
+      293.66, 0, 329.63, 0,
+      246.94, 0, 0, 0
+    ],
+    bass: [
+      65.41, 0, 0, 65.41,
+      58.27, 0, 0, 0,
+      73.42, 0, 0, 73.42,
+      49.00, 0, 0, 0
+    ]
+  },
+  {
+    name: '04. Northern Quarry',
+    stepSec: 0.42,
+    leadWave: 'sine',
+    bassWave: 'sine',
+    filterFreq: 440,
+    hasSoftBeat: false,
+    // Сдержанный нордический минимализм
+    lead: [
+      293.66, 0, 440.00, 0,
+      392.00, 0, 349.23, 0,
+      329.63, 0, 293.66, 0,
+      220.00, 0, 0, 0
+    ],
+    bass: [
+      73.42, 0, 0, 0,
+      58.27, 0, 0, 0,
+      65.41, 0, 0, 0,
+      55.00, 0, 0, 0
     ]
   }
 ];
@@ -140,14 +126,14 @@ class AudioController {
       this.ctx = new AudioCtx();
 
       this.compressor = this.ctx.createDynamicsCompressor();
-      this.compressor.threshold.setValueAtTime(-16, this.ctx.currentTime);
-      this.compressor.knee.setValueAtTime(12, this.ctx.currentTime);
-      this.compressor.ratio.setValueAtTime(6, this.ctx.currentTime);
-      this.compressor.attack.setValueAtTime(0.005, this.ctx.currentTime);
-      this.compressor.release.setValueAtTime(0.12, this.ctx.currentTime);
+      this.compressor.threshold.setValueAtTime(-18, this.ctx.currentTime);
+      this.compressor.knee.setValueAtTime(14, this.ctx.currentTime);
+      this.compressor.ratio.setValueAtTime(4, this.ctx.currentTime);
+      this.compressor.attack.setValueAtTime(0.01, this.ctx.currentTime);
+      this.compressor.release.setValueAtTime(0.15, this.ctx.currentTime);
 
       this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.setValueAtTime(0.75, this.ctx.currentTime);
+      this.masterGain.gain.setValueAtTime(0.7, this.ctx.currentTime);
 
       this.compressor.connect(this.masterGain);
       this.masterGain.connect(this.ctx.destination);
@@ -210,49 +196,44 @@ class AudioController {
   }
 
   // =========================================================================
-  // МНОГОГОЛОСЫЙ СИНТЕЗАТОР (Мелодия + Бас + Ударные)
+  // ПЛАВНЫЙ ОБВОЛАКИВАЮЩИЙ СИНТЕЗАТОР (Без тиканья, с мягкой атакой)
   // =========================================================================
   startMusic() {
     if (this.musicPlaying || !Storage.isSoundEnabled() || this.adSuspended || !this.ctx) return;
     this.musicPlaying = true;
     this.musicStep = 0;
-    this.nextNoteTime = this.ctx.currentTime + 0.05;
+    this.nextNoteTime = this.ctx.currentTime + 0.08;
 
     const scheduler = () => {
       if (!this.musicPlaying) return;
       if (this.ctx && this.ctx.state === 'running' && Storage.isSoundEnabled() && !this.adSuspended) {
-        while (this.nextNoteTime < this.ctx.currentTime + 0.12) {
+        while (this.nextNoteTime < this.ctx.currentTime + 0.2) {
           const track = this.getCurrentTrack();
           const step = this.musicStep % 16;
           const t = this.nextNoteTime;
 
-          // Для медленных ночных треков (04 и 05) делаем более мягкий и редкий бит
-          const isSlowChill = track.stepSec >= 0.17;
-          if (isSlowChill) {
-            if (step === 0 || step === 8) this.triggerKick(t);
-            if (step === 4 || step === 12) this.triggerSnare(t, 0.026);
-            if (step % 4 === 2) this.triggerHiHat(t, 0.008);
-          } else {
-            if (step % 4 === 0) this.triggerKick(t);
-            if (step === 4 || step === 12) this.triggerSnare(t, 0.045);
-            if (step % 2 === 1) this.triggerHiHat(t, 0.015);
+          // Только глубокий, приглушённый пульс на 0 и 8 доле (никаких тикающих тарелок!)
+          if (track.hasSoftBeat && (step === 0 || step === 8)) {
+            this.triggerSoftPulse(t);
           }
 
+          // Длинный обволакивающий бас (держится почти весь такт)
           const bassFreq = track.bass[step];
           if (bassFreq > 0) {
-            this.triggerBassVoice(t, bassFreq, track.stepSec * (isSlowChill ? 1.5 : 0.9), track.bassWave);
+            this.triggerSmoothBass(t, bassFreq, track.stepSec * 3.6, track.bassWave);
           }
 
+          // Певучая мягкая мелодия с плавным нарастанием и затуханием
           const leadFreq = track.lead[step];
           if (leadFreq > 0) {
-            this.triggerLeadVoice(t, leadFreq, track.stepSec * (isSlowChill ? 2.1 : 1.45), track);
+            this.triggerSmoothPad(t, leadFreq, track.stepSec * 2.4, track);
           }
 
           this.nextNoteTime += track.stepSec;
           this.musicStep += 1;
         }
       } else if (this.ctx) {
-        this.nextNoteTime = this.ctx.currentTime + 0.05;
+        this.nextNoteTime = this.ctx.currentTime + 0.08;
       }
 
       this.musicRafId = requestAnimationFrame(scheduler);
@@ -269,100 +250,63 @@ class AudioController {
     }
   }
 
-  triggerKick(now) {
+  triggerSoftPulse(now) {
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(118, now);
-    osc.frequency.exponentialRampToValueAtTime(42, now + 0.1);
+    osc.frequency.setValueAtTime(82, now);
+    osc.frequency.exponentialRampToValueAtTime(38, now + 0.18);
 
-    gain.gain.setValueAtTime(0.082, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.055, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0008, now + 0.22);
 
     osc.connect(gain);
     gain.connect(this.getOut());
     osc.start(now);
-    osc.stop(now + 0.12);
+    osc.stop(now + 0.24);
   }
 
-  triggerSnare(now, vol = 0.045) {
-    if (!this.noiseBuffer) return;
-    const noise = this.ctx.createBufferSource();
-    noise.buffer = this.noiseBuffer;
-
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.setValueAtTime(1320, now);
-    filter.Q.setValueAtTime(0.9, now);
-
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(vol, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
-
-    noise.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.getOut());
-    noise.start(now);
-    noise.stop(now + 0.14);
-  }
-
-  triggerHiHat(now, vol) {
-    if (!this.noiseBuffer) return;
-    const noise = this.ctx.createBufferSource();
-    noise.buffer = this.noiseBuffer;
-
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'highpass';
-    filter.frequency.setValueAtTime(6500, now);
-
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(vol, now);
-    gain.gain.exponentialRampToValueAtTime(0.0005, now + 0.032);
-
-    noise.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.getOut());
-    noise.start(now);
-    noise.stop(now + 0.038);
-  }
-
-  triggerBassVoice(now, freq, duration, waveType) {
+  triggerSmoothBass(now, freq, duration, waveType) {
     const osc = this.ctx.createOscillator();
     osc.type = waveType;
     osc.frequency.setValueAtTime(freq, now);
 
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(400, now);
-    filter.frequency.exponentialRampToValueAtTime(180, now + duration);
+    filter.frequency.setValueAtTime(220, now);
 
     const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.036, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    gain.gain.setValueAtTime(0.0008, now);
+    gain.gain.linearRampToValueAtTime(0.042, now + 0.08);
+    gain.gain.exponentialRampToValueAtTime(0.0008, now + duration);
 
     osc.connect(filter);
     filter.connect(gain);
     gain.connect(this.getOut());
     osc.start(now);
-    osc.stop(now + duration + 0.01);
+    osc.stop(now + duration + 0.02);
   }
 
-  triggerLeadVoice(now, freq, duration, track) {
+  triggerSmoothPad(now, freq, duration, track) {
     const osc1 = this.ctx.createOscillator();
     const osc2 = this.ctx.createOscillator();
     osc1.type = track.leadWave;
-    osc2.type = 'triangle';
+    osc2.type = 'sine';
     osc1.frequency.setValueAtTime(freq, now);
-    osc2.frequency.setValueAtTime(freq * 1.004, now);
+    // Мягкая октава ниже для теплоты звука
+    osc2.frequency.setValueAtTime(freq * 0.5, now);
 
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'lowpass';
     filter.frequency.setValueAtTime(track.filterFreq, now);
-    filter.frequency.exponentialRampToValueAtTime(340, now + duration);
+    filter.frequency.linearRampToValueAtTime(track.filterFreq * 0.65, now + duration);
 
     const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.025, now);
-    gain.gain.exponentialRampToValueAtTime(0.0008, now + duration);
+    // Плавный вход (attack 0.09 с) убирает любые щелчки и тиканье
+    gain.gain.setValueAtTime(0.0005, now);
+    gain.gain.linearRampToValueAtTime(0.024, now + 0.09);
+    gain.gain.exponentialRampToValueAtTime(0.0005, now + duration);
 
     osc1.connect(filter);
     osc2.connect(filter);
@@ -371,8 +315,8 @@ class AudioController {
 
     osc1.start(now);
     osc2.start(now);
-    osc1.stop(now + duration + 0.01);
-    osc2.stop(now + duration + 0.01);
+    osc1.stop(now + duration + 0.03);
+    osc2.stop(now + duration + 0.03);
   }
 
   // =========================================================================
