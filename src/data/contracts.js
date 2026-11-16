@@ -129,6 +129,34 @@ const SITES = [
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
+export function generateAuditContract(labLevel = 1) {
+  const unlocked = Storage.getUnlockedTests();
+  const shuffled = [...unlocked].sort(() => Math.random() - 0.5);
+  const selectedTests = shuffled.slice(0, Math.min(shuffled.length, 2));
+  const rock = pick(ROCK_TYPES);
+  const reqMpa = 35 + labLevel * 10;
+  const swing = randInt(-14, 18);
+  const trueStrengthMpa = Math.max(15, reqMpa + swing);
+
+  return {
+    id: `audit_${Date.now()}_${randInt(100, 999)}`,
+    company: 'РосТехНадзор · Метрология',
+    title: '🛡️ ПЛАНОВЫЙ АУДИТ АККРЕДИТАЦИИ',
+    tier: labLevel,
+    isAudit: true,
+    isVip: false,
+    maxAllowedErrorPct: 9,
+    rock,
+    reqMpa,
+    trueStrengthMpa,
+    isActuallySafe: trueStrengthMpa >= reqMpa,
+    boxesCount: 1,
+    tests: selectedTests,
+    reward: 160 + labLevel * 60,
+    repReward: 6 + labLevel
+  };
+}
+
 export function generateContract(labLevel = 1, completedCount = 0, forceVip = false) {
   const maxTier = Math.min(5, Math.max(1, labLevel + (completedCount >= 3 ? 1 : 0)));
   const pool = SITES.filter((s) => s.tier <= maxTier);
@@ -145,8 +173,9 @@ export function generateContract(labLevel = 1, completedCount = 0, forceVip = fa
   const trueStrengthMpa = Math.max(10, Math.min(160, site.reqMpa + swing));
   const isActuallySafe = trueStrengthMpa >= site.reqMpa;
 
-  const isVip = forceVip || (completedCount >= 2 && Math.random() < 0.28);
-  const vipMult = isVip ? 1.75 : 1;
+  const isVip = forceVip || (completedCount >= 2 && Math.random() < 0.25);
+  const auditBonusMult = Storage.getAuditBonus() > 0 ? 1.15 : 1;
+  const vipMult = (isVip ? 1.75 : 1) * auditBonusMult;
 
   const premiumCount = selectedTests.filter((t) =>
     ['shear_crack', 'water_sat', 'frost_test', 'ultrasonic', 'triaxial', 'shear_load'].includes(t)
@@ -162,6 +191,7 @@ export function generateContract(labLevel = 1, completedCount = 0, forceVip = fa
     title: isVip ? `⚡ СРОЧНО: ${site.title}` : site.title,
     tier: site.tier,
     isVip,
+    isAudit: false,
     rock,
     reqMpa: site.reqMpa,
     trueStrengthMpa,
@@ -175,8 +205,14 @@ export function generateContract(labLevel = 1, completedCount = 0, forceVip = fa
 
 export function generateContractBoard(labLevel = 1, completedCount = 0, count = 3) {
   const list = [];
+  const spawnAudit = Storage.shouldTriggerAudit();
+
   for (let i = 0; i < count; i++) {
-    list.push(generateContract(labLevel, completedCount, i === 0 && completedCount >= 2 && Math.random() < 0.45));
+    if (i === 0 && spawnAudit) {
+      list.push(generateAuditContract(labLevel));
+    } else {
+      list.push(generateContract(labLevel, completedCount, i === 1 && completedCount >= 2 && Math.random() < 0.32));
+    }
   }
   return list;
 }
