@@ -15,6 +15,9 @@ export class UnpackScene extends Phaser.Scene {
     this.lidOpened = false;
     this.coresCollected = 0;
     this.drillTickTimer = 0;
+    this.boxMode = 'screws'; // 'screws' (шуруповёрт) | 'crowbar' (ломик)
+    this.pryProgress = 0;
+    this.isPrying = false;
   }
 
   create() {
@@ -40,11 +43,12 @@ export class UnpackScene extends Phaser.Scene {
       color: '#fde68a'
     }).setOrigin(0.5);
 
-    this.hintTxt = this.add.text(width / 2, 102, 'Зажми каждый болт, чтобы выкрутить шуруповёртом', {
+    this.hintTxt = this.add.text(width / 2, 102, '', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '14px',
       fontWeight: '600',
-      color: '#38bdf8'
+      color: '#38bdf8',
+      align: 'center'
     }).setOrigin(0.5);
 
     this.particles = this.add.particles(0, 0, 'dust_px', {
@@ -56,39 +60,66 @@ export class UnpackScene extends Phaser.Scene {
 
     this.crateContainer = this.add.container(width / 2, height * 0.54);
     this.buildDrillSprite();
+    this.buildCrowbarSprite();
     this.buildCrate();
   }
 
   buildDrillSprite() {
     const drillLvl = Storage.getUpgradeLevel('drill');
-    // Цвет корпуса шуруповёрта меняется с прокачкой
     const bodyColors = [0xd97706, 0xeab308, 0x22c55e, 0x0ea5e9, 0x8b5cf6, 0xf43f5e];
     const bodyColor = bodyColors[Math.min(bodyColors.length - 1, drillLvl - 1)];
 
     this.drillSprite = this.add.container(0, 0).setDepth(45).setVisible(false);
 
     const g = this.add.graphics();
-    // Бита и патрон (упираются прямо в точку (0, 0) — центр болта)
+    // Бита и быстрозажимной патрон
     g.fillStyle(0x94a3b8, 1);
     g.fillRect(-3, -24, 6, 24);
     g.fillStyle(0x1e293b, 1);
-    g.fillRoundedRect(-9, -42, 18, 20, 4);
+    g.fillRoundedRect(-10, -44, 20, 22, 4);
+    if (drillLvl >= 3) {
+      // Кольцо LED-подсветки на продвинутых шуруповёртах
+      g.fillStyle(0x38bdf8, 1);
+      g.fillRect(-10, -26, 20, 3);
+    }
 
-    // Моторный блок шуруповёрта (наклонён под удобным углом)
+    // Моторный блок
     g.fillStyle(bodyColor, 1);
-    g.fillRoundedRect(-16, -86, 36, 46, 8);
-    g.fillStyle(0x1c1917, 0.8);
-    g.fillRect(-12, -74, 24, 6);
-    g.fillRect(-12, -62, 24, 6);
+    g.fillRoundedRect(-17, -88, 38, 46, 8);
+    g.fillStyle(0x1c1917, 0.85);
+    g.fillRect(-12, -76, 24, 6);
+    g.fillRect(-12, -64, 24, 6);
 
-    // Рукоятка и аккумулятор в сторону
+    // Рукоятка и аккумулятор увеличенной ёмкости на старших уровнях
     g.fillStyle(0x27272a, 1);
-    g.fillRoundedRect(12, -76, 44, 18, 6);
+    g.fillRoundedRect(12, -78, 46, 18, 6);
     g.fillStyle(bodyColor, 1);
-    g.fillRoundedRect(46, -82, 22, 30, 5);
+    const batW = drillLvl >= 4 ? 28 : 22;
+    g.fillRoundedRect(46, -84, batW, 32, 5);
 
     this.drillSprite.add(g);
     this.drillSprite.setAngle(-22);
+  }
+
+  buildCrowbarSprite() {
+    const drillLvl = Storage.getUpgradeLevel('drill');
+    const barColor = drillLvl >= 4 ? 0x38bdf8 : drillLvl >= 2 ? 0xdc2626 : 0x64748b;
+
+    this.crowbarSprite = this.add.container(0, 0).setDepth(45).setVisible(false);
+    const g = this.add.graphics();
+
+    // Изогнутая лапа гвоздодёра, уходящая под крышку в точке (0,0)
+    g.fillStyle(0x94a3b8, 1);
+    g.fillRoundedRect(-6, -12, 16, 24, 4);
+    // Длинный рычаг ломика вправо-вверх
+    g.fillStyle(barColor, 1);
+    g.fillRoundedRect(4, -8, 130, 14, 6);
+    // Прорезиненная рукоятка на конце
+    g.fillStyle(0x1c1917, 1);
+    g.fillRoundedRect(85, -10, 48, 18, 6);
+
+    this.crowbarSprite.add(g);
+    this.crowbarSprite.setAngle(-28);
   }
 
   buildCrate() {
@@ -97,14 +128,20 @@ export class UnpackScene extends Phaser.Scene {
     this.unscrewedCount = 0;
     this.lidOpened = false;
     this.coresCollected = 0;
+    this.pryProgress = 0;
+    this.isPrying = false;
     this.drillSprite.setVisible(false);
+    this.crowbarSprite.setVisible(false);
+
+    // Чередуем ящики: на болтах (шуруповёрт) и заколоченные гвоздями (ломик)
+    this.boxMode = Math.random() < 0.45 ? 'crowbar' : 'screws';
 
     this.subTxt.setText(`${this.contract.title} · Ящик ${this.currentBox} из ${this.totalBoxes}`);
-    this.hintTxt.setText('Зажми по очереди 4 болта шуруповёртом');
 
     const boxW = 310;
     const boxH = 380;
 
+    // Внутренний лоток с кернами
     const tray = this.add.graphics();
     tray.fillStyle(0x1c1917, 1);
     tray.fillRoundedRect(-boxW / 2, -boxH / 2, boxW, boxH, 12);
@@ -135,11 +172,11 @@ export class UnpackScene extends Phaser.Scene {
         if (!this.lidOpened || core.collected) return;
         core.collected = true;
         this.coresCollected += 1;
-        AudioManager.playLatchSnap();
+        AudioManager.playCorePickup();
         this.particles.emitParticleAt(
           this.crateContainer.x + core.x,
           this.crateContainer.y + core.y,
-          12
+          10
         );
 
         this.tweens.add({
@@ -160,9 +197,10 @@ export class UnpackScene extends Phaser.Scene {
       this.coreSprites.push(core);
     });
 
+    // Крышка ящика
     this.lidContainer = this.add.container(0, 0);
     const lid = this.add.graphics();
-    lid.fillStyle(0x92400e, 1);
+    lid.fillStyle(this.boxMode === 'crowbar' ? 0x78350f : 0x92400e, 1);
     lid.fillRoundedRect(-boxW / 2, -boxH / 2, boxW, boxH, 12);
     lid.lineStyle(3, 0x451a03, 1);
     lid.strokeRoundedRect(-boxW / 2, -boxH / 2, boxW, boxH, 12);
@@ -171,52 +209,143 @@ export class UnpackScene extends Phaser.Scene {
       lid.lineBetween(-boxW / 2 + 6, y, boxW / 2 - 6, y);
     }
 
-    const stamp = this.add.text(0, 0, `ПРОБА: ${this.contract.rock.name.toUpperCase()}\nНЕ КАНТОВАТЬ`, {
+    const modeTag = this.boxMode === 'crowbar' ? 'ЗАКОЛОЧЕНО ГВОЗДЯМИ' : 'НА САМОРЕЗАХ';
+    const stamp = this.add.text(0, 0, `ПРОБА: ${this.contract.rock.name.toUpperCase()}\n${modeTag}`, {
       fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '14px',
+      fontSize: '13px',
       fontWeight: '700',
       color: '#fef3c7',
       align: 'center',
-      backgroundColor: '#451a03aa',
+      backgroundColor: '#451a03bb',
       padding: { x: 10, y: 6 }
     }).setOrigin(0.5);
 
     this.lidContainer.add([lid, stamp]);
     this.crateContainer.add(this.lidContainer);
 
-    const offsetX = boxW / 2 - 28;
-    const offsetY = boxH / 2 - 28;
-    const corners = [
-      { x: -offsetX, y: -offsetY },
-      { x: offsetX, y: -offsetY },
-      { x: -offsetX, y: offsetY },
-      { x: offsetX, y: offsetY }
-    ];
+    if (this.boxMode === 'screws') {
+      this.hintTxt.setText('Зажми по очереди 4 болта шуруповёртом');
+      const offsetX = boxW / 2 - 28;
+      const offsetY = boxH / 2 - 28;
+      const corners = [
+        { x: -offsetX, y: -offsetY },
+        { x: offsetX, y: -offsetY },
+        { x: -offsetX, y: offsetY },
+        { x: offsetX, y: offsetY }
+      ];
 
-    corners.forEach((pt) => {
-      const bolt = this.add.image(pt.x, pt.y, 'bolt_head').setScale(1.2);
-      bolt.progress = 0;
-      bolt.isHolding = false;
-      bolt.done = false;
-      bolt.setInteractive({ useHandCursor: true });
+      corners.forEach((pt) => {
+        const bolt = this.add.image(pt.x, pt.y, 'bolt_head').setScale(1.2);
+        bolt.progress = 0;
+        bolt.isHolding = false;
+        bolt.done = false;
+        bolt.setInteractive({ useHandCursor: true });
 
-      bolt.on('pointerdown', () => {
-        if (!bolt.done) bolt.isHolding = true;
+        bolt.on('pointerdown', () => {
+          if (!bolt.done) bolt.isHolding = true;
+        });
+        bolt.on('pointerup', () => { bolt.isHolding = false; });
+        bolt.on('pointerout', () => { bolt.isHolding = false; });
+
+        this.lidContainer.add(bolt);
+        this.bolts.push(bolt);
       });
-      bolt.on('pointerup', () => { bolt.isHolding = false; });
-      bolt.on('pointerout', () => { bolt.isHolding = false; });
+    } else {
+      // Режим ломика: точка поддева сбоку крышки
+      this.hintTxt.setText('Зажми или быстро тапай по скобе сбоку,\nчтобы поддеть и сорвать крышку ломиком!');
 
-      this.lidContainer.add(bolt);
-      this.bolts.push(bolt);
-    });
+      const pryX = boxW / 2 - 14;
+      const pryY = 0;
+
+      const notch = this.add.graphics();
+      notch.fillStyle(0x1c1917, 1);
+      notch.fillRoundedRect(pryX - 18, pryY - 34, 24, 68, 6);
+      notch.lineStyle(2, 0xfacc15, 0.9);
+      notch.strokeRoundedRect(pryX - 18, pryY - 34, 24, 68, 6);
+
+      const pryLabel = this.add.text(pryX - 42, pryY, 'ПОДДЕТЬ →', {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '12px',
+        fontWeight: '700',
+        color: '#facc15',
+        backgroundColor: '#1c1917cc',
+        padding: { x: 6, y: 4 }
+      }).setOrigin(1, 0.5);
+
+      const pryZone = this.add.zone(pryX - 20, pryY, 90, 110).setInteractive({ useHandCursor: true });
+
+      pryZone.on('pointerdown', () => {
+        if (this.lidOpened) return;
+        this.isPrying = true;
+        // Каждый тап даёт резкий рывок ломиком
+        const drillLvl = Storage.getUpgradeLevel('drill');
+        this.pryProgress = Math.min(1, this.pryProgress + 0.16 + (drillLvl - 1) * 0.03);
+        AudioManager.playCrowbarPry();
+        this.particles.emitParticleAt(this.crateContainer.x + pryX, this.crateContainer.y, 6);
+        this.checkCrowbarBreak();
+      });
+
+      pryZone.on('pointerup', () => { this.isPrying = false; });
+      pryZone.on('pointerout', () => { this.isPrying = false; });
+
+      this.lidContainer.add([notch, pryLabel, pryZone]);
+    }
+  }
+
+  checkCrowbarBreak() {
+    if (this.pryProgress >= 1 && !this.lidOpened) {
+      this.lidOpened = true;
+      this.isPrying = false;
+      this.crowbarSprite.setVisible(false);
+      AudioManager.playRockCrack();
+      this.cameras.main.shake(140, 0.008);
+      this.hintTxt.setText('Крышка сорвана! Кликни по каждому керну');
+
+      this.tweens.add({
+        targets: this.lidContainer,
+        x: -360,
+        y: -240,
+        alpha: 0,
+        angle: -24,
+        duration: 380,
+        ease: 'Back.easeIn'
+      });
+    }
   }
 
   update(time, delta) {
     if (this.lidOpened) return;
 
     const drillLvl = Storage.getUpgradeLevel('drill');
-    const speed = (0.95 + (drillLvl - 1) * 0.35) * (delta / 1000);
 
+    if (this.boxMode === 'crowbar') {
+      const pryWorldX = this.crateContainer.x + 140;
+      const pryWorldY = this.crateContainer.y;
+
+      if (this.isPrying) {
+        this.pryProgress = Math.min(1, this.pryProgress + (0.55 + (drillLvl - 1) * 0.12) * (delta / 1000));
+        this.crowbarSprite.setVisible(true);
+        this.crowbarSprite.setPosition(pryWorldX, pryWorldY);
+        // Ломик давит вниз как рычаг, а крышка приподнимается
+        this.crowbarSprite.setAngle(-28 + this.pryProgress * 34);
+        this.lidContainer.x = -this.pryProgress * 18;
+        this.lidContainer.angle = -this.pryProgress * 4;
+
+        this.drillTickTimer += delta;
+        if (this.drillTickTimer >= 95) {
+          this.drillTickTimer = 0;
+          AudioManager.playCrowbarPry();
+        }
+
+        this.checkCrowbarBreak();
+      } else {
+        this.crowbarSprite.setVisible(false);
+      }
+      return;
+    }
+
+    // Режим шуруповёрта
+    const speed = (0.95 + (drillLvl - 1) * 0.35) * (delta / 1000);
     let activeBolt = null;
 
     for (const bolt of this.bolts) {
