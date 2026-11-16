@@ -3,14 +3,18 @@ import { Storage } from './Storage.js';
 class AudioController {
   constructor() {
     this.ctx = null;
+    this.masterGain = null;
+    this.compressor = null;
     this.adSuspended = false;
     this.pressOsc = null;
     this.pressSubOsc = null;
     this.pressGain = null;
 
-    this.musicTimer = null;
-    this.musicStep = 0;
+    // Точный планировщик музыки по AudioContext.currentTime (без плавания ритма)
     this.musicPlaying = false;
+    this.musicRafId = null;
+    this.nextNoteTime = 0;
+    this.musicStep = 0;
     this.noiseBuffer = null;
 
     if (typeof document !== 'undefined') {
@@ -34,6 +38,21 @@ class AudioController {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return null;
       this.ctx = new AudioCtx();
+
+      // Компрессор-лимитер + мастер-шина полностью убирают хрипы и перегруз динамика
+      this.compressor = this.ctx.createDynamicsCompressor();
+      this.compressor.threshold.setValueAtTime(-16, this.ctx.currentTime);
+      this.compressor.knee.setValueAtTime(12, this.ctx.currentTime);
+      this.compressor.ratio.setValueAtTime(6, this.ctx.currentTime);
+      this.compressor.attack.setValueAtTime(0.005, this.ctx.currentTime);
+      this.compressor.release.setValueAtTime(0.12, this.ctx.currentTime);
+
+      this.masterGain = this.ctx.createGain();
+      this.masterGain.gain.setValueAtTime(0.75, this.ctx.currentTime);
+
+      this.compressor.connect(this.masterGain);
+      this.masterGain.connect(this.ctx.destination);
+
       this.buildNoiseBuffer();
     }
     if (this.ctx.state === 'suspended') {
@@ -43,6 +62,10 @@ class AudioController {
       this.startMusic();
     }
     return this.ctx;
+  }
+
+  getOut() {
+    return this.compressor || this.ctx?.destination;
   }
 
   buildNoiseBuffer() {
@@ -74,15 +97,15 @@ class AudioController {
   }
 
   // =========================================================================
-  // ФОНОВЫЙ РОК-РИФФ (SEGA-драйв 116 BPM)
+  // ФОНОВЫЙ SEGA-РОК С ТОЧНЫМ АУДИО-ПЛАНИРОВЩИКОМ (без западаний и клиппинга)
   // =========================================================================
   startMusic() {
-    if (this.musicPlaying || !Storage.isSoundEnabled() || this.adSuspended) return;
-    if (!this.ctx) return;
+    if (this.musicPlaying || !Storage.isSoundEnabled() || this.adSuspended || !this.ctx) return;
     this.musicPlaying = true;
     this.musicStep = 0;
+    this.nextNoteTime = this.ctx.currentTime + 0.05;
 
-    const stepMs = 132;
+    const stepSec = 0.132;
     const riffNotes = [
       82.41, 0, 82.41, 98.00,
       110.00, 0, 82.41, 0,
@@ -90,38 +113,47 @@ class AudioController {
       82.41, 0, 73.42, 82.41
     ];
 
-    this.musicTimer = setInterval(() => {
-      if (!this.ctx || this.ctx.state !== 'running' || !Storage.isSoundEnabled() || this.adSuspended) {
-        return;
+    const scheduler = () => {
+      if (!this.musicPlaying) return;
+      if (this.ctx && this.ctx.state === 'running' && Storage.isSoundEnabled() && !this.adSuspended) {
+        // Планируем ноты на 0.12 сек вперёд по аппаратным часам звуковой карты
+        while (this.nextNoteTime < this.ctx.currentTime + 0.12) {
+          const step = this.musicStep % 16;
+          const t = this.nextNoteTime;
+
+          if (step === 0 || step === 6 || step === 8 || step === 14) {
+            this.triggerKick(t);
+          }
+          if (step === 4 || step === 12) {
+            this.triggerSnare(t);
+          }
+          if (step % 2 === 0) {
+            this.triggerHiHat(t, step % 4 === 2 ? 0.018 : 0.009);
+          }
+
+          const freq = riffNotes[step];
+          if (freq > 0) {
+            this.triggerRockGuitar(t, freq, step === 8 ? 0.22 : 0.125);
+          }
+
+          this.nextNoteTime += stepSec;
+          this.musicStep += 1;
+        }
+      } else if (this.ctx) {
+        this.nextNoteTime = this.ctx.currentTime + 0.05;
       }
 
-      const step = this.musicStep % 16;
-      const now = this.ctx.currentTime;
+      this.musicRafId = requestAnimationFrame(scheduler);
+    };
 
-      if (step === 0 || step === 6 || step === 8 || step === 14) {
-        this.triggerKick(now);
-      }
-      if (step === 4 || step === 12) {
-        this.triggerSnare(now);
-      }
-      if (step % 2 === 0) {
-        this.triggerHiHat(now, step % 4 === 2 ? 0.024 : 0.012);
-      }
-
-      const freq = riffNotes[step];
-      if (freq > 0) {
-        this.triggerRockGuitar(now, freq, step === 8 ? 0.24 : 0.14);
-      }
-
-      this.musicStep += 1;
-    }, stepMs);
+    this.musicRafId = requestAnimationFrame(scheduler);
   }
 
   stopMusic() {
     this.musicPlaying = false;
-    if (this.musicTimer) {
-      clearInterval(this.musicTimer);
-      this.musicTimer = null;
+    if (this.musicRafId) {
+      cancelAnimationFrame(this.musicRafId);
+      this.musicRafId = null;
     }
   }
 
@@ -129,16 +161,16 @@ class AudioController {
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(125, now);
-    osc.frequency.exponentialRampToValueAtTime(42, now + 0.11);
+    osc.frequency.setValueAtTime(118, now);
+    osc.frequency.exponentialRampToValueAtTime(44, now + 0.1);
 
-    gain.gain.setValueAtTime(0.11, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+    gain.gain.setValueAtTime(0.09, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getOut());
     osc.start(now);
-    osc.stop(now + 0.13);
+    osc.stop(now + 0.12);
   }
 
   triggerSnare(now) {
@@ -148,18 +180,18 @@ class AudioController {
 
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'bandpass';
-    filter.frequency.setValueAtTime(1350, now);
-    filter.Q.setValueAtTime(0.9, now);
+    filter.frequency.setValueAtTime(1250, now);
+    filter.Q.setValueAtTime(1.0, now);
 
     const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.055, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+    gain.gain.setValueAtTime(0.042, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
 
     noise.connect(filter);
     filter.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getOut());
     noise.start(now);
-    noise.stop(now + 0.12);
+    noise.stop(now + 0.11);
   }
 
   triggerHiHat(now, vol) {
@@ -169,49 +201,40 @@ class AudioController {
 
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'highpass';
-    filter.frequency.setValueAtTime(6500, now);
+    filter.frequency.setValueAtTime(6200, now);
 
     const gain = this.ctx.createGain();
     gain.gain.setValueAtTime(vol, now);
-    gain.gain.exponentialRampToValueAtTime(0.0005, now + 0.035);
+    gain.gain.exponentialRampToValueAtTime(0.0005, now + 0.032);
 
     noise.connect(filter);
     filter.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getOut());
     noise.start(now);
-    noise.stop(now + 0.04);
+    noise.stop(now + 0.038);
   }
 
   triggerRockGuitar(now, freq, duration) {
     const osc1 = this.ctx.createOscillator();
     const osc2 = this.ctx.createOscillator();
-    osc1.type = 'sawtooth';
-    osc2.type = 'triangle';
+    osc1.type = 'triangle';
+    osc2.type = 'sawtooth';
     osc1.frequency.setValueAtTime(freq, now);
     osc2.frequency.setValueAtTime(freq * 1.498, now);
 
-    const shaper = this.ctx.createWaveShaper();
-    const curve = new Float32Array(256);
-    for (let i = 0; i < 256; i++) {
-      const x = (i * 2) / 256 - 1;
-      curve[i] = Math.tanh(x * 2.4);
-    }
-    shaper.curve = curve;
-
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(780, now);
-    filter.frequency.exponentialRampToValueAtTime(340, now + duration);
+    filter.frequency.setValueAtTime(620, now);
+    filter.frequency.exponentialRampToValueAtTime(280, now + duration);
 
     const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.042, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    gain.gain.setValueAtTime(0.034, now);
+    gain.gain.exponentialRampToValueAtTime(0.0008, now + duration);
 
-    osc1.connect(shaper);
-    osc2.connect(shaper);
-    shaper.connect(filter);
+    osc1.connect(filter);
+    osc2.connect(filter);
     filter.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.getOut());
 
     osc1.start(now);
     osc2.start(now);
@@ -220,9 +243,8 @@ class AudioController {
   }
 
   // =========================================================================
-  // ОБНОВЛЁННЫЕ ЗВУКИ ИНСТРУМЕНТОВ
+  // ЗВУКИ ИНСТРУМЕНТОВ
   // =========================================================================
-
   playClick() {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -237,12 +259,11 @@ class AudioController {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
 
     osc.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(this.getOut());
     osc.start(now);
     osc.stop(now + 0.045);
   }
 
-  // Мотор шуруповёрта
   playDrillTick() {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -253,7 +274,7 @@ class AudioController {
     motor.frequency.setValueAtTime(215 + Math.random() * 25, now);
     motor.frequency.linearRampToValueAtTime(245, now + 0.055);
 
-    const filter = this.ctx.createBiquadFilter();
+    const filter = ctx.createBiquadFilter();
     filter.type = 'bandpass';
     filter.frequency.setValueAtTime(520, now);
     filter.Q.setValueAtTime(2.2, now);
@@ -264,12 +285,11 @@ class AudioController {
 
     motor.connect(filter);
     filter.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(this.getOut());
     motor.start(now);
     motor.stop(now + 0.065);
   }
 
-  // Трение и скрип ломика по дереву ящика
   playCrowbarPry() {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -285,18 +305,16 @@ class AudioController {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
 
     creak.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(this.getOut());
     creak.start(now);
     creak.stop(now + 0.11);
   }
 
-  // Мягкий, приятный звук доставания каменного керна из поролонового лотка
   playCorePickup() {
     const ctx = this.ensureContext();
     if (!ctx) return;
     const now = ctx.currentTime;
 
-    // 1. Тёплый деревянно-каменный стук (низкий резонанс без писка)
     const body = ctx.createOscillator();
     body.type = 'sine';
     body.frequency.setValueAtTime(260, now);
@@ -307,11 +325,10 @@ class AudioController {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.085);
 
     body.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(this.getOut());
     body.start(now);
     body.stop(now + 0.09);
 
-    // 2. Лёгкий шорох поролона
     if (this.noiseBuffer) {
       const rustle = ctx.createBufferSource();
       rustle.buffer = this.noiseBuffer;
@@ -326,34 +343,31 @@ class AudioController {
 
       rustle.connect(lp);
       lp.connect(rGain);
-      rGain.connect(ctx.destination);
+      rGain.connect(this.getOut());
       rustle.start(now);
       rustle.stop(now + 0.075);
     }
   }
 
-  // Доработанный звук камнерезной пилы (низкий рокот станка + влажное шлифование без визга)
   playSawCut() {
     const ctx = this.ensureContext();
     if (!ctx) return;
     const now = ctx.currentTime;
 
-    // 1. Плотный гул электродвигателя станка (145..175 Гц)
     const motor = ctx.createOscillator();
     motor.type = 'triangle';
     motor.frequency.setValueAtTime(148 + Math.random() * 18, now);
     motor.frequency.linearRampToValueAtTime(165, now + 0.065);
 
     const motorGain = ctx.createGain();
-    motorGain.gain.setValueAtTime(0.075, now);
+    motorGain.gain.setValueAtTime(0.07, now);
     motorGain.gain.exponentialRampToValueAtTime(0.002, now + 0.07);
 
     motor.connect(motorGain);
-    motorGain.connect(ctx.destination);
+    motorGain.connect(this.getOut());
     motor.start(now);
     motor.stop(now + 0.075);
 
-    // 2. Мягкое водяное шипение алмазного диска о породу (среднечастотный фильтр без высоких писков)
     if (this.noiseBuffer) {
       const grit = this.ctx.createBufferSource();
       grit.buffer = this.noiseBuffer;
@@ -364,18 +378,17 @@ class AudioController {
       bp.Q.setValueAtTime(1.6, now);
 
       const gritGain = ctx.createGain();
-      gritGain.gain.setValueAtTime(0.065, now);
+      gritGain.gain.setValueAtTime(0.06, now);
       gritGain.gain.exponentialRampToValueAtTime(0.002, now + 0.07);
 
       grit.connect(bp);
       bp.connect(gritGain);
-      gritGain.connect(ctx.destination);
+      gritGain.connect(this.getOut());
       grit.start(now);
       grit.stop(now + 0.075);
     }
   }
 
-  // Металлический щелчок фиксатора / губок штангенциркуля
   playLatchSnap() {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -391,12 +404,11 @@ class AudioController {
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
 
     click.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(this.getOut());
     click.start(now);
     click.stop(now + 0.055);
   }
 
-  // Тяжёлый раскол и осыпание каменного керна
   playRockCrack() {
     const ctx = this.ensureContext();
     if (!ctx) return;
@@ -407,10 +419,10 @@ class AudioController {
     thud.frequency.setValueAtTime(110, now);
     thud.frequency.exponentialRampToValueAtTime(34, now + 0.16);
     const thudGain = ctx.createGain();
-    thudGain.gain.setValueAtTime(0.28, now);
+    thudGain.gain.setValueAtTime(0.26, now);
     thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.17);
     thud.connect(thudGain);
-    thudGain.connect(ctx.destination);
+    thudGain.connect(this.getOut());
     thud.start(now);
     thud.stop(now + 0.18);
 
@@ -424,12 +436,12 @@ class AudioController {
       filter.Q.setValueAtTime(1.1, now);
 
       const dGain = ctx.createGain();
-      dGain.gain.setValueAtTime(0.24, now);
+      dGain.gain.setValueAtTime(0.22, now);
       dGain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
 
       debris.connect(filter);
       filter.connect(dGain);
-      dGain.connect(ctx.destination);
+      dGain.connect(this.getOut());
       debris.start(now);
       debris.stop(now + 0.25);
     }
@@ -452,7 +464,7 @@ class AudioController {
 
       this.pressOsc.connect(this.pressGain);
       this.pressSubOsc.connect(this.pressGain);
-      this.pressGain.connect(ctx.destination);
+      this.pressGain.connect(this.getOut());
 
       this.pressOsc.start();
       this.pressSubOsc.start();
@@ -461,7 +473,7 @@ class AudioController {
     const clamped = Math.max(0, Math.min(1, loadRatio));
     this.pressOsc.frequency.setTargetAtTime(50 + clamped * 45, now, 0.05);
     this.pressSubOsc.frequency.setTargetAtTime(100 + clamped * 90, now, 0.05);
-    this.pressGain.gain.setTargetAtTime(0.05 + clamped * 0.09, now, 0.05);
+    this.pressGain.gain.setTargetAtTime(0.05 + clamped * 0.08, now, 0.05);
   }
 
   stopPressHum() {
@@ -487,11 +499,11 @@ class AudioController {
     osc.frequency.setValueAtTime(135, now);
     osc.frequency.exponentialRampToValueAtTime(38, now + 0.13);
 
-    gain.gain.setValueAtTime(0.24, now);
+    gain.gain.setValueAtTime(0.22, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
 
     osc.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(this.getOut());
     osc.start(now);
     osc.stop(now + 0.15);
   }
