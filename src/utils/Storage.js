@@ -4,7 +4,7 @@ const DEFAULT_STATE = {
   money: 150,
   reputation: 10,
   completedContracts: 0,
-  labLevel: 1, // 1..5
+  labLevel: 1,
   upgrades: {
     drill: 1,
     saw: 1,
@@ -17,9 +17,12 @@ const DEFAULT_STATE = {
     coffee: 0,
     showcase: 0,
     assistant: 0,
-    decor: 0
+    decor: 0,
+    cryobox: 0 // Крио-термобокс для мёрзлых грунтов
   },
-  unlockedTests: ['uniaxial', 'shear_cut'], // Базовые стенды на старте
+  unlockedTests: ['uniaxial', 'shear_cut'],
+  foundGems: [],     // Найденные в кернах редкие минералы
+  siteHistory: [],   // Архив сданных объектов (успехи и обвалы)
   soundEnabled: true,
   activeContract: null
 };
@@ -47,7 +50,9 @@ class StorageManager {
         },
         unlockedTests: Array.isArray(parsed.unlockedTests) && parsed.unlockedTests.length
           ? parsed.unlockedTests
-          : [...DEFAULT_STATE.unlockedTests]
+          : [...DEFAULT_STATE.unlockedTests],
+        foundGems: Array.isArray(parsed.foundGems) ? parsed.foundGems : [],
+        siteHistory: Array.isArray(parsed.siteHistory) ? parsed.siteHistory : []
       };
     } catch {
       return structuredClone(DEFAULT_STATE);
@@ -135,6 +140,26 @@ class StorageManager {
       this.state.unlockedTests.push(testKey);
       this.save();
     }
+  }
+
+  addGem(gem) {
+    this.state.foundGems.unshift({ ...gem, foundAt: Date.now() });
+    if (this.state.foundGems.length > 30) this.state.foundGems.length = 30;
+    this.save();
+  }
+
+  getGems() {
+    return this.state.foundGems || [];
+  }
+
+  addSiteRecord(record) {
+    this.state.siteHistory.unshift({ ...record, date: Date.now() });
+    if (this.state.siteHistory.length > 25) this.state.siteHistory.length = 25;
+    this.save();
+  }
+
+  getSiteHistory() {
+    return this.state.siteHistory || [];
   }
 
   isSoundEnabled() {
