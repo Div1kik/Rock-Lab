@@ -37,7 +37,6 @@ export class PrepScene extends Phaser.Scene {
     }
 
     if (needsTwoDiscs) {
-      // Из керна диаметром D=70 мм отпиливаются две шайбы высотой (толщиной) H=35 мм
       specs.push({
         mode: 'two_discs',
         label: 'Две шайбы (высота H=35 × Ø70 мм)',
@@ -144,18 +143,16 @@ export class PrepScene extends Phaser.Scene {
 
   afterCutOrSplit(spec) {
     const grinderLvl = Storage.getUpgradeLevel('grinder');
-    if (grinderLvl > 0 && spec.mode !== 'split_core') {
+    // Шлифовка торцов обязательна по ГОСТ для всех пилёных образцов; для расколотого по трещине сразу переходим к обмеру
+    if (spec.mode !== 'split_core') {
       this.startGrinderPhase(spec, grinderLvl);
     } else {
-      if (spec.mode !== 'split_core') {
-        this.prepScores.push(82);
-      }
       this.startMeasurePhase(spec);
     }
   }
 
   // =========================================================================
-  // ФАЗА 1А: ОТРЕЗНОЙ СТАНОК (Вдоль керна отмеряется высота H)
+  // ФАЗА 1А: ОТРЕЗНОЙ СТАНОК
   // =========================================================================
   startSawPhase(spec) {
     const { width, height } = this.scale;
@@ -217,7 +214,6 @@ export class PrepScene extends Phaser.Scene {
           .setStrokeStyle(2, 0x1c1917)
       : null;
 
-    // Подписи размеров прямо на заготовке (H по горизонтали, Ø по вертикали)
     const dimTag = this.add.text(
       leftX + discW / 2,
       coreCenterY,
@@ -456,7 +452,7 @@ export class PrepScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // ФАЗА 1В: ТОРЦЕШЛИФОВАЛЬНЫЙ СТАНОК
+  // ФАЗА 1В: ТОРЦЕШЛИФОВАЛЬНЫЙ СТАНОК (Обязательный этап по ГОСТ)
   // =========================================================================
   startGrinderPhase(spec, grinderLvl) {
     const { width, height } = this.scale;
@@ -466,7 +462,7 @@ export class PrepScene extends Phaser.Scene {
     const hint = this.add.text(
       width / 2,
       128,
-      'Зажми подачу шлифовального круга, чтобы вывести\nидеальную плоскопараллельность торцов (ГОСТ 21153.2)!',
+      'Обязательная шлифовка торцов по ГОСТ 21153.2!\nЗажми круг, чтобы убрать заусенцы после пилы',
       {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
@@ -534,7 +530,7 @@ export class PrepScene extends Phaser.Scene {
     let polish = 0;
     let grinding = false;
     let done = false;
-    const grindSpeed = 0.58 + (grinderLvl - 1) * 0.14;
+    const grindSpeed = 0.56 + (grinderLvl - 1) * 0.14;
 
     btn.zone.on('pointerdown', () => { if (!done) grinding = true; });
     btn.zone.on('pointerup', () => { grinding = false; });
@@ -565,7 +561,7 @@ export class PrepScene extends Phaser.Scene {
           AudioManager.playLatchSnap();
           statusTxt.setText('✓ Торцы отшлифованы в зеркало (0.01 мм)!');
           statusTxt.setColor('#4ade80');
-          this.prepScores.push(Math.min(100, 96 + grinderLvl));
+          this.prepScores.push(Math.min(100, 95 + grinderLvl));
 
           this.time.delayedCall(650, () => {
             this.startMeasurePhase(spec);
