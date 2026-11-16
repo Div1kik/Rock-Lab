@@ -1,5 +1,60 @@
 import { Storage } from './Storage.js';
 
+export const MUSIC_TRACKS = [
+  {
+    name: '01. SEGA Garage Riff',
+    stepSec: 0.132,
+    wave1: 'triangle',
+    wave2: 'sawtooth',
+    filterFreq: 620,
+    notes: [
+      82.41, 0, 82.41, 98.00,
+      110.00, 0, 82.41, 0,
+      116.54, 110.00, 98.00, 0,
+      82.41, 0, 73.42, 82.41
+    ]
+  },
+  {
+    name: '02. Deep Core Synth',
+    stepSec: 0.125,
+    wave1: 'sawtooth',
+    wave2: 'square',
+    filterFreq: 540,
+    notes: [
+      65.41, 65.41, 0, 77.78,
+      87.31, 0, 98.00, 77.78,
+      65.41, 0, 116.54, 0,
+      98.00, 87.31, 77.78, 58.27
+    ]
+  },
+  {
+    name: '03. Granite Heavy',
+    stepSec: 0.142,
+    wave1: 'sawtooth',
+    wave2: 'triangle',
+    filterFreq: 680,
+    notes: [
+      73.42, 0, 73.42, 73.42,
+      87.31, 0, 98.00, 0,
+      110.00, 0, 98.00, 87.31,
+      73.42, 65.41, 73.42, 0
+    ]
+  },
+  {
+    name: '04. Night Lab FM',
+    stepSec: 0.155,
+    wave1: 'sine',
+    wave2: 'triangle',
+    filterFreq: 480,
+    notes: [
+      110.00, 0, 130.81, 0,
+      146.83, 0, 164.81, 146.83,
+      130.81, 0, 98.00, 0,
+      110.00, 0, 82.41, 0
+    ]
+  }
+];
+
 class AudioController {
   constructor() {
     this.ctx = null;
@@ -10,7 +65,6 @@ class AudioController {
     this.pressSubOsc = null;
     this.pressGain = null;
 
-    // Точный планировщик музыки по AudioContext.currentTime (без плавания ритма)
     this.musicPlaying = false;
     this.musicRafId = null;
     this.nextNoteTime = 0;
@@ -39,7 +93,6 @@ class AudioController {
       if (!AudioCtx) return null;
       this.ctx = new AudioCtx();
 
-      // Компрессор-лимитер + мастер-шина полностью убирают хрипы и перегруз динамика
       this.compressor = this.ctx.createDynamicsCompressor();
       this.compressor.threshold.setValueAtTime(-16, this.ctx.currentTime);
       this.compressor.knee.setValueAtTime(12, this.ctx.currentTime);
@@ -79,6 +132,20 @@ class AudioController {
     this.noiseBuffer = buf;
   }
 
+  getCurrentTrack() {
+    const idx = Storage.getMusicTrack() % MUSIC_TRACKS.length;
+    return MUSIC_TRACKS[idx] || MUSIC_TRACKS[0];
+  }
+
+  nextTrack() {
+    const nextIdx = (Storage.getMusicTrack() + 1) % MUSIC_TRACKS.length;
+    Storage.setMusicTrack(nextIdx);
+    this.musicStep = 0;
+    this.ensureContext();
+    this.playLatchSnap();
+    return MUSIC_TRACKS[nextIdx];
+  }
+
   suspendForAd() {
     this.adSuspended = true;
     this.stopPressHum();
@@ -97,7 +164,7 @@ class AudioController {
   }
 
   // =========================================================================
-  // ФОНОВЫЙ SEGA-РОК С ТОЧНЫМ АУДИО-ПЛАНИРОВЩИКОМ (без западаний и клиппинга)
+  // ФОНОВЫЙ ПРОИГРЫВАТЕЛЬ (4 ТРЕКА)
   // =========================================================================
   startMusic() {
     if (this.musicPlaying || !Storage.isSoundEnabled() || this.adSuspended || !this.ctx) return;
@@ -105,19 +172,11 @@ class AudioController {
     this.musicStep = 0;
     this.nextNoteTime = this.ctx.currentTime + 0.05;
 
-    const stepSec = 0.132;
-    const riffNotes = [
-      82.41, 0, 82.41, 98.00,
-      110.00, 0, 82.41, 0,
-      116.54, 110.00, 98.00, 0,
-      82.41, 0, 73.42, 82.41
-    ];
-
     const scheduler = () => {
       if (!this.musicPlaying) return;
       if (this.ctx && this.ctx.state === 'running' && Storage.isSoundEnabled() && !this.adSuspended) {
-        // Планируем ноты на 0.12 сек вперёд по аппаратным часам звуковой карты
         while (this.nextNoteTime < this.ctx.currentTime + 0.12) {
+          const track = this.getCurrentTrack();
           const step = this.musicStep % 16;
           const t = this.nextNoteTime;
 
@@ -131,12 +190,12 @@ class AudioController {
             this.triggerHiHat(t, step % 4 === 2 ? 0.018 : 0.009);
           }
 
-          const freq = riffNotes[step];
+          const freq = track.notes[step];
           if (freq > 0) {
-            this.triggerRockGuitar(t, freq, step === 8 ? 0.22 : 0.125);
+            this.triggerSynthLead(t, freq, step === 8 ? 0.22 : 0.125, track);
           }
 
-          this.nextNoteTime += stepSec;
+          this.nextNoteTime += track.stepSec;
           this.musicStep += 1;
         }
       } else if (this.ctx) {
@@ -214,18 +273,18 @@ class AudioController {
     noise.stop(now + 0.038);
   }
 
-  triggerRockGuitar(now, freq, duration) {
+  triggerSynthLead(now, freq, duration, track) {
     const osc1 = this.ctx.createOscillator();
     const osc2 = this.ctx.createOscillator();
-    osc1.type = 'triangle';
-    osc2.type = 'sawtooth';
+    osc1.type = track.wave1;
+    osc2.type = track.wave2;
     osc1.frequency.setValueAtTime(freq, now);
     osc2.frequency.setValueAtTime(freq * 1.498, now);
 
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(620, now);
-    filter.frequency.exponentialRampToValueAtTime(280, now + duration);
+    filter.frequency.setValueAtTime(track.filterFreq, now);
+    filter.frequency.exponentialRampToValueAtTime(260, now + duration);
 
     const gain = this.ctx.createGain();
     gain.gain.setValueAtTime(0.034, now);
