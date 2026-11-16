@@ -1,5 +1,11 @@
 import { AudioManager } from './AudioManager.js';
 
+const withTimeout = (promise, ms = 400) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+  ]);
+
 class PlatformSDKManager {
   constructor() {
     this.platform = 'web'; // 'vk' | 'yandex' | 'web'
@@ -15,7 +21,7 @@ class PlatformSDKManager {
 
     if (typeof window !== 'undefined' && window.vkBridge) {
       try {
-        await window.vkBridge.send('VKWebAppInit');
+        await withTimeout(window.vkBridge.send('VKWebAppInit'), 400);
         this.platform = 'vk';
         this.sdk = window.vkBridge;
         this.sdk.send('VKWebAppCheckNativeAds', { ad_format: 'reward' }).catch(() => {});
@@ -27,7 +33,7 @@ class PlatformSDKManager {
 
     if (typeof window !== 'undefined' && window.YaGames) {
       try {
-        this.sdk = await window.YaGames.init();
+        this.sdk = await withTimeout(window.YaGames.init(), 800);
         this.platform = 'yandex';
         this.initialized = true;
         return;
