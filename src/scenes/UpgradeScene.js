@@ -1,10 +1,17 @@
 import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
-import { TOOL_UPGRADES, LAB_UPGRADES, getToolCost } from '../data/upgrades.js';
+import {
+  TOOL_UPGRADES,
+  PERK_UPGRADES,
+  LAB_UPGRADES,
+  getToolCost,
+  getPerkCost
+} from '../data/upgrades.js';
 
 export class UpgradeScene extends Phaser.Scene {
   constructor() {
     super('UpgradeScene');
+    this.activeTab = 'tools'; // 'tools' | 'perks'
   }
 
   create() {
@@ -52,31 +59,31 @@ export class UpgradeScene extends Phaser.Scene {
 
     this.balanceTxt.setText(`💰 ${money} ₽  ★ ${rep}`);
 
-    // 1. Карточка апгрейда лаборатории (Ур. 1 -> 5)
+    // 1. Карточка апгрейда самой лаборатории (Ур. 1 -> 5)
     const nextLab = LAB_UPGRADES.find((l) => l.level === labLvl + 1);
     const labCard = this.add.graphics();
     labCard.fillStyle(0x292524, 1);
-    labCard.fillRoundedRect(18, 68, width - 36, 98, 12);
+    labCard.fillRoundedRect(18, 66, width - 36, 94, 12);
     labCard.lineStyle(2, 0x38bdf8, 0.85);
-    labCard.strokeRoundedRect(18, 68, width - 36, 98, 12);
+    labCard.strokeRoundedRect(18, 66, width - 36, 94, 12);
     this.listContainer.add(labCard);
 
     if (nextLab) {
       const canBuyLab = money >= nextLab.cost && rep >= nextLab.reqRep;
-      const t1 = this.add.text(30, 77, `ЛАБОРАТОРИЯ → Ур. ${nextLab.level}: ${nextLab.name}`, {
+      const t1 = this.add.text(30, 74, `ЛАБОРАТОРИЯ → Ур. ${nextLab.level}: ${nextLab.name}`, {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
         fontWeight: '700',
         color: '#38bdf8'
       });
-      const t2 = this.add.text(30, 97, 'Открывает крупные тендеры и обновляет интерьер', {
+      const t2 = this.add.text(30, 94, 'Открывает крупные тендеры и обновляет комнату', {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '11px',
         color: '#d6d3d1'
       });
       const buyLabBtn = this.add.text(
         width - 30,
-        142,
+        138,
         `РАСШИРИТЬ: ${nextLab.cost} ₽ (нужно ★${nextLab.reqRep})`,
         {
           fontFamily: '"JetBrains Mono", monospace',
@@ -99,7 +106,7 @@ export class UpgradeScene extends Phaser.Scene {
       }
       this.listContainer.add([t1, t2, buyLabBtn]);
     } else {
-      const maxTxt = this.add.text(width / 2, 117, '🏆 МАКСИМАЛЬНЫЙ УРОВЕНЬ ЛАБОРАТОРИИ (Ур. 5)', {
+      const maxTxt = this.add.text(width / 2, 113, '🏆 МАКСИМАЛЬНЫЙ УРОВЕНЬ ЛАБОРАТОРИИ (Ур. 5)', {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
         fontWeight: '700',
@@ -108,55 +115,113 @@ export class UpgradeScene extends Phaser.Scene {
       this.listContainer.add(maxTxt);
     }
 
-    // 2. Список из 6 апгрейдов оборудования
-    TOOL_UPGRADES.forEach((tool, idx) => {
-      const y = 178 + idx * 100;
-      const lvl = Storage.getUpgradeLevel(tool.key);
-      const isMax = lvl >= tool.maxLevel;
-      const cost = getToolCost(tool, lvl);
-      const canBuy = !isMax && money >= cost;
+    // 2. Переключатель вкладок: СТАНКИ | ИНТЕРЬЕР И ПЕРСОНАЛ
+    const tabY = 182;
+    const tabW = (width - 44) / 2;
 
-      const card = this.add.graphics();
-      card.fillStyle(0x292524, 1);
-      card.fillRoundedRect(18, y, width - 36, 90, 10);
-      card.lineStyle(2, 0x57534e, 0.9);
-      card.strokeRoundedRect(18, y, width - 36, 90, 10);
-
-      const title = this.add.text(30, y + 10, `${tool.name} [Ур. ${lvl}/${tool.maxLevel}]`, {
+    const makeTab = (x, label, isSelected, onSelect) => {
+      const btn = this.add.text(x, tabY, label, {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
         fontWeight: '700',
-        color: '#fef3c7'
+        color: isSelected ? '#1c1917' : '#e7e5e4',
+        backgroundColor: isSelected ? '#facc15' : '#292524',
+        padding: { x: 14, y: 8 },
+        fixedWidth: tabW,
+        align: 'center'
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+      btn.on('pointerdown', () => {
+        if (!isSelected) {
+          AudioManager.playClick();
+          onSelect();
+        }
       });
+      this.listContainer.add(btn);
+    };
 
-      const desc = this.add.text(30, y + 30, tool.desc, {
-        fontFamily: '"Rubik", sans-serif',
-        fontSize: '11px',
-        color: '#a8a29e',
-        wordWrap: { width: width - 64 }
-      });
+    makeTab(18 + tabW / 2, '⚙️ СТАНКИ И ПРИБОРЫ', this.activeTab === 'tools', () => {
+      this.activeTab = 'tools';
+      this.refreshUI();
+    });
 
-      const btnLabel = isMax ? 'МАКС.' : `УЛУЧШИТЬ · ${cost} ₽`;
-      const btn = this.add.text(width - 30, y + 68, btnLabel, {
-        fontFamily: '"JetBrains Mono", monospace',
-        fontSize: '12px',
-        fontWeight: '700',
-        color: canBuy ? '#ffffff' : '#a8a29e',
-        backgroundColor: canBuy ? '#d97706' : '#44403c',
-        padding: { x: 12, y: 5 }
-      }).setOrigin(1, 0.5).setInteractive({ useHandCursor: canBuy });
+    makeTab(width - 18 - tabW / 2, '🏢 ИНТЕРЬЕР И СТАЖЁР', this.activeTab === 'perks', () => {
+      this.activeTab = 'perks';
+      this.refreshUI();
+    });
 
-      if (canBuy) {
-        btn.on('pointerdown', () => {
+    // 3. Отрисовка выбранной вкладки
+    if (this.activeTab === 'tools') {
+      TOOL_UPGRADES.forEach((tool, idx) => {
+        const y = 212 + idx * 95;
+        const lvl = Storage.getUpgradeLevel(tool.key);
+        const isMax = lvl >= tool.maxLevel;
+        const cost = getToolCost(tool, lvl);
+        const canBuy = !isMax && money >= cost;
+
+        this.renderItemCard(y, `${tool.name} [Ур. ${lvl}/${tool.maxLevel}]`, tool.desc, isMax, cost, canBuy, () => {
           if (Storage.spendMoney(cost)) {
             Storage.upgradeTool(tool.key);
             AudioManager.playLatchSnap();
             this.refreshUI();
           }
         });
-      }
+      });
+    } else {
+      PERK_UPGRADES.forEach((perk, idx) => {
+        const y = 212 + idx * 116;
+        const lvl = Storage.getPerkLevel(perk.key);
+        const isMax = lvl >= perk.maxLevel;
+        const cost = getPerkCost(perk, lvl);
+        const canBuy = !isMax && money >= cost;
 
-      this.listContainer.add([card, title, desc, btn]);
+        this.renderItemCard(y, `${perk.name} [Ур. ${lvl}/${perk.maxLevel}]`, perk.desc, isMax, cost, canBuy, () => {
+          if (Storage.spendMoney(cost)) {
+            Storage.upgradePerk(perk.key);
+            AudioManager.playStamp();
+            this.refreshUI();
+          }
+        }, 104);
+      });
+    }
+  }
+
+  renderItemCard(y, titleStr, descStr, isMax, cost, canBuy, onBuy, cardH = 86) {
+    const { width } = this.scale;
+    const card = this.add.graphics();
+    card.fillStyle(0x292524, 1);
+    card.fillRoundedRect(18, y, width - 36, cardH, 10);
+    card.lineStyle(2, 0x57534e, 0.9);
+    card.strokeRoundedRect(18, y, width - 36, cardH, 10);
+
+    const title = this.add.text(30, y + 10, titleStr, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '13px',
+      fontWeight: '700',
+      color: '#fef3c7'
     });
+
+    const desc = this.add.text(30, y + 30, descStr, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '11px',
+      color: '#a8a29e',
+      wordWrap: { width: width - 64 }
+    });
+
+    const btnLabel = isMax ? 'МАКС.' : `КУПИТЬ · ${cost} ₽`;
+    const btn = this.add.text(width - 30, y + cardH - 20, btnLabel, {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '12px',
+      fontWeight: '700',
+      color: canBuy ? '#ffffff' : '#a8a29e',
+      backgroundColor: canBuy ? '#d97706' : '#44403c',
+      padding: { x: 12, y: 5 }
+    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: canBuy });
+
+    if (canBuy) {
+      btn.on('pointerdown', onBuy);
+    }
+
+    this.listContainer.add([card, title, desc, btn]);
   }
 }
