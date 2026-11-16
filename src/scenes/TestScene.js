@@ -53,7 +53,6 @@ export class TestScene extends Phaser.Scene {
       color: this.isFrozenRock ? '#38bdf8' : '#a8a29e'
     }).setOrigin(0.5);
 
-    // Индикатор температуры для вечной мерзлоты
     this.tempBadge = null;
     if (this.isFrozenRock) {
       this.tempBadge = this.add.text(width - 24, 108, '❄️ -12.0°C', {
@@ -146,7 +145,7 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 1. ОДНООСНОЕ СЖАТИЕ (с учётом хрупкого гранита)
+  // 1. ОДНООСНОЕ СЖАТИЕ (с остановкой в красной зоне и учётом хрупкого гранита)
   // =========================================================================
   buildUniaxialTest() {
     const { width, height } = this.scale;
@@ -250,6 +249,13 @@ export class TestScene extends Phaser.Scene {
         const acc = Math.max(15, (load / targetMin) * 65);
         AudioManager.playClick();
         this.completeCurrentTest(acc, 'НЕДОГРУЗ: КЕРН НЕ ДОВЕДЁН ДО ПИКА');
+      } else {
+        // Остановились в красной зоне передержки (не доводя до полного взрыва в пыль)
+        const over = (load - targetMax) / Math.max(0.05, 1 - targetMax);
+        const acc = Math.max(32, Math.round(68 - over * 34));
+        AudioManager.playRockCrack();
+        this.particles.emitParticleAt(cx, cy + 30, 22);
+        this.completeCurrentTest(acc, 'ПЕРЕДЕРЖКА В КРАСНОЙ ЗОНЕ!');
       }
     };
 
@@ -495,7 +501,7 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 5. ВОДОПОГЛОЩЕНИЕ И СУШКА (Весы + Пропитка в ванне)
+  // 5. ВОДОПОГЛОЩЕНИЕ И СУШКА
   // =========================================================================
   buildWaterSaturationTest() {
     const { width, height } = this.scale;
@@ -516,14 +522,12 @@ export class TestScene extends Phaser.Scene {
     const cx = width / 2;
     const cy = 300;
 
-    // Лабораторные весы и стеклянная ёмкость с водой
     const scaleBase = this.add.graphics();
     scaleBase.fillStyle(0x3f3f46, 1);
     scaleBase.fillRoundedRect(cx - 110, cy + 68, 220, 44, 8);
     scaleBase.fillStyle(0x0f172a, 1);
     scaleBase.fillRoundedRect(cx - 75, cy + 76, 150, 28, 5);
 
-    // Ванночка и поднимающийся уровень воды
     const tank = this.add.graphics();
     tank.lineStyle(3, 0x38bdf8, 0.85);
     tank.strokeRoundedRect(cx - 75, cy - 70, 150, 134, 10);
@@ -540,7 +544,6 @@ export class TestScene extends Phaser.Scene {
       color: '#38bdf8'
     }).setOrigin(0.5);
 
-    // Шкала насыщения
     const barW = 320;
     const barX = width / 2 - barW / 2;
     const barY = 445;
@@ -609,7 +612,7 @@ export class TestScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // 6. МОРОЗОСТОЙКОСТЬ (Криокамера F200 с охлаждением до -20°C)
+  // 6. МОРОЗОСТОЙКОСТЬ (Криокамера F200)
   // =========================================================================
   buildFrostResistanceTest() {
     const { width, height } = this.scale;
@@ -630,7 +633,6 @@ export class TestScene extends Phaser.Scene {
     const cx = width / 2;
     const cy = 305;
 
-    // Криокамера с толстыми термостенками
     const chamber = this.add.graphics();
     chamber.fillStyle(0x0c4a6e, 1);
     chamber.fillRoundedRect(cx - 90, cy - 105, 180, 195, 16);
@@ -641,7 +643,6 @@ export class TestScene extends Phaser.Scene {
       .setScale(1.3)
       .setTint(this.contract.rock.color);
 
-    // Слой инея поверх керна
     const frostOverlay = this.add.rectangle(cx, cy, 86, 118, 0xe0f2fe, 0);
 
     const barW = 320;
@@ -669,7 +670,7 @@ export class TestScene extends Phaser.Scene {
     ]);
 
     let phase = 'cool';
-    let coldRatio = 0; // 0 (+18°C) -> 1 (-25°C)
+    let coldRatio = 0;
     let holdTimer = 0;
     const holdReq = 2.5;
     let inZoneTime = 0;
@@ -1009,7 +1010,6 @@ export class TestScene extends Phaser.Scene {
   update(time, delta) {
     const dt = delta / 1000;
 
-    // Тик оттаивания вечной мерзлоты
     if (this.isFrozenRock && this.tempBadge) {
       const cryoLvl = Storage.getPerkLevel('cryobox');
       const warmRate = 0.42 / (1 + cryoLvl * 0.65);
