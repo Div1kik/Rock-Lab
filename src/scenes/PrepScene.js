@@ -14,15 +14,13 @@ export class PrepScene extends Phaser.Scene {
     this.sawSoundTimer = 0;
   }
 
-  // Формируем список образцов с реальными размерами ГОСТ под назначенные испытания
   buildSpecimenSpecs(tests) {
-    const hasCompression = tests.includes('uniaxial') || tests.includes('triaxial');
-    const hasShear = tests.includes('shear') || tests.includes('shear_load');
     const specs = [];
 
-    if (hasCompression) {
+    if (tests.includes('uniaxial') || tests.includes('triaxial') || tests.includes('ultrasonic')) {
       specs.push({
-        label: 'Цилиндр под сжатие',
+        mode: 'cylinder',
+        label: 'Цилиндр (100×50 мм)',
         targetH: 100.0,
         targetD: 50.0,
         sawKeepW: 165,
@@ -32,21 +30,34 @@ export class PrepScene extends Phaser.Scene {
       });
     }
 
-    if (hasShear) {
+    if (tests.includes('shear_cut') || tests.includes('shear_load')) {
       specs.push({
-        label: 'Кольцо под сдвиг',
+        mode: 'two_discs',
+        label: 'Две шайбы для распила (2×35×70 мм)',
         targetH: 35.0,
         targetD: 70.0,
-        sawKeepW: 85,
+        sawKeepW: 72,
         sawCoreH: 86,
         calCoreW: 66,
         calCoreH: 112
       });
     }
 
+    if (tests.includes('shear_crack')) {
+      specs.push({
+        mode: 'split_core',
+        label: 'Раскол керна под сдвиг по трещине',
+        targetH: 70.0,
+        targetD: 70.0,
+        calCoreW: 110,
+        calCoreH: 110
+      });
+    }
+
     if (!specs.length) {
       specs.push({
-        label: 'Стандартный керн',
+        mode: 'cylinder',
+        label: 'Цилиндр (100×50 мм)',
         targetH: 100.0,
         targetD: 50.0,
         sawKeepW: 165,
@@ -72,14 +83,14 @@ export class PrepScene extends Phaser.Scene {
 
     this.stepTxt = this.add.text(width / 2, 26, '', {
       fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '13px',
+      fontSize: '12px',
       fontWeight: '700',
       color: '#38bdf8'
     }).setOrigin(0.5);
 
     this.titleTxt = this.add.text(width / 2, 54, '', {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '20px',
+      fontSize: '19px',
       fontWeight: '700',
       color: '#fef3c7'
     }).setOrigin(0.5);
@@ -114,29 +125,34 @@ export class PrepScene extends Phaser.Scene {
     }
 
     const spec = this.prepSpecs[this.currentSpecIdx];
-    this.stepTxt.setText(
-      `ЭТАП 2: ОБРАЗЕЦ ${this.currentSpecIdx + 1} ИЗ ${this.prepSpecs.length} (${spec.label.toUpperCase()})`
-    );
-    this.subTxt.setText(
-      `${this.contract.rock.name} · Требуемый размер ГОСТ: H=${spec.targetH} мм × D=${spec.targetD} мм`
-    );
+    this.stepTxt.setText(`ЭТАП 2: ЗАГОТОВКА ${this.currentSpecIdx + 1}/${this.prepSpecs.length}`);
+    this.subTxt.setText(`${this.contract.rock.name} · ${spec.label}`);
 
-    this.startSawPhase(spec);
+    if (spec.mode === 'split_core') {
+      this.startSplitCrackPhase(spec);
+    } else {
+      this.startSawPhase(spec);
+    }
   }
 
   // =========================================================================
-  // ФАЗА 1: ОТРЕЗНОЙ СТАНОК С ТИСКАМИ, ОХЛАЖДЕНИЕМ И РЕЛЬСОВОЙ ПИЛОЙ
+  // ФАЗА 1А: ОТРЕЗНОЙ СТАНОК (1 рез для цилиндра ИЛИ 2 реза для двух шайб!)
   // =========================================================================
   startSawPhase(spec) {
     const { width, height } = this.scale;
     this.stageContainer.removeAll(true);
     const sawLvl = Storage.getUpgradeLevel('saw');
+    const cutsNeeded = spec.mode === 'two_discs' ? 2 : 1;
+    let cutsDone = 0;
+
     this.titleTxt.setText(`ОТРЕЗНОЙ СТАНОК [Ур. ${sawLvl}]`);
 
     const hint = this.add.text(
       width / 2,
       128,
-      `Зажми подачу — отрежь образец по разметке\nпод размер ${spec.targetH}×${spec.targetD} мм`,
+      cutsNeeded === 2
+        ? 'Напилить ДВЕ шайбы (35×70 мм) для сдвиговой обоймы!\nЗажми подачу пилы для реза №1 и №2'
+        : `Зажми подачу — отрежь цилиндр по разметке (${spec.targetH}×${spec.targetD} мм)`,
       {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
@@ -148,47 +164,56 @@ export class PrepScene extends Phaser.Scene {
     const cx = width / 2;
     const cy = 335;
 
-    // 1. Массивная станина и тиски фиксации керна
     const bed = this.add.graphics();
     bed.fillStyle(0x3f3f46, 1);
     bed.fillRoundedRect(cx - 185, cy + 44, 370, 34, 8);
-    // Левый упор и винтовой зажим тисков
     bed.fillStyle(0x52525b, 1);
     bed.fillRect(cx - 165, cy - 38, 24, 82);
     bed.fillStyle(0x94a3b8, 1);
     bed.fillRect(cx - 182, cy - 8, 17, 10);
     bed.fillCircle(cx - 182, cy - 3, 12);
 
-    // 2. Длинный керн из ящика (рабочая часть + отрезаемый кусок)
-    const keepW = spec.sawKeepW;
-    const scrapW = 270 - keepW;
+    const discW = spec.sawKeepW;
     const coreH = spec.sawCoreH;
     const leftX = cx - 140;
-    const cutX = leftX + keepW;
     const coreCenterY = cy + 44 - coreH / 2;
 
-    const mainCore = this.add.rectangle(leftX + keepW / 2, coreCenterY, keepW, coreH, this.contract.rock.color)
+    const cut1X = leftX + discW;
+    const cut2X = leftX + discW * 2;
+
+    const disc1 = this.add.rectangle(leftX + discW / 2, coreCenterY, discW, coreH, this.contract.rock.color)
       .setStrokeStyle(2, 0x1c1917);
 
-    const scrapCore = this.add.rectangle(cutX + scrapW / 2, coreCenterY, scrapW, coreH, this.contract.rock.color)
-      .setStrokeStyle(2, 0x1c1917);
+    const disc2 = this.add.rectangle(
+      leftX + discW + (cutsNeeded === 2 ? discW / 2 : (270 - discW) / 2),
+      coreCenterY,
+      cutsNeeded === 2 ? discW : 270 - discW,
+      coreH,
+      this.contract.rock.color
+    ).setStrokeStyle(2, 0x1c1917);
 
-    // Линия разметки (лазерный луч на Ур. 3+, иначе мелок)
-    const cutLine = this.add.graphics();
-    if (sawLvl >= 3) {
-      cutLine.lineStyle(2, 0xef4444, 0.9);
-      cutLine.lineBetween(cutX, cy - 75, cutX, cy + 44);
-    } else {
-      cutLine.lineStyle(3, 0x22c55e, 0.95);
-      for (let y = cy - 46; y < cy + 44; y += 12) {
-        cutLine.lineBetween(cutX, y, cutX, y + 6);
-      }
-    }
+    const scrapW = Math.max(40, 270 - discW * 2);
+    const scrap = cutsNeeded === 2
+      ? this.add.rectangle(cut2X + scrapW / 2, coreCenterY, scrapW, coreH, this.contract.rock.color)
+          .setStrokeStyle(2, 0x1c1917)
+      : null;
 
-    // 3. Рельсовая направляющая
+    // Разметки реза
+    const cutLines = this.add.graphics();
+    const drawCutMarks = () => {
+      cutLines.clear();
+      const targets = cutsNeeded === 2 ? [cut1X, cut2X] : [cut1X];
+      targets.forEach((tx, idx) => {
+        const done = idx < cutsDone;
+        cutLines.lineStyle(sawLvl >= 3 ? 2 : 3, done ? 0x4ade80 : sawLvl >= 3 ? 0xef4444 : 0x22c55e, 0.95);
+        cutLines.lineBetween(tx, cy - 55, tx, cy + 44);
+      });
+    };
+    drawCutMarks();
+
+    // Рельса
     const railY = cy - 94;
     const railStartX = cx - 155;
-    const railEndX = cutX;
     const railG = this.add.graphics();
     railG.fillStyle(0x52525b, 1);
     railG.fillRect(cx - 176, railY - 6, 16, 144);
@@ -196,10 +221,9 @@ export class PrepScene extends Phaser.Scene {
     railG.fillStyle(0x71717a, 1);
     railG.fillRoundedRect(cx - 180, railY - 8, 360, 16, 4);
 
-    // 4. Каретка с циркулярной пилой и форсункой охлаждения
+    // Каретка пилы
     const carriageColors = [0xd97706, 0xeab308, 0x22c55e, 0x38bdf8, 0xa855f7, 0xf43f5e];
     const cColor = carriageColors[Math.min(carriageColors.length - 1, sawLvl - 1)];
-
     const sawContainer = this.add.container(railStartX, railY);
     const bladeOffsetY = 94;
 
@@ -209,22 +233,17 @@ export class PrepScene extends Phaser.Scene {
     teeth.lineStyle(2, 0x334155, 1);
     teeth.lineBetween(-36, 0, 36, 0);
     teeth.lineBetween(0, -36, 0, 36);
-    teeth.lineBetween(-25, -25, 25, 25);
-    teeth.lineBetween(-25, 25, 25, -25);
 
     const carriageBody = this.add.graphics();
     carriageBody.fillStyle(0x27272a, 1);
     carriageBody.fillRoundedRect(-26, -18, 52, 36, 6);
     carriageBody.fillStyle(cColor, 1);
     carriageBody.fillRoundedRect(-22, 16, 44, 48, 6);
-    // Трубка подачи воды на диск
     carriageBody.fillStyle(0x38bdf8, 1);
     carriageBody.fillRect(-30, 32, 8, 36);
-    // Защитный кожух диска
     carriageBody.fillStyle(cColor, 1);
     carriageBody.slice(0, bladeOffsetY, 48, Phaser.Math.DegToRad(180), Phaser.Math.DegToRad(360), false);
     carriageBody.fillPath();
-
     sawContainer.add([blade, teeth, carriageBody]);
 
     const barW = 280;
@@ -235,64 +254,159 @@ export class PrepScene extends Phaser.Scene {
     barBg.fillRoundedRect(barX, barY, barW, 22, 6);
     const barFill = this.add.rectangle(barX + 3, barY + 3, 2, 16, cColor).setOrigin(0, 0);
 
-    const btn = this.createActionBtn(width / 2, height - 110, 310, 74, 'УДЕРЖИВАТЬ: ПОДАЧА ПИЛЫ ПО РЕЛЬСЕ');
+    const btn = this.createActionBtn(
+      width / 2,
+      height - 110,
+      310,
+      74,
+      cutsNeeded === 2 ? 'УДЕРЖИВАТЬ: ОТПИЛИТЬ ШАЙБУ №1' : 'УДЕРЖИВАТЬ: ОТРЕЗАТЬ КЕРН'
+    );
 
-    this.stageContainer.add([
-      hint, bed, mainCore, scrapCore, cutLine, railG, sawContainer, barBg, barFill, btn.container
-    ]);
+    const items = [hint, bed, disc1, disc2, cutLines, railG, sawContainer, barBg, barFill, btn.container];
+    if (scrap) items.splice(4, 0, scrap);
+    this.stageContainer.add(items);
 
     let cutProgress = 0;
     let cutting = false;
-    let finished = false;
-    const cutSpeed = 0.48 + (sawLvl - 1) * 0.11;
+    let locked = false;
+    const cutSpeed = 0.52 + (sawLvl - 1) * 0.11;
 
-    btn.zone.on('pointerdown', () => { if (!finished) cutting = true; });
+    btn.zone.on('pointerdown', () => { if (!locked) cutting = true; });
     btn.zone.on('pointerup', () => { cutting = false; });
     btn.zone.on('pointerout', () => { cutting = false; });
 
     this.currentUpdate = (dt) => {
-      if (finished) return;
+      if (locked) return;
       teeth.angle += cutting ? 860 * dt : 160 * dt;
 
       if (cutting) {
+        const currentTargetX = cutsDone === 0 ? cut1X : cut2X;
+        const startX = cutsDone === 0 ? railStartX : cut1X;
+
         cutProgress = Math.min(1, cutProgress + cutSpeed * dt);
-        sawContainer.x = railStartX + (railEndX - railStartX) * cutProgress;
+        sawContainer.x = startX + (currentTargetX - startX) * cutProgress;
         barFill.width = Math.max(2, (barW - 6) * cutProgress);
 
         this.sawSoundTimer += dt * 1000;
-        if (this.sawSoundTimer >= 60) {
+        if (this.sawSoundTimer >= 65) {
           this.sawSoundTimer = 0;
           AudioManager.playSawCut();
-          if (cutProgress > 0.55) {
+          if (cutProgress > 0.5) {
             this.particles.emitParticleAt(sawContainer.x, coreCenterY, 5);
           }
         }
 
         if (cutProgress >= 1) {
-          finished = true;
           cutting = false;
+          cutsDone += 1;
           AudioManager.playRockCrack();
-          this.particles.emitParticleAt(cutX, coreCenterY, 20);
-          this.prepScores.push(96);
+          this.particles.emitParticleAt(currentTargetX, coreCenterY, 18);
+          drawCutMarks();
 
-          this.tweens.add({
-            targets: scrapCore,
-            x: scrapCore.x + 35,
-            y: scrapCore.y + 130,
-            angle: 28,
-            alpha: 0,
-            duration: 420,
-            ease: 'Quad.easeIn'
-          });
+          if (cutsDone < cutsNeeded) {
+            // Первый рез из двух готов -> переходим ко второй шайбе
+            cutProgress = 0;
+            barFill.width = 2;
+            btn.setLabel('УДЕРЖИВАТЬ: ОТПИЛИТЬ ШАЙБУ №2');
+          } else {
+            locked = true;
+            this.prepScores.push(96);
+            const dropTarget = cutsNeeded === 2 ? scrap : disc2;
+            if (dropTarget) {
+              this.tweens.add({
+                targets: dropTarget,
+                x: dropTarget.x + 35,
+                y: dropTarget.y + 130,
+                angle: 28,
+                alpha: 0,
+                duration: 400,
+                ease: 'Quad.easeIn'
+              });
+            }
 
-          this.tweens.add({
-            targets: sawContainer,
-            x: railStartX,
-            duration: 360,
-            ease: 'Cubic.easeOut'
-          });
+            this.tweens.add({
+              targets: sawContainer,
+              x: railStartX,
+              duration: 340
+            });
 
-          this.time.delayedCall(740, () => {
+            this.time.delayedCall(700, () => {
+              this.startMeasurePhase(spec);
+            });
+          }
+        }
+      }
+    };
+  }
+
+  // =========================================================================
+  // ФАЗА 1Б: ГИДРОКЛИН-КОЛУН (Раскол керна по естественной трещине)
+  // =========================================================================
+  startSplitCrackPhase(spec) {
+    const { width, height } = this.scale;
+    this.stageContainer.removeAll(true);
+    this.titleTxt.setText('ГИДРАВЛИЧЕСКИЙ КОЛУН (СКОЛ)');
+
+    const hint = this.add.text(
+      width / 2,
+      128,
+      'Зажми подачу клина, чтобы расколоть керн пополам\nдля испытания среза по неровной трещине!',
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '13px',
+        color: '#e7e5e4',
+        align: 'center'
+      }
+    ).setOrigin(0.5);
+
+    const cx = width / 2;
+    const cy = 335;
+
+    // Нижняя опора-призма и две половинки керна
+    const anvil = this.add.rectangle(cx, cy + 56, 220, 26, 0x3f3f46);
+    const leftHalf = this.add.rectangle(cx - 46, cy + 8, 92, 70, this.contract.rock.color)
+      .setStrokeStyle(2, 0x1c1917);
+    const rightHalf = this.add.rectangle(cx + 46, cy + 8, 92, 70, this.contract.rock.color)
+      .setStrokeStyle(2, 0x1c1917);
+
+    // Стальной клин-нож сверху
+    const wedge = this.add.triangle(cx, cy - 82, 0, 44, -22, 0, 22, 0, 0xfacc15);
+    const ram = this.add.rectangle(cx, cy - 115, 24, 50, 0x94a3b8);
+
+    const btn = this.createActionBtn(width / 2, height - 110, 310, 74, 'УДЕРЖИВАТЬ: РАСКОЛОТЬ КЕРН');
+
+    this.stageContainer.add([hint, anvil, leftHalf, rightHalf, ram, wedge, btn.container]);
+
+    let pressure = 0;
+    let holding = false;
+    let splitDone = false;
+
+    btn.zone.on('pointerdown', () => { if (!splitDone) holding = true; });
+    btn.zone.on('pointerup', () => { holding = false; AudioManager.stopPressHum(); });
+    btn.zone.on('pointerout', () => { holding = false; AudioManager.stopPressHum(); });
+
+    this.currentUpdate = (dt) => {
+      if (splitDone) return;
+      if (holding) {
+        pressure = Math.min(1, pressure + 0.72 * dt);
+        AudioManager.updatePressHum(pressure);
+        wedge.y = cy - 82 + pressure * 42;
+        ram.y = wedge.y - 33;
+
+        if (pressure >= 1) {
+          splitDone = true;
+          holding = false;
+          AudioManager.stopPressHum();
+          AudioManager.playRockCrack();
+          this.cameras.main.shake(160, 0.01);
+          this.particles.emitParticleAt(cx, cy + 8, 22);
+          this.prepScores.push(95);
+
+          // Половинки расходятся со сколом
+          this.tweens.add({ targets: leftHalf, x: cx - 64, angle: -8, duration: 280 });
+          this.tweens.add({ targets: rightHalf, x: cx + 64, angle: 8, duration: 280 });
+
+          this.time.delayedCall(750, () => {
             this.startMeasurePhase(spec);
           });
         }
@@ -301,7 +415,7 @@ export class PrepScene extends Phaser.Scene {
   }
 
   // =========================================================================
-  // ФАЗА 2: ЗАМЕР ГАБАРИТОВ ПОД ВЫБРАННЫЙ ТИП ИСПЫТАНИЯ
+  // ФАЗА 2: ЗАМЕР ГАБАРИТОВ ШТАНГЕНЦИРКУЛЕМ
   // =========================================================================
   startMeasurePhase(spec) {
     const { width, height } = this.scale;
@@ -339,7 +453,6 @@ export class PrepScene extends Phaser.Scene {
     const core = this.add.rectangle(cx, cy + 16, coreW, coreH, this.contract.rock.color)
       .setStrokeStyle(2, 0x1c1917);
 
-    // Горизонтальный штангенциркуль (высота цилиндра / толщина кольца H)
     const hCaliperGroup = this.add.container(0, 0);
     const beamY = cy - coreH / 2 - 22;
     const beamStartX = cx - coreW / 2 - 12;
@@ -365,7 +478,6 @@ export class PrepScene extends Phaser.Scene {
     hSlider.add(hSliderG);
     hCaliperGroup.add([hBeam, hSlider]);
 
-    // Вертикальный штангенциркуль (диаметр D)
     const vCaliperGroup = this.add.container(0, 0).setVisible(false);
     const vBeamX = cx - coreW / 2 - 26;
     const vBeamTopY = cy + 16 - coreH / 2 - 12;
@@ -391,7 +503,6 @@ export class PrepScene extends Phaser.Scene {
     vSlider.add(vSliderG);
     vCaliperGroup.add([vBeam, vSlider]);
 
-    // Цифровое табло
     const lcdBg = this.add.graphics();
     lcdBg.fillStyle(0x0f172a, 1);
     lcdBg.fillRoundedRect(cx - 145, 448, 290, 54, 10);
@@ -453,7 +564,7 @@ export class PrepScene extends Phaser.Scene {
         resultSummary.setText(`✓ H = ${measuredH} мм  |  D = ${measuredD} мм — Образец готов!`);
         this.particles.emitParticleAt(cx, cy + 16, 14);
 
-        this.time.delayedCall(850, () => {
+        this.time.delayedCall(800, () => {
           this.currentSpecIdx += 1;
           this.startSpecimenPrep();
         });
