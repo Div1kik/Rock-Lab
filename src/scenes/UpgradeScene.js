@@ -169,7 +169,7 @@ export class UpgradeScene extends Phaser.Scene {
           },
           88,
           btnText,
-          item.key // Ключ для кнопки [? ГОСТ]
+          item.key
         );
       });
     } else if (this.activeTab === 'tools') {
@@ -180,15 +180,8 @@ export class UpgradeScene extends Phaser.Scene {
         const cost = getToolCost(tool, lvl);
         const canBuy = !isMax && money >= cost;
 
-        const isNotBought = tool.isPurchaseFirst && lvl === 0;
-        const titleStr = isNotBought
-          ? `${tool.name} [НЕ КУПЛЕН]`
-          : `${tool.name} [Ур. ${lvl}/${tool.maxLevel}]`;
-        const btnLabel = isMax
-          ? 'МАКС.'
-          : isNotBought
-            ? `КУПИТЬ · ${cost} ₽`
-            : `УЛУЧШИТЬ · ${cost} ₽`;
+        const titleStr = `${tool.name} [Ур. ${lvl}/${tool.maxLevel}]`;
+        const btnLabel = isMax ? 'МАКС.' : `УЛУЧШИТЬ · ${cost} ₽`;
 
         this.renderItemCard(
           y,
@@ -249,7 +242,6 @@ export class UpgradeScene extends Phaser.Scene {
       wordWrap: { width: width - 64 }
     });
 
-    // Кнопка [? ГОСТ] слева внизу карточки (если передан guideKey стенда)
     if (guideKey) {
       const infoBtn = this.add.text(30, y + cardH - 16, '? ГОСТ', {
         fontFamily: '"JetBrains Mono", monospace',
