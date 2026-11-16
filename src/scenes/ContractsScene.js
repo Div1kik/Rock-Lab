@@ -10,41 +10,24 @@ export class ContractsScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.scale;
-    const state = Storage.getState();
+    const labLvl = Storage.getLabLevel();
+    const completed = Storage.getState().completedContracts;
 
     const bg = this.add.graphics();
-    bg.fillStyle(0x1c1917, 1);
+    bg.fillStyle(0x181e29, 1);
     bg.fillRect(0, 0, width, height);
 
-    bg.fillStyle(0x451a03, 0.55);
-    bg.fillRoundedRect(14, 70, width - 28, height - 144, 14);
-    bg.lineStyle(3, 0x92400e, 0.9);
-    bg.strokeRoundedRect(14, 70, width - 28, height - 144, 14);
+    const header = this.add.graphics();
+    header.fillStyle(0x14161b, 1);
+    header.fillRect(0, 0, width, 64);
 
-    this.createHeader(width);
-
-    if (!this.contracts.length) {
-      this.contracts = generateContractBoard(state.labLevel, state.completedContracts, 3);
-    }
-
-    this.cardsContainer = this.add.container(0, 0);
-    this.renderCards();
-
-    this.createBottomBar(width, height);
-  }
-
-  createHeader(width) {
-    const g = this.add.graphics();
-    g.fillStyle(0x141210, 1);
-    g.fillRect(0, 0, width, 60);
-
-    const backBtn = this.add.text(18, 16, '← В ЛАБУ', {
+    const backBtn = this.add.text(20, 18, '← В ЛАБУ', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '15px',
       fontWeight: '700',
       color: '#fde68a',
-      backgroundColor: '#292524',
-      padding: { x: 10, y: 6 }
+      backgroundColor: '#27272a',
+      padding: { x: 12, y: 7 }
     }).setInteractive({ useHandCursor: true });
 
     backBtn.on('pointerdown', () => {
@@ -52,128 +35,144 @@ export class ContractsScene extends Phaser.Scene {
       this.scene.start('MenuScene');
     });
 
-    this.add.text(width - 18, 19, `💰 ${Storage.getMoney()} ₽`, {
+    this.add.text(width - 20, 22, `Ур. ${labLvl} · ★ ${Storage.getReputation()}`, {
       fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '17px',
+      fontSize: '15px',
       fontWeight: '700',
-      color: '#facc15'
+      color: '#38bdf8'
     }).setOrigin(1, 0);
+
+    this.add.text(width / 2, 86, 'ДОСКА ТЕХНИЧЕСКИХ ЗАДАНИЙ', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '18px',
+      fontWeight: '700',
+      color: '#fef3c7'
+    }).setOrigin(0.5);
+
+    this.cardsContainer = this.add.container(0, 0);
+    this.contracts = generateContractBoard(labLvl, completed, 3);
+    this.renderCards();
+
+    const refreshBtn = this.add.text(width / 2, height - 42, '🔄 ОБНОВИТЬ ЗАКАЗЫ (БЕСПЛАТНО)', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '13px',
+      fontWeight: '700',
+      color: '#e2e8f0',
+      backgroundColor: '#334155',
+      padding: { x: 18, y: 10 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    refreshBtn.on('pointerdown', () => {
+      AudioManager.playClick();
+      this.contracts = generateContractBoard(labLvl, completed, 3);
+      this.renderCards();
+    });
   }
 
   renderCards() {
     this.cardsContainer.removeAll(true);
     const { width } = this.scale;
-    const startY = 84;
-    const cardH = 182;
-    const gap = 12;
 
     this.contracts.forEach((cnt, idx) => {
-      const y = startY + idx * (cardH + gap);
-      const card = this.createContractCard(24, y, width - 48, cardH, cnt);
-      this.cardsContainer.add(card);
-    });
-  }
+      const y = 114 + idx * 204;
+      const cardW = width - 36;
+      const cardH = 190;
+      const x = 18;
 
-  createContractCard(x, y, w, h, cnt) {
-    const container = this.add.container(x, y);
-    const g = this.add.graphics();
+      const cardBg = this.add.graphics();
+      const isAudit = Boolean(cnt.isAudit);
+      const paperColor = isAudit ? 0xdbeafe : cnt.isVip ? 0xfde68a : 0xfef3c7;
+      const borderColor = isAudit ? 0x1d4ed8 : cnt.isVip ? 0xd97706 : 0x78350f;
 
-    g.fillStyle(cnt.isVip ? 0xfffbeb : 0xfef3c7, 1);
-    g.fillRoundedRect(0, 0, w, h, 10);
-    g.lineStyle(cnt.isVip ? 3 : 2, cnt.isVip ? 0xdc2626 : 0xb45309, 0.95);
-    g.strokeRoundedRect(0, 0, w, h, 10);
+      cardBg.fillStyle(paperColor, 1);
+      cardBg.fillRoundedRect(x, y, cardW, cardH, 10);
+      cardBg.lineStyle(isAudit || cnt.isVip ? 3 : 2, borderColor, 1);
+      cardBg.strokeRoundedRect(x, y, cardW, cardH, 10);
 
-    g.fillStyle(cnt.isVip ? 0xb91c1c : 0x78350f, 1);
-    g.fillRoundedRect(12, 10, 106, 22, 6);
+      cardBg.fillStyle(borderColor, 1);
+      cardBg.fillRect(x, y + 14, cardW, 28);
 
-    const tierTxt = this.add.text(65, 21, `РАНГ ${cnt.tier} · 📦×${cnt.boxesCount}`, {
-      fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '11px',
-      fontWeight: '700',
-      color: '#fef3c7'
-    }).setOrigin(0.5);
+      const compText = this.add.text(x + 14, y + 20, `${cnt.company} · Ур.${cnt.tier}`, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '12px',
+        fontWeight: '700',
+        color: '#ffffff'
+      });
 
-    const rewardTxt = this.add.text(w - 14, 12, `+${cnt.reward} ₽  ★+${cnt.repReward}`, {
-      fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '14px',
-      fontWeight: '700',
-      color: '#15803d'
-    }).setOrigin(1, 0);
+      const rewardText = this.add.text(x + cardW - 14, y + 20, `+${cnt.reward} ₽  ★+${cnt.repReward}`, {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '13px',
+        fontWeight: '700',
+        color: '#facc15'
+      }).setOrigin(1, 0);
 
-    const titleTxt = this.add.text(14, 36, cnt.title, {
-      fontFamily: '"Rubik", sans-serif',
-      fontSize: '16px',
-      fontWeight: '700',
-      color: cnt.isVip ? '#991b1b' : '#1c1917'
-    });
+      const titleText = this.add.text(x + 14, y + 50, cnt.title, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '16px',
+        fontWeight: '700',
+        color: isAudit ? '#1e3a8a' : '#1c1917'
+      });
 
-    const traitColor = cnt.rock.trait === 'frozen' ? '#0284c9' : cnt.rock.trait === 'brittle' ? '#b91c1c' : '#57534e';
-    const traitTxt = this.add.text(14, 58, `${cnt.rock.name} · ${cnt.rock.traitLabel}`, {
-      fontFamily: '"Rubik", sans-serif',
-      fontSize: '12px',
-      fontWeight: '700',
-      color: traitColor
-    });
+      const rockLine = isAudit
+        ? `Контрольный керн: ${cnt.rock.name} · Допуск погрешности ≤ ${cnt.maxAllowedErrorPct}%`
+        : `Порода: ${cnt.rock.name} (${cnt.rock.traitLabel})`;
 
-    const normTxt = this.add.text(14, 78, `Норма объекта: ≥ ${cnt.reqMpa} МПа`, {
-      fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '12px',
-      fontWeight: '700',
-      color: '#b45309'
-    });
+      const rockText = this.add.text(x + 14, y + 73, rockLine, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
+        fontWeight: '600',
+        color: isAudit ? '#1d4ed8' : '#44403c'
+      });
 
-    const testsNames = cnt.tests.map((t) => TEST_CATALOG[t]?.short || t).join(' • ');
-    const testsTxt = this.add.text(14, 98, `Испытания: ${testsNames}`, {
-      fontFamily: '"Rubik", sans-serif',
-      fontSize: '11px',
-      fontWeight: '600',
-      color: '#292524',
-      wordWrap: { width: w - 28 }
-    });
+      const normText = this.add.text(
+        x + 14,
+        y + 92,
+        `Норма объекта: ≥ ${cnt.reqMpa} МПа  |  Ящиков: ${cnt.boxesCount} шт.`,
+        {
+          fontFamily: '"JetBrains Mono", monospace',
+          fontSize: '11px',
+          fontWeight: '700',
+          color: '#b45309'
+        }
+      );
 
-    const btnW = w - 28;
-    const btnH = 34;
-    const btnBg = this.add.graphics();
-    btnBg.fillStyle(cnt.isVip ? 0xdc2626 : 0xd97706, 1);
-    btnBg.fillRoundedRect(14, h - btnH - 10, btnW, btnH, 8);
+      const testNames = cnt.tests.map((k) => TEST_CATALOG[k]?.short || k).join(' + ');
+      const testsText = this.add.text(x + 14, y + 112, `Испытания: ${testNames}`, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
+        fontWeight: '600',
+        color: '#1e293b',
+        wordWrap: { width: cardW - 28 }
+      });
 
-    const btnTxt = this.add.text(w / 2, h - btnH / 2 - 10, 'ПРИНЯТЬ КЕРНЫ В РАБОТУ →', {
-      fontFamily: '"Rubik", sans-serif',
-      fontSize: '13px',
-      fontWeight: '700',
-      color: '#ffffff'
-    }).setOrigin(0.5);
+      const btnW = 190;
+      const btnH = 36;
+      const btnX = x + cardW - btnW - 12;
+      const btnY = y + cardH - btnH - 10;
 
-    container.add([g, tierTxt, rewardTxt, titleTxt, traitTxt, normTxt, testsTxt, btnBg, btnTxt]);
+      const btnBg = this.add.graphics();
+      btnBg.fillStyle(isAudit ? 0x1d4ed8 : 0x15803d, 1);
+      btnBg.fillRoundedRect(btnX, btnY, btnW, btnH, 8);
 
-    const hitZone = this.add.zone(w / 2, h - btnH / 2 - 10, btnW, btnH).setInteractive({ useHandCursor: true });
-    container.add(hitZone);
+      const btnLabel = this.add.text(btnX + btnW / 2, btnY + btnH / 2, isAudit ? 'ПРОЙТИ АУДИТ →' : 'ВЗЯТЬ В РАБОТУ →', {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '13px',
+        fontWeight: '700',
+        color: '#ffffff'
+      }).setOrigin(0.5);
 
-    hitZone.on('pointerdown', () => {
-      AudioManager.playStamp();
-      Storage.setActiveContract(cnt);
-      this.contracts = this.contracts.filter((item) => item.id !== cnt.id);
-      this.scene.start('UnpackScene', { contract: cnt });
-    });
+      const hitZone = this.add.zone(btnX + btnW / 2, btnY + btnH / 2, btnW, btnH)
+        .setInteractive({ useHandCursor: true });
 
-    return container;
-  }
+      hitZone.on('pointerdown', () => {
+        AudioManager.playStamp();
+        Storage.setActiveContract(cnt);
+        this.scene.start('UnpackScene', { contract: cnt });
+      });
 
-  createBottomBar(width, height) {
-    const btn = this.add.text(width / 2, height - 34, '🔄 ОБНОВИТЬ ТЕНДЕРЫ', {
-      fontFamily: '"Rubik", sans-serif',
-      fontSize: '14px',
-      fontWeight: '700',
-      color: '#fef3c7',
-      backgroundColor: '#292524',
-      padding: { x: 18, y: 10 }
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-
-    btn.on('pointerdown', () => {
-      AudioManager.playClick();
-      const state = Storage.getState();
-      this.contracts = generateContractBoard(state.labLevel, state.completedContracts, 3);
-      this.renderCards();
+      this.cardsContainer.add([
+        cardBg, compText, rewardText, titleText, rockText, normText, testsText, btnBg, btnLabel, hitZone
+      ]);
     });
   }
 }
