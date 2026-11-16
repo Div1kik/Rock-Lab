@@ -16,6 +16,15 @@ export const TOOL_UPGRADES = [
     maxLevel: 6
   },
   {
+    key: 'grinder',
+    name: 'Торцешлифовальный станок',
+    desc: 'Открывает этап шлифовки торцов! Снижает перекос и погрешность',
+    baseCost: 210,
+    costMult: 1.75,
+    maxLevel: 5,
+    isPurchaseFirst: true
+  },
+  {
     key: 'caliper',
     name: 'Цифровой штангенциркуль',
     desc: 'Плавный ход губок для точного замера H и D',
@@ -146,7 +155,9 @@ export const LAB_UPGRADES = [
 ];
 
 export function getToolCost(item, currentLevel) {
-  return Math.round(item.baseCost * Math.pow(item.costMult, Math.max(0, currentLevel - 1)));
+  if (item.isPurchaseFirst && currentLevel === 0) return item.baseCost;
+  const effLvl = item.isPurchaseFirst ? currentLevel : Math.max(0, currentLevel - 1);
+  return Math.round(item.baseCost * Math.pow(item.costMult, effLvl));
 }
 
 export function getPerkCost(item, currentLevel) {
