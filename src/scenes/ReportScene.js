@@ -210,7 +210,7 @@ export class ReportScene extends Phaser.Scene {
     this.showAnimatedCutsceneModal(outcomeType, moneyDelta, repDelta);
   }
 
-  // Живая анимированная мини-сценка в зависимости от объекта и исхода!
+  // Многоплановая сюжетная катсцена с техникой, геологическим разрезом и эффектами
   showAnimatedCutsceneModal(outcomeType, moneyDelta, repDelta) {
     const { width, height } = this.scale;
 
@@ -228,103 +228,145 @@ export class ReportScene extends Phaser.Scene {
     overlay.lineStyle(3, outcomeType === 'collapse' ? 0xef4444 : 0xfacc15, 1);
     overlay.strokeRoundedRect(boxX, boxY, boxW, boxH, 16);
 
-    const sceneX = boxX + 22;
-    const sceneY = boxY + 24;
-    const sceneW = boxW - 44;
-    const sceneH = 200;
+    const sceneX = boxX + 20;
+    const sceneY = boxY + 22;
+    const sceneW = boxW - 40;
+    const sceneH = 206;
 
-    // Небо и грунтовый массив мини-сценки
-    const sky = this.add.graphics();
-    sky.fillStyle(outcomeType === 'collapse' ? 0x450a0a : 0x0c4a6e, 1);
-    sky.fillRoundedRect(sceneX, sceneY, sceneW, sceneH, 10);
+    // 1. Фон неба, солнца/луны, дальних гор и облаков
+    const backdrop = this.add.graphics();
+    backdrop.fillStyle(outcomeType === 'collapse' ? 0x3b0d11 : 0x0c4a6e, 1);
+    backdrop.fillRoundedRect(sceneX, sceneY, sceneW, sceneH, 10);
 
-    const groundY = sceneY + 142;
-    const groundBlock = this.add.rectangle(
-      width / 2,
-      groundY + 29,
-      sceneW,
-      58,
-      this.contract.rock.color
-    );
+    // Горизонт и дальние сопки
+    backdrop.fillStyle(outcomeType === 'collapse' ? 0x57181d : 0x1e3a8a, 0.75);
+    backdrop.fillTriangle(sceneX + 10, sceneY + 145, sceneX + 95, sceneY + 78, sceneX + 185, sceneY + 145);
+    backdrop.fillTriangle(sceneX + 140, sceneY + 145, sceneX + 245, sceneY + 68, sceneX + 345, sceneY + 145);
+
+    // Плывущие облака
+    const cloud1 = this.add.ellipse(sceneX + 80, sceneY + 34, 62, 18, 0xf8fafc, 0.25);
+    const cloud2 = this.add.ellipse(sceneX + 240, sceneY + 46, 78, 20, 0xf8fafc, 0.2);
+    this.tweens.add({ targets: cloud1, x: sceneX + 130, duration: 4200, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: cloud2, x: sceneX + 190, duration: 5000, yoyo: true, repeat: -1 });
+
+    // 2. Геологический разрез основания (породный слой + травяной/щебёночный покров)
+    const groundY = sceneY + 144;
+    const rockLayer = this.add.tileSprite(width / 2, groundY + 31, sceneW, 62, 'rock_tex')
+      .setTint(this.contract.rock.color);
+
+    const topCrust = this.add.graphics();
+    topCrust.fillStyle(outcomeType === 'collapse' ? 0x78350f : 0x15803d, 1);
+    topCrust.fillRect(sceneX, groundY, sceneW, 7);
 
     const dustParticles = this.add.particles(0, 0, 'dust_px', {
-      speed: { min: 40, max: 140 },
-      scale: { start: 1.2, end: 0 },
-      lifespan: 480,
+      speed: { min: 45, max: 165 },
+      scale: { start: 1.3, end: 0 },
+      lifespan: 520,
       emitting: false
-    }).setDepth(30);
+    }).setDepth(35);
 
     const titleLower = (this.contract.title || '').toLowerCase();
     const isBridge = titleLower.includes('мост');
     const isDam = titleLower.includes('гэс') || titleLower.includes('плотин');
-    const isTunnel = titleLower.includes('тоннел') || titleLower.includes('карьер');
 
     // =====================================================================
-    // АНИМАЦИЯ 1: СТРОЙКА ЗАПУЩЕНА (Кран монтирует этажи / пролёты моста)
+    // СЮЖЕТ 1: УСПЕШНАЯ СТРОЙКА (Детализированный кран, монтаж и салют)
     // =====================================================================
     if (outcomeType === 'success') {
-      // Башенный кран справа
-      const crane = this.add.graphics();
-      crane.fillStyle(0xfacc15, 1);
-      crane.fillRect(sceneX + sceneW - 48, sceneY + 24, 10, 118);
-      crane.fillRect(sceneX + 40, sceneY + 30, sceneW - 76, 8);
+      // Решётчатый башенный кран справа
+      const craneG = this.add.graphics();
+      const mastX = sceneX + sceneW - 52;
+      craneG.lineStyle(3, 0xfacc15, 1);
+      craneG.strokeRect(mastX - 7, sceneY + 24, 14, 120);
+      for (let my = sceneY + 30; my < sceneY + 140; my += 16) {
+        craneG.lineBetween(mastX - 7, my, mastX + 7, my + 14);
+      }
+      // Стрела крана и противовес
+      craneG.fillStyle(0xfacc15, 1);
+      craneG.fillRect(sceneX + 36, sceneY + 26, sceneW - 60, 7);
+      craneG.fillStyle(0x475569, 1);
+      craneG.fillRect(mastX + 10, sceneY + 20, 18, 16);
 
-      // Крюк крана катается и опускает конструкции
-      const hookCable = this.add.rectangle(width / 2, sceneY + 55, 2, 34, 0xe2e8f0);
+      // Тележка с тросом и крюком
+      const trolley = this.add.container(width / 2, sceneY + 33);
+      const tWheel = this.add.rectangle(0, 0, 16, 8, 0x38bdf8);
+      const tCable = this.add.rectangle(0, 18, 2, 32, 0xe2e8f0);
+      const tHook = this.add.arc(0, 36, 6, 0, 180, false, 0xfacc15);
+      trolley.add([tWheel, tCable, tHook]);
+
       this.tweens.add({
-        targets: hookCable,
-        x: width / 2 + 24,
-        duration: 900,
+        targets: trolley,
+        x: width / 2 + 28,
+        duration: 1100,
         yoyo: true,
-        repeat: -1
+        repeat: -1,
+        ease: 'Sine.easeInOut'
       });
 
       if (isBridge) {
-        // Опоры моста + опускающийся центральный пролёт
-        this.add.rectangle(width / 2 - 70, groundY - 26, 22, 52, 0x94a3b8);
-        this.add.rectangle(width / 2 + 70, groundY - 26, 22, 52, 0x94a3b8);
-        const span = this.add.rectangle(width / 2, sceneY + 45, 185, 16, 0x38bdf8);
+        // Река под мостом и железобетонные быки-опоры
+        const river = this.add.rectangle(width / 2, groundY + 12, sceneW - 20, 22, 0x0284c9, 0.85);
+        const pierL = this.add.rectangle(width / 2 - 74, groundY - 24, 24, 56, 0xcbd5e1).setStrokeStyle(2, 0x475569);
+        const pierR = this.add.rectangle(width / 2 + 74, groundY - 24, 24, 56, 0xcbd5e1).setStrokeStyle(2, 0x475569);
+
+        // Пролёт моста с фермой и фонарями
+        const deck = this.add.container(width / 2, sceneY + 52);
+        const girder = this.add.rectangle(0, 0, 210, 16, 0x38bdf8).setStrokeStyle(2, 0x0f172a);
+        const road = this.add.rectangle(0, -10, 214, 5, 0x334155);
+        deck.add([girder, road]);
+
         this.tweens.add({
-          targets: span,
+          targets: deck,
           y: groundY - 56,
           duration: 850,
           ease: 'Bounce.easeOut',
-          onComplete: () => dustParticles.emitParticleAt(width / 2, groundY - 50, 14)
+          onComplete: () => dustParticles.emitParticleAt(width / 2, groundY - 48, 16)
         });
       } else if (isDam) {
-        // Тело плотины ГЭС + поток воды
-        const damWall = this.add.rectangle(width / 2, groundY - 10, 150, 10, 0xcbd5e1).setOrigin(0.5, 1);
+        // Арочная бетонная плотина ГЭС и бурлящий водосброс
+        const damG = this.add.graphics();
+        damG.fillStyle(0xe2e8f0, 1);
+        damG.fillRect(width / 2 - 75, groundY - 84, 150, 84);
+        damG.lineStyle(2, 0x64748b, 1);
+        for (let dy = groundY - 68; dy < groundY; dy += 16) {
+          damG.lineBetween(width / 2 - 75, dy, width / 2 + 75, dy);
+        }
+        // Водосброс с брызгами
+        const stream = this.add.rectangle(width / 2 + 24, groundY - 36, 34, 72, 0x38bdf8, 0.8);
         this.tweens.add({
-          targets: damWall,
-          height: 82,
-          duration: 900,
-          ease: 'Cubic.easeOut'
-        });
-        const waterfall = this.add.rectangle(width / 2 + 30, groundY - 35, 28, 70, 0x38bdf8, 0.75);
-        this.tweens.add({
-          targets: waterfall,
-          alpha: 0.35,
-          duration: 300,
+          targets: stream,
+          scaleX: 1.15,
+          alpha: 0.45,
+          duration: 260,
           yoyo: true,
           repeat: -1
         });
       } else {
-        // Поэтажное возведение здания / опоры с зажигающимися окнами
+        // Многосекционный дом / промышленный комплекс с цоколем, окнами и крышей
+        const plinth = this.add.rectangle(width / 2 - 16, groundY - 5, 134, 10, 0x64748b);
         for (let floor = 0; floor < 3; floor++) {
-          const fy = groundY - 14 - floor * 28;
-          const block = this.add.rectangle(width / 2 - 12, sceneY + 35, 114, 26, 0xe2e8f0)
-            .setStrokeStyle(2, 0x64748b);
+          const fy = groundY - 22 - floor * 26;
+          const unit = this.add.container(width / 2 - 16, sceneY + 46);
+          const wall = this.add.rectangle(0, 0, 124, 24, 0xf1f5f9).setStrokeStyle(2, 0x475569);
+          unit.add(wall);
+
+          for (let c = -1; c <= 1; c++) {
+            const win = this.add.rectangle(c * 34, 0, 18, 13, 0x0284c9);
+            unit.add(win);
+          }
 
           this.tweens.add({
-            targets: block,
+            targets: unit,
             y: fy,
-            delay: floor * 280,
-            duration: 460,
+            delay: floor * 240,
+            duration: 440,
             ease: 'Back.easeOut',
             onComplete: () => {
-              dustParticles.emitParticleAt(width / 2 - 12, fy + 10, 8);
-              for (let c = -1; c <= 1; c++) {
-                this.add.rectangle(width / 2 - 12 + c * 30, fy, 14, 12, 0x38bdf8);
+              dustParticles.emitParticleAt(width / 2 - 16, fy + 10, 10);
+              if (floor === 2) {
+                // Монтаж крыши и праздничный салют
+                this.add.triangle(width / 2 - 16, fy - 20, 0, -14, -68, 8, 68, 8, 0xd97706);
+                dustParticles.emitParticleAt(sceneX + 64, sceneY + 44, 18);
               }
             }
           });
@@ -333,72 +375,107 @@ export class ReportScene extends Phaser.Scene {
     }
 
     // =====================================================================
-    // АНИМАЦИЯ 2: ОБВАЛ ГРУНТА И РАЗРУШЕНИЕ КОНСТРУКЦИИ
+    // СЮЖЕТ 2: ОБВАЛ ГРУНТА (Разлом пласта, разрушение пополам и оползень)
     // =====================================================================
     if (outcomeType === 'collapse') {
-      const leftBlock = this.add.rectangle(width / 2 - 34, groundY - 26, 62, 52, 0x94a3b8);
-      const rightBlock = this.add.rectangle(width / 2 + 34, groundY - 26, 62, 52, 0x94a3b8);
+      // Зигзагообразный тектонический разлом в грунте
+      const faultG = this.add.graphics();
+      faultG.lineStyle(5, 0xef4444, 1);
+      faultG.beginPath();
+      faultG.moveTo(width / 2 - 12, groundY - 2);
+      faultG.lineTo(width / 2 + 16, groundY + 24);
+      faultG.lineTo(width / 2 - 8, groundY + 46);
+      faultG.lineTo(width / 2 + 14, groundY + 62);
+      faultG.strokePath();
 
-      // Трещина разлома в грунте
-      const crack = this.add.graphics();
-      crack.lineStyle(4, 0xef4444, 1);
-      crack.beginPath();
-      crack.moveTo(width / 2 - 8, groundY);
-      crack.lineTo(width / 2 + 12, groundY + 28);
-      crack.lineTo(width / 2 - 6, groundY + 56);
-      crack.strokePath();
+      // Две половины надломленного здания с окнами и арматурой
+      const leftHalf = this.add.container(width / 2 - 36, groundY - 30);
+      const lWall = this.add.rectangle(0, 0, 66, 58, 0xcbd5e1).setStrokeStyle(2, 0x475569);
+      const lWin = this.add.rectangle(-12, -8, 18, 14, 0x1e293b);
+      leftHalf.add([lWall, lWin]);
 
-      // Анимация проседания и завала блоков в облаке пыли
+      const rightHalf = this.add.container(width / 2 + 36, groundY - 30);
+      const rWall = this.add.rectangle(0, 0, 66, 58, 0xcbd5e1).setStrokeStyle(2, 0x475569);
+      const rWin = this.add.rectangle(12, -8, 18, 14, 0x1e293b);
+      rightHalf.add([rWall, rWin]);
+
+      // Анимация обрушения с клубами пыли
       this.tweens.add({
-        targets: leftBlock,
-        y: groundY + 4,
-        angle: -24,
-        duration: 620,
-        ease: 'Bounce.easeOut',
-        onStart: () => dustParticles.emitParticleAt(width / 2, groundY - 10, 26)
-      });
-      this.tweens.add({
-        targets: rightBlock,
+        targets: leftHalf,
+        x: width / 2 - 48,
         y: groundY + 8,
-        angle: 28,
-        duration: 680,
+        angle: -32,
+        duration: 640,
+        ease: 'Bounce.easeOut',
+        onStart: () => dustParticles.emitParticleAt(width / 2, groundY - 12, 30)
+      });
+
+      this.tweens.add({
+        targets: rightHalf,
+        x: width / 2 + 52,
+        y: groundY + 12,
+        angle: 36,
+        duration: 700,
         ease: 'Bounce.easeOut'
       });
-    }
 
-    // =====================================================================
-    // АНИМАЦИЯ 3: ОБЪЕКТ СПАСЁН (Геологоразведка переносит площадку)
-    // =====================================================================
-    if (outcomeType === 'saved_lives') {
-      // Предупреждающий барьер слева + буровая вышка переносится на крепкую скалу справа
-      const beacon = this.add.circle(sceneX + 68, groundY - 16, 10, 0xfacc15);
+      // Аварийный маячок
+      const alarm = this.add.circle(sceneX + 34, sceneY + 32, 10, 0xef4444);
       this.tweens.add({
-        targets: beacon,
-        alpha: 0.2,
-        duration: 280,
+        targets: alarm,
+        alpha: 0.15,
+        duration: 220,
         yoyo: true,
         repeat: -1
       });
+    }
 
-      const rig = this.add.triangle(sceneX + 75, groundY - 36, 0, -48, -22, 24, 22, 24, 0x38bdf8);
+    // =====================================================================
+    // СЮЖЕТ 3: ОБЪЕКТ СПАСЁН (Ограждение опасной зоны + перенос буровой вышки)
+    // =====================================================================
+    if (outcomeType === 'saved_lives') {
+      // Опасная зона слева со стробоскопом
+      const hazard = this.add.graphics();
+      hazard.fillStyle(0xfacc15, 1);
+      hazard.fillRect(sceneX + 26, groundY - 14, 74, 8);
+      hazard.fillStyle(0x0f172a, 1);
+      hazard.fillRect(sceneX + 38, groundY - 14, 12, 8);
+      hazard.fillRect(sceneX + 64, groundY - 14, 12, 8);
+
+      const strobe = this.add.circle(sceneX + 63, groundY - 22, 6, 0xef4444);
+      this.tweens.add({ targets: strobe, alpha: 0.2, duration: 240, yoyo: true, repeat: -1 });
+
+      // Самоходная буровая установка переезжает на скальный уступ справа
+      const rig = this.add.container(sceneX + 95, groundY - 28);
+      const chassis = this.add.rectangle(0, 18, 56, 16, 0xf59e0b).setStrokeStyle(2, 0x0f172a);
+      const mast = this.add.triangle(8, -14, 0, -34, -12, 24, 12, 24, 0x38bdf8);
+      const drillPipe = this.add.rectangle(8, 12, 4, 44, 0xe2e8f0);
+      rig.add([drillPipe, mast, chassis]);
+
       this.tweens.add({
         targets: rig,
-        x: width / 2 + 68,
+        x: width / 2 + 78,
         duration: 950,
         ease: 'Cubic.easeInOut',
-        onComplete: () => dustParticles.emitParticleAt(width / 2 + 68, groundY - 10, 12)
+        onComplete: () => dustParticles.emitParticleAt(width / 2 + 86, groundY - 4, 14)
       });
     }
 
     // =====================================================================
-    // АНИМАЦИЯ 4: ЛОЖНАЯ ТРЕВОГА (Приезд контрольной комиссии)
+    // СЮЖЕТ 4: ЛОЖНАЯ ТРЕВОГА (Прибытие машины инспекции)
     // =====================================================================
     if (outcomeType === 'false_alarm') {
-      const car = this.add.rectangle(sceneX + 45, groundY - 14, 68, 24, 0xfacc15);
+      const van = this.add.container(sceneX + 50, groundY - 18);
+      const body = this.add.rectangle(0, 0, 74, 26, 0xf8fafc).setStrokeStyle(2, 0x0284c9);
+      const stripe = this.add.rectangle(0, 2, 72, 6, 0x0284c9);
+      const wheel1 = this.add.circle(-22, 14, 7, 0x0f172a);
+      const wheel2 = this.add.circle(22, 14, 7, 0x0f172a);
+      van.add([body, stripe, wheel1, wheel2]);
+
       this.tweens.add({
-        targets: car,
+        targets: van,
         x: width / 2,
-        duration: 750,
+        duration: 780,
         ease: 'Cubic.easeOut'
       });
     }
