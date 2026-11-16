@@ -8,7 +8,7 @@ const DEFAULT_STATE = {
   upgrades: {
     drill: 1,
     saw: 1,
-    grinder: 1, // Базовый станок доступен с 1-го уровня и улучшается до 5-го
+    grinder: 1,
     caliper: 1,
     press: 1,
     sensors: 1,
@@ -25,6 +25,7 @@ const DEFAULT_STATE = {
   foundGems: [],
   siteHistory: [],
   soundEnabled: true,
+  musicTrack: 0,
   activeContract: null
 };
 
@@ -42,7 +43,6 @@ class StorageManager {
         ...DEFAULT_STATE.upgrades,
         ...(parsed.upgrades || {})
       };
-      // Миграция: если в старом сохранении grinder был 0, делаем его базовым Ур. 1
       if (!mergedUpgrades.grinder || mergedUpgrades.grinder < 1) {
         mergedUpgrades.grinder = 1;
       }
@@ -176,6 +176,15 @@ class StorageManager {
     this.state.soundEnabled = !this.isSoundEnabled();
     this.save();
     return this.state.soundEnabled;
+  }
+
+  getMusicTrack() {
+    return this.state.musicTrack || 0;
+  }
+
+  setMusicTrack(idx) {
+    this.state.musicTrack = idx;
+    this.save();
   }
 
   setActiveContract(contract) {
