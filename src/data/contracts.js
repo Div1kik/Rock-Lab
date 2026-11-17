@@ -100,12 +100,26 @@ export const TEST_CATALOG = {
 };
 
 export const RARE_INCLUSIONS = [
-  { id: 'pyrite', name: 'Друза золотистого пирита', value: 140, color: 0xfacc15, icon: '🟡' },
-  { id: 'quartz', name: 'Кристалл горного хрусталя', value: 190, color: 0xe2e8f0, icon: '💎' },
-  { id: 'ammonite', name: 'Отпечаток древнего аммонита', value: 260, color: 0xf59e0b, icon: '🐚' },
-  { id: 'malachite', name: 'Жилка уральского малахита', value: 340, color: 0x34d399, icon: '🟢' },
-  { id: 'diamond_kimberlite', name: 'Алмаз в кимберлите', value: 550, color: 0x38bdf8, icon: '✨' }
+  { id: 'calcite', name: 'Щётка белого кальцита', rarity: 'Обычный', weight: 24, value: 110, color: 0xf1f5f9, icon: '🤍' },
+  { id: 'pyrite', name: 'Друза золотистого пирита', rarity: 'Обычный', weight: 22, value: 150, color: 0xfacc15, icon: '🟡' },
+  { id: 'agate', name: 'Срез полосчатого агата', rarity: 'Обычный', weight: 18, value: 190, color: 0xfb923c, icon: '🟠' },
+  { id: 'quartz', name: 'Кристалл горного хрусталя', rarity: 'Редкий', weight: 13, value: 260, color: 0xbae6fd, icon: '💎' },
+  { id: 'ammonite', name: 'Отпечаток древнего аммонита', rarity: 'Редкий', weight: 10, value: 340, color: 0xf59e0b, icon: '🐚' },
+  { id: 'amethyst', name: 'Жеода уральского аметиста', rarity: 'Редкий', weight: 7, value: 450, color: 0xc084fc, icon: '🟣' },
+  { id: 'malachite', name: 'Жилка уральского малахита', rarity: 'Эпический', weight: 3.5, value: 680, color: 0x34d399, icon: '🟢' },
+  { id: 'native_gold', name: 'Самородок золота в кварце', rarity: 'Эпический', weight: 1.8, value: 980, color: 0xfbbf24, icon: '🪙' },
+  { id: 'diamond_kimberlite', name: 'Алмаз в кимберлите', rarity: 'Легендарный', weight: 0.7, value: 1850, color: 0x38bdf8, icon: '✨' }
 ];
+
+export function rollWeightedInclusion() {
+  const totalWeight = RARE_INCLUSIONS.reduce((sum, item) => sum + item.weight, 0);
+  let r = Math.random() * totalWeight;
+  for (const item of RARE_INCLUSIONS) {
+    r -= item.weight;
+    if (r <= 0) return item;
+  }
+  return RARE_INCLUSIONS[0];
+}
 
 const COMPANIES = [
   'ООО «СтройФундамент»',
