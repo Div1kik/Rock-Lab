@@ -1,5 +1,6 @@
 import { Storage } from '../utils/Storage.js';
-import { AudioManager } from '../utils/AudioManager.js';
+import { AudioManager, MUSIC_PACK_CATALOG } from '../utils/AudioManager.js';
+import { PlatformSDK } from '../utils/PlatformSDK.js';
 import {
   TOOL_UPGRADES,
   PERK_UPGRADES,
@@ -111,19 +112,19 @@ export class UpgradeScene extends Phaser.Scene {
     }
 
     const tabY = 166;
-    const gap = 8;
-    const tabW = (width - 36 - gap * 2) / 3;
+    const gap = 6;
+    const tabW = (width - 36 - gap * 3) / 4;
 
     const makeTab = (idx, label, tabKey) => {
       const x = 18 + tabW / 2 + idx * (tabW + gap);
       const isSelected = this.activeTab === tabKey;
       const btn = this.add.text(x, tabY, label, {
         fontFamily: '"Rubik", sans-serif',
-        fontSize: '12px',
+        fontSize: '11px',
         fontWeight: '700',
         color: isSelected ? '#1c1917' : '#e7e5e4',
         backgroundColor: isSelected ? '#facc15' : '#292524',
-        padding: { x: 6, y: 7 },
+        padding: { x: 4, y: 7 },
         fixedWidth: tabW,
         align: 'center'
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
@@ -141,6 +142,7 @@ export class UpgradeScene extends Phaser.Scene {
     makeTab(0, '🧪 СТЕНДЫ', 'tests');
     makeTab(1, '⚙️ СТАНКИ', 'tools');
     makeTab(2, '🏢 ИНТЕРЬЕР', 'perks');
+    makeTab(3, '📻 МУЗЫКА', 'music');
 
     if (this.activeTab === 'tests') {
       TEST_UPGRADES.forEach((item, idx) => {
@@ -201,7 +203,7 @@ export class UpgradeScene extends Phaser.Scene {
           btnLabel
         );
       });
-    } else {
+    } else if (this.activeTab === 'perks') {
       PERK_UPGRADES.forEach((perk, idx) => {
         const y = 190 + idx * 112;
         const lvl = Storage.getPerkLevel(perk.key);
@@ -217,6 +219,111 @@ export class UpgradeScene extends Phaser.Scene {
           }
         }, 102);
       });
+    } else if (this.activeTab === 'music') {
+      MUSIC_PACK_CATALOG.forEach((pack, idx) => {
+        const y = 190 + idx * 108;
+        const unlocked = Storage.isMusicPackUnlocked(pack.id);
+        this.renderMusicPackCard(y, pack, idx, unlocked, money >= pack.price);
+      });
+    }
+  }
+
+  renderMusicPackCard(y, pack, packIndex, unlocked, canBuyCoins) {
+    const { width } = this.scale;
+    const cardH = 98;
+    const card = this.add.graphics();
+    card.fillStyle(0x292524, 1);
+    card.fillRoundedRect(18, y, width - 36, cardH, 10);
+    card.lineStyle(2, unlocked ? 0x22c55e : 0xf59e0b, 0.85);
+    card.strokeRoundedRect(18, y, width - 36, cardH, 10);
+
+    const title = this.add.text(30, y + 9, `${pack.icon} ${pack.name}`, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '13px',
+      fontWeight: '700',
+      color: '#fef3c7'
+    });
+
+    const desc = this.add.text(30, y + 28, pack.desc, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '11px',
+      color: '#a8a29e',
+      wordWrap: { width: width - 64 }
+    });
+
+    this.listContainer.add([card, title, desc]);
+
+    const activatePackFirstTrack = () => {
+      const firstTrackIdx = 5 + packIndex * 5;
+      Storage.setMusicTrack(firstTrackIdx);
+      AudioManager.musicStep = 0;
+      AudioManager.trackStepCount = 0;
+      AudioManager.ensureContext();
+      AudioManager.playStamp();
+    };
+
+    if (unlocked) {
+      const statusTxt = this.add.text(30, y + cardH - 18, '✅ В ФОНОТЕКЕ (5 ТРЕКОВ)', {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '10px',
+        fontWeight: '700',
+        color: '#4ade80'
+      }).setOrigin(0, 0.5);
+
+      const playBtn = this.add.text(width - 30, y + cardH - 18, '▶️ ВКЛЮЧИТЬ', {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '11px',
+        fontWeight: '700',
+        color: '#0f172a',
+        backgroundColor: '#38bdf8',
+        padding: { x: 10, y: 5 }
+      }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+
+      playBtn.on('pointerdown', () => {
+        activatePackFirstTrack();
+        this.refreshUI();
+      });
+
+      this.listContainer.add([statusTxt, playBtn]);
+    } else {
+      const adBtn = this.add.text(30, y + cardH - 18, '🎬 ЗА РЕКЛАМУ', {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '11px',
+        fontWeight: '700',
+        color: '#0f172a',
+        backgroundColor: '#facc15',
+        padding: { x: 10, y: 5 }
+      }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
+
+      adBtn.on('pointerdown', () => {
+        adBtn.disableInteractive();
+        PlatformSDK.showRewarded(() => {
+          Storage.unlockMusicPack(pack.id);
+          activatePackFirstTrack();
+          this.refreshUI();
+        });
+      });
+
+      const coinBtn = this.add.text(width - 30, y + cardH - 18, `КУПИТЬ · ${pack.price} ₽`, {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '11px',
+        fontWeight: '700',
+        color: canBuyCoins ? '#ffffff' : '#a8a29e',
+        backgroundColor: canBuyCoins ? '#d97706' : '#44403c',
+        padding: { x: 10, y: 5 }
+      }).setOrigin(1, 0.5).setInteractive({ useHandCursor: canBuyCoins });
+
+      if (canBuyCoins) {
+        coinBtn.on('pointerdown', () => {
+          if (Storage.spendMoney(pack.price)) {
+            Storage.unlockMusicPack(pack.id);
+            activatePackFirstTrack();
+            this.refreshUI();
+          }
+        });
+      }
+
+      this.listContainer.add([adBtn, coinBtn]);
     }
   }
 
