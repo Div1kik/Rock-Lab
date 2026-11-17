@@ -208,8 +208,15 @@ export class UpgradeScene extends Phaser.Scene {
         const y = 190 + idx * 112;
         const lvl = Storage.getPerkLevel(perk.key);
         const isMax = lvl >= perk.maxLevel;
+        const reqLab = perk.reqLab || 1;
+        const labOk = labLvl >= reqLab;
         const cost = getPerkCost(perk, lvl);
-        const canBuy = !isMax && money >= cost;
+        const canBuy = !isMax && labOk && money >= cost;
+
+        let customBtn = null;
+        if (!labOk && !isMax) {
+          customBtn = `НУЖНА ЛАБА Ур. ${reqLab}`;
+        }
 
         this.renderItemCard(y, `${perk.name} [Ур. ${lvl}/${perk.maxLevel}]`, perk.desc, isMax, cost, canBuy, () => {
           if (Storage.spendMoney(cost)) {
@@ -217,7 +224,7 @@ export class UpgradeScene extends Phaser.Scene {
             AudioManager.playStamp();
             this.refreshUI();
           }
-        }, 102);
+        }, 102, customBtn);
       });
     } else if (this.activeTab === 'music') {
       MUSIC_PACK_CATALOG.forEach((pack, idx) => {
