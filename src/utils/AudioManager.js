@@ -1,6 +1,7 @@
 import { Storage } from './Storage.js';
 
 export const MUSIC_PACK_CATALOG = [
+  { id: 'base', name: 'Пак: Классика ROCK LAB (База)', desc: '5 оригинальных композиций лаборатории', isBase: true, icon: '📻' },
   { id: 'industrial', name: 'Пак: Арктический Индастриал', desc: '5 тяжёлых механических и буровых треков', price: 6500, icon: '🏭' },
   { id: 'retro', name: 'Пак: Ретро-Грунт 80-х', desc: '5 неоновых синтвейв и Outrun-композиций', reqAds: 3, icon: '🌆' },
   { id: 'stoner', name: 'Пак: Стоунер-Карьер', desc: '5 густых качающих риффов для тяжёлых пород', price: 14000, icon: '🏜️' },
@@ -8,15 +9,14 @@ export const MUSIC_PACK_CATALOG = [
   { id: 'blues', name: 'Пак: Ночной Блюз Буровиков', desc: '5 ламповых вечерних мелодий после смены', price: 25000, icon: '🎸' }
 ];
 
-const BASE_TRACKS = [
-  { name: '01. Warm Lab Rhodes', mode: 'rhodes', stepSec: 0.36, lead: [329.63, 0, 392.00, 493.88, 392.00, 0, 329.63, 0, 293.66, 0, 349.23, 440.00, 329.63, 0, 261.63, 0], bass: [87.31, 0, 0, 0, 82.41, 0, 0, 0, 73.42, 0, 0, 0, 65.41, 0, 0, 0] },
-  { name: '02. Original SEGA Rock', mode: 'rock', stepSec: 0.145, riff: [82.41, 0, 82.41, 98.00, 110.00, 0, 82.41, 0, 116.54, 110.00, 98.00, 0, 82.41, 0, 73.42, 82.41] },
-  { name: '03. Quarry Heavy Riff', mode: 'rock', stepSec: 0.148, riff: [73.42, 0, 73.42, 87.31, 98.00, 0, 73.42, 0, 103.83, 98.00, 87.31, 0, 73.42, 65.41, 73.42, 0] },
-  { name: '04. Vice Stadium Rock', mode: 'rock', stepSec: 0.138, riff: [110.00, 0, 110.00, 130.81, 146.83, 0, 164.81, 146.83, 130.81, 0, 110.00, 98.00, 110.00, 0, 146.83, 130.81] },
-  { name: '05. Core Drill Blues-Rock', mode: 'rock', stepSec: 0.152, riff: [98.00, 0, 116.54, 130.81, 146.83, 0, 130.81, 116.54, 98.00, 0, 87.31, 98.00, 116.54, 0, 98.00, 0] }
-];
-
 const PACK_TRACKS = {
+  base: [
+    { name: '01. Warm Lab Rhodes', mode: 'rhodes', stepSec: 0.36, lead: [329.63, 0, 392.00, 493.88, 392.00, 0, 329.63, 0, 293.66, 0, 349.23, 440.00, 329.63, 0, 261.63, 0], bass: [87.31, 0, 0, 0, 82.41, 0, 0, 0, 73.42, 0, 0, 0, 65.41, 0, 0, 0] },
+    { name: '02. Original SEGA Rock', mode: 'rock', stepSec: 0.145, riff: [82.41, 0, 82.41, 98.00, 110.00, 0, 82.41, 0, 116.54, 110.00, 98.00, 0, 82.41, 0, 73.42, 82.41] },
+    { name: '03. Quarry Heavy Riff', mode: 'rock', stepSec: 0.148, riff: [73.42, 0, 73.42, 87.31, 98.00, 0, 73.42, 0, 103.83, 98.00, 87.31, 0, 73.42, 65.41, 73.42, 0] },
+    { name: '04. Vice Stadium Rock', mode: 'rock', stepSec: 0.138, riff: [110.00, 0, 110.00, 130.81, 146.83, 0, 164.81, 146.83, 130.81, 0, 110.00, 98.00, 110.00, 0, 146.83, 130.81] },
+    { name: '05. Core Drill Blues-Rock', mode: 'rock', stepSec: 0.152, riff: [98.00, 0, 116.54, 130.81, 146.83, 0, 130.81, 116.54, 98.00, 0, 87.31, 98.00, 116.54, 0, 98.00, 0] }
+  ],
   industrial: [
     { name: '🏭 01. Deep Shaft Pulse', mode: 'rock', stepSec: 0.130, riff: [65.41, 0, 73.42, 65.41, 98.00, 0, 87.31, 0, 65.41, 0, 110.00, 98.00, 73.42, 0, 65.41, 0] },
     { name: '🏭 02. Permafrost Heavy Gear', mode: 'rock', stepSec: 0.135, riff: [73.42, 73.42, 0, 87.31, 98.00, 0, 103.83, 0, 73.42, 0, 87.31, 0, 65.41, 73.42, 0, 0] },
@@ -86,14 +86,30 @@ class AudioController {
   }
 
   getAllUnlockedTracks() {
-    let tracks = [...BASE_TRACKS];
-    const unlockedPacks = Storage.getUnlockedMusicPacks ? Storage.getUnlockedMusicPacks() : [];
-    for (const packId of ['industrial', 'retro', 'stoner', 'cyber', 'blues']) {
-      if (unlockedPacks.includes(packId) && PACK_TRACKS[packId]) {
-        tracks = tracks.concat(PACK_TRACKS[packId]);
+    let tracks = [];
+    const unlockedPacks = Storage.getUnlockedMusicPacks();
+    const enabledPacks = Storage.getEnabledMusicPacks();
+
+    for (const pack of MUSIC_PACK_CATALOG) {
+      if (unlockedPacks.includes(pack.id) && enabledPacks.includes(pack.id) && PACK_TRACKS[pack.id]) {
+        tracks = tracks.concat(PACK_TRACKS[pack.id]);
       }
     }
-    return tracks;
+    return tracks.length > 0 ? tracks : [...PACK_TRACKS.base];
+  }
+
+  activatePackFirstTrack(packId) {
+    const tracks = this.getAllUnlockedTracks();
+    const packFirstTrackName = PACK_TRACKS[packId]?.[0]?.name;
+    const targetIdx = tracks.findIndex((t) => t.name === packFirstTrackName);
+    Storage.setMusicTrack(targetIdx >= 0 ? targetIdx : 0);
+    this.musicStep = 0;
+    this.trackStepCount = 0;
+    const ctx = this.ensureContext();
+    if (ctx) {
+      this.nextNoteTime = ctx.currentTime + 0.05;
+      if (!this.musicPlaying) this.startMusic();
+    }
   }
 
   ensureContext() {
@@ -222,7 +238,6 @@ class AudioController {
               this.musicStep += 1;
               this.trackStepCount += 1;
 
-              // Каждый трек играет ровно ~2 минуты (120 секунд) перед переключением
               const stepsForTwoMinutes = Math.max(320, Math.round(120 / track.stepSec));
               if (this.trackStepCount >= stepsForTwoMinutes) {
                 this.trackStepCount = 0;
