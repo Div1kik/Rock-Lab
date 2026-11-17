@@ -28,6 +28,7 @@ export class ReportScene extends Phaser.Scene {
     const sheetW = width - padX * 2;
     const sheetH = 470;
     const sheetY = 36;
+    this.sheetCenterY = sheetY + sheetH / 2;
 
     const isAudit = Boolean(this.contract.isAudit);
     const sheet = this.add.graphics();
@@ -127,7 +128,7 @@ export class ReportScene extends Phaser.Scene {
       64,
       '✅ ОДОБРИТЬ (ОБРАЗЕЦ СООТВЕТСТВУЕТ)',
       0x15803d,
-      () => this.submitVerdict(true)
+      () => this.playStampAnimationAndSubmit(true)
     );
 
     this.createStampButton(
@@ -137,7 +138,7 @@ export class ReportScene extends Phaser.Scene {
       64,
       '⛔ ЗАБРАКОВАТЬ (НИЖЕ НОРМЫ)',
       0xb91c1c,
-      () => this.submitVerdict(false)
+      () => this.playStampAnimationAndSubmit(false)
     );
   }
 
@@ -162,11 +163,81 @@ export class ReportScene extends Phaser.Scene {
     zone.on('pointerdown', () => {
       if (this.verdictLocked || performance.now() < this.inputReadyAt) return;
       this.verdictLocked = true;
-      AudioManager.playStamp();
       onClick();
     });
 
     container.add([g, txt, zone]);
+  }
+
+  playStampAnimationAndSubmit(approvedByPlayer) {
+    const { width } = this.scale;
+    const stampX = width / 2 + 54;
+    const stampY = this.sheetCenterY + 132;
+    const stampColor = approvedByPlayer ? 0x15803d : 0xb91c1c;
+    const stampHex = approvedByPlayer ? '#15803d' : '#b91c1c';
+    const stampWord = approvedByPlayer ? 'ОДОБРЕНО' : 'ЗАБРАКОВАНО';
+
+    // Оттиск гербовой печати на листе протокола
+    const inkContainer = this.add.container(stampX, stampY).setAngle(-14).setAlpha(0).setScale(1.6).setDepth(14);
+    const inkG = this.add.graphics();
+    inkG.lineStyle(4, stampColor, 0.9);
+    inkG.strokeRoundedRect(-96, -26, 192, 52, 8);
+    inkG.lineStyle(1.5, stampColor, 0.7);
+    inkG.strokeRoundedRect(-90, -20, 180, 40, 5);
+
+    const inkTxt = this.add.text(0, -4, stampWord, {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '20px',
+      fontWeight: '700',
+      color: stampHex
+    }).setOrigin(0.5);
+
+    const inkSub = this.add.text(0, 13, 'ОТК ROCK LAB · ГОСТ', {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '8px',
+      fontWeight: '700',
+      color: stampHex
+    }).setOrigin(0.5);
+
+    inkContainer.add([inkG, inkTxt, inkSub]);
+
+    // Деревянный штемпель с рукояткой, бьющий по бумаге сверху
+    const stamper = this.add.container(stampX, stampY - 120).setDepth(16);
+    const stG = this.add.graphics();
+    stG.fillStyle(0x78350f, 1);
+    stG.fillCircle(0, -42, 22);
+    stG.fillRect(-10, -28, 20, 22);
+    stG.fillStyle(0x1e293b, 1);
+    stG.fillRoundedRect(-58, -8, 116, 16, 4);
+    stG.fillStyle(stampColor, 1);
+    stG.fillRect(-54, 8, 108, 5);
+    stamper.add(stG);
+
+    this.tweens.add({
+      targets: stamper,
+      y: stampY - 8,
+      duration: 160,
+      ease: 'Cubic.easeIn',
+      onComplete: () => {
+        AudioManager.playStamp();
+        this.cameras.main.shake(110, 0.006);
+        inkContainer.setAlpha(0.92).setScale(1.0);
+
+        this.tweens.add({
+          targets: stamper,
+          y: stampY - 140,
+          alpha: 0,
+          duration: 240,
+          ease: 'Cubic.easeOut',
+          onComplete: () => {
+            stamper.destroy();
+            this.time.delayedCall(260, () => {
+              this.submitVerdict(approvedByPlayer);
+            });
+          }
+        });
+      }
+    });
   }
 
   submitVerdict(approvedByPlayer) {
@@ -181,7 +252,7 @@ export class ReportScene extends Phaser.Scene {
 
     const perkCashBonus =
       Storage.getPerkLevel('coffee') * 15 +
-      Storage.getPerkLevel('showcase') * 30;
+      Storage.getPerkLevel('showcase') * 35;
     const perkRepBonus = Storage.getPerkLevel('decor');
 
     let moneyDelta = 0;
@@ -252,7 +323,7 @@ export class ReportScene extends Phaser.Scene {
     overlay.fillRect(0, 0, width, height);
 
     const boxW = 396;
-    const boxH = 550;
+    const boxH = 556;
     const boxX = width / 2 - boxW / 2;
     const boxY = height / 2 - boxH / 2;
 
@@ -263,149 +334,12 @@ export class ReportScene extends Phaser.Scene {
     overlay.strokeRoundedRect(boxX, boxY, boxW, boxH, 16);
 
     const sceneX = boxX + 20;
-    const sceneY = boxY + 22;
+    const sceneY = boxY + 20;
     const sceneW = boxW - 40;
-    const sceneH = 206;
+    const sceneH = 212;
+    const groundY = sceneY + 158;
 
-    // Контекстный фон мини-сцены
-    const backdrop = this.add.graphics().setDepth(22);
-    backdrop.fillStyle(isBad ? 0x450a0a : 0x0f172a, 1);
-    backdrop.fillRoundedRect(sceneX, sceneY, sceneW, sceneH, 10);
-
-    // Четкие контрастные горы на заднике
-    backdrop.fillStyle(isBad ? 0x7f1d1d : 0x1e293b, 1);
-    backdrop.fillTriangle(sceneX + 16, sceneY + 155, sceneX + 90, sceneY + 75, sceneX + 170, sceneY + 155);
-    backdrop.fillStyle(isBad ? 0x991b1b : 0x334155, 1);
-    backdrop.fillTriangle(sceneX + 140, sceneY + 155, sceneX + 235, sceneY + 62, sceneX + 330, sceneY + 155);
-
-    const groundY = sceneY + 148;
-    this.add.tileSprite(width / 2, groundY + 25, sceneW, 50, 'rock_tex')
-      .setTint(this.contract.rock.color)
-      .setDepth(22);
-
-    const topCrust = this.add.graphics().setDepth(23);
-    topCrust.fillStyle(isBad ? 0xb45309 : 0x16a34a, 1);
-    topCrust.fillRect(sceneX, groundY, sceneW, 6);
-
-    const dustParticles = this.add.particles(0, 0, 'dust_px', {
-      speed: { min: 45, max: 165 },
-      scale: { start: 1.3, end: 0 },
-      lifespan: 520,
-      emitting: false
-    }).setDepth(35);
-
-    // 1. УСПЕШНАЯ СТРОЙКА (Аккуратный кран и здание с этажами)
-    if (outcomeType === 'success' || outcomeType === 'audit_pass') {
-      const craneG = this.add.graphics().setDepth(23);
-      const mastX = sceneX + sceneW - 55;
-      
-      // Башня крана
-      craneG.lineStyle(3, 0xfacc15, 1);
-      craneG.strokeRect(mastX - 5, sceneY + 22, 10, 126);
-      craneG.lineBetween(mastX, sceneY + 22, sceneX + 40, sceneY + 30);
-      craneG.fillStyle(0xfacc15, 1);
-      craneG.fillRect(sceneX + 38, sceneY + 28, sceneW - 65, 5);
-
-      // Блоки этажей здания
-      for (let floor = 0; floor < 3; floor++) {
-        const fy = groundY - 24 - floor * 27;
-        const unit = this.add.rectangle(width / 2 - 25, sceneY + 40, 120, 25, 0xf8fafc)
-          .setStrokeStyle(2, 0x475569)
-          .setDepth(24);
-        
-        const winG = this.add.graphics().setDepth(25);
-        winG.fillStyle(0x0284c9, 0.85);
-        winG.fillRect(width / 2 - 68, fy - 5, 16, 10);
-        winG.fillRect(width / 2 - 34, fy - 5, 16, 10);
-        winG.fillRect(width / 2, fy - 5, 16, 10);
-        winG.fillRect(width / 2 + 34, fy - 5, 16, 10);
-
-        this.tweens.add({
-          targets: [unit],
-          y: fy,
-          delay: floor * 220,
-          duration: 400,
-          ease: 'Back.easeOut',
-          onComplete: () => dustParticles.emitParticleAt(width / 2 - 25, fy + 12, 10)
-        });
-      }
-    } 
-    // 2. ОБЪЕКТ СПАСЁН / УКРЕПЛЕНИЕ (Аккуратные анкеры в склоне без перекрытий текста)
-    else if (outcomeType === 'saved_lives') {
-      const shieldG = this.add.graphics().setDepth(23);
-      
-      // Горный склон в разрезе со стальными панелями
-      shieldG.fillStyle(0x0284c9, 0.85);
-      shieldG.fillRoundedRect(width / 2 - 90, groundY - 45, 180, 45, 6);
-      shieldG.lineStyle(2.5, 0x38bdf8, 1);
-      shieldG.strokeRoundedRect(width / 2 - 90, groundY - 45, 180, 45, 6);
-
-      // Аккуратные анкерные точки крепления
-      shieldG.fillStyle(0xfacc15, 1);
-      [-60, -20, 20, 60].forEach(ox => {
-        shieldG.fillCircle(width / 2 + ox, groundY - 22, 5);
-        shieldG.lineStyle(1.5, 0x0f172a, 1);
-        shieldG.strokeCircle(width / 2 + ox, groundY - 22, 5);
-      });
-
-      // Буровая геологоразведочная машина на платформе
-      const rig = this.add.rectangle(sceneX + 60, groundY - 22, 38, 28, 0x38bdf8)
-        .setStrokeStyle(2, 0x0f172a)
-        .setDepth(24);
-      const rigMast = this.add.rectangle(sceneX + 70, groundY - 42, 6, 36, 0x94a3b8)
-        .setDepth(24);
-
-      this.tweens.add({
-        targets: [rig, rigMast],
-        x: '+= 35',
-        duration: 900,
-        ease: 'Cubic.easeInOut'
-      });
-    } 
-    // 3. ОБВАЛ В КАРЬЕРЕ (Падение породы и сломанная вышка)
-    else if (outcomeType === 'collapse') {
-      const leftBlock = this.add.rectangle(width / 2 - 45, groundY - 18, 68, 44, 0x64748b)
-        .setStrokeStyle(2, 0x1e293b)
-        .setDepth(24);
-      const rightBlock = this.add.rectangle(width / 2 + 50, groundY - 12, 60, 36, 0x475569)
-        .setStrokeStyle(2, 0x1e293b)
-        .setDepth(24);
-
-      const brokenRig = this.add.rectangle(width / 2 + 12, groundY - 50, 12, 68, 0xef4444)
-        .setAngle(32)
-        .setStrokeStyle(2, 0x0f172a)
-        .setDepth(25);
-
-      this.tweens.add({
-        targets: [leftBlock],
-        x: width / 2 - 65,
-        y: groundY + 4,
-        angle: -20,
-        duration: 450,
-        ease: 'Bounce.easeOut',
-        onStart: () => dustParticles.emitParticleAt(width / 2, groundY - 8, 30)
-      });
-      this.tweens.add({
-        targets: [rightBlock],
-        x: width / 2 + 70,
-        y: groundY + 5,
-        angle: 25,
-        duration: 500,
-        ease: 'Bounce.easeOut'
-      });
-    } 
-    // 4. Ложная тревога
-    else {
-      const van = this.add.rectangle(sceneX + 50, groundY - 18, 74, 26, 0xf8fafc)
-        .setStrokeStyle(2, 0x0284c9)
-        .setDepth(24);
-      this.tweens.add({
-        targets: van,
-        x: width / 2,
-        duration: 780,
-        ease: 'Cubic.easeOut'
-      });
-    }
+    this.renderCutsceneArtwork(outcomeType, sceneX, sceneY, sceneW, sceneH, groundY);
 
     const titles = {
       success: 'СТРОЙКА ЗАПУЩЕНА УСПЕШНО!',
@@ -418,14 +352,14 @@ export class ReportScene extends Phaser.Scene {
 
     const descriptions = {
       success: `Основание выдержало нагрузку.\nРеальная прочность породы: ${this.contract.trueStrengthMpa} МПа.`,
-      saved_lives: `Ты вовремя выявил слабый грунт (${this.contract.trueStrengthMpa} МПа при норме ${this.contract.reqMpa} МПа). Установлены анкеры!`,
+      saved_lives: `Ты вовремя выявил слабый грунт (${this.contract.trueStrengthMpa} МПа при норме ${this.contract.reqMpa} МПа). Смонтирована анкерная крепь!`,
       collapse: `Приборы ошиблись из-за погрешности! Реальная прочность была всего ${this.contract.trueStrengthMpa} МПа при норме ${this.contract.reqMpa} МПа.`,
       false_alarm: `Грунт на самом деле выдержал бы (${this.contract.trueStrengthMpa} МПа). Независимая экспертиза оспорила отказ.`,
       audit_pass: `Эталонный образец измерен с точностью ±${this.errorPct}%! Выдан сертификат: следующие 3 заказа оплачиваются на 15% выше.`,
       audit_fail: `Либо вердикт неверен, либо погрешность (±${this.errorPct}%) превысила допуск ≤ ${this.contract.maxAllowedErrorPct}%. Сделай поверку приборов!`
     };
 
-    this.add.text(width / 2, boxY + 252, titles[outcomeType], {
+    this.add.text(width / 2, boxY + 256, titles[outcomeType], {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '17px',
       fontWeight: '700',
@@ -433,7 +367,7 @@ export class ReportScene extends Phaser.Scene {
       align: 'center'
     }).setOrigin(0.5).setDepth(25);
 
-    this.add.text(width / 2, boxY + 308, descriptions[outcomeType], {
+    this.add.text(width / 2, boxY + 312, descriptions[outcomeType], {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '12px',
       color: '#e2e8f0',
@@ -443,16 +377,16 @@ export class ReportScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(25);
 
     const repSign = repDelta >= 0 ? `+${repDelta}` : `${repDelta}`;
-    this.add.text(width / 2, boxY + 374, `Гонорар: +${moneyDelta} ₽   |   Репутация: ${repSign} ★`, {
+    this.add.text(width / 2, boxY + 378, `Гонорар: +${moneyDelta} ₽   |   Репутация: ${repSign} ★`, {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '15px',
       fontWeight: '700',
       color: '#facc15'
     }).setOrigin(0.5).setDepth(25);
 
-    let nextBtnY = boxY + 480;
+    let nextBtnY = boxY + 486;
     if (moneyDelta > 0) {
-      const adBtn = this.add.text(width / 2, boxY + 425, `🎬 УДВОИТЬ ГОНОРАР (+${moneyDelta} ₽)`, {
+      const adBtn = this.add.text(width / 2, boxY + 430, `🎬 УДВОИТЬ ГОНОРАР (+${moneyDelta} ₽)`, {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '14px',
         fontWeight: '700',
@@ -473,7 +407,7 @@ export class ReportScene extends Phaser.Scene {
         });
       });
     } else {
-      nextBtnY = boxY + 458;
+      nextBtnY = boxY + 462;
     }
 
     const continueBtn = this.add.text(width / 2, nextBtnY, 'ВЕРНУТЬСЯ В ЛАБОРАТОРИЮ →', {
@@ -494,5 +428,261 @@ export class ReportScene extends Phaser.Scene {
         this.scene.start('MenuScene');
       });
     });
+  }
+
+  renderCutsceneArtwork(outcomeType, sx, sy, sw, sh, groundY) {
+    const { width } = this.scale;
+    const isBad = outcomeType === 'collapse' || outcomeType === 'audit_fail';
+    const isAudit = outcomeType === 'audit_pass' || outcomeType === 'audit_fail';
+
+    const bg = this.add.graphics().setDepth(22);
+
+    // 1. Небо с градиентом-полосой горизонта, солнцем/луной и облаками
+    if (isAudit) {
+      bg.fillStyle(0x172554, 1);
+      bg.fillRoundedRect(sx, sy, sw, sh, 10);
+      bg.fillStyle(0x1e3a8a, 1);
+      bg.fillRect(sx, sy + 72, sw, groundY - (sy + 72));
+      // Сетка метрологического стенда на фоне
+      bg.lineStyle(1, 0x38bdf8, 0.18);
+      for (let gx = sx + 20; gx < sx + sw; gx += 28) bg.lineBetween(gx, sy + 12, gx, groundY);
+      for (let gy = sy + 20; gy < groundY; gy += 28) bg.lineBetween(sx + 10, gy, sx + sw - 10, gy);
+    } else if (isBad) {
+      bg.fillStyle(0x2c0b0e, 1);
+      bg.fillRoundedRect(sx, sy, sw, sh, 10);
+      bg.fillStyle(0x5c191e, 1);
+      bg.fillRect(sx, sy + 82, sw, groundY - (sy + 82));
+      // Тревожное багровое солнце
+      bg.fillStyle(0xef4444, 0.35);
+      bg.fillCircle(sx + 56, sy + 44, 24);
+    } else {
+      bg.fillStyle(0x0369a1, 1);
+      bg.fillRoundedRect(sx, sy, sw, sh, 10);
+      bg.fillStyle(0x0ea5e9, 0.65);
+      bg.fillRect(sx, sy + 76, sw, groundY - (sy + 76));
+      // Яркое солнце и лёгкие облака
+      bg.fillStyle(0xfef08a, 0.9);
+      bg.fillCircle(sx + 48, sy + 38, 16);
+      bg.fillStyle(0xf8fafc, 0.75);
+      bg.fillRoundedRect(sx + 84, sy + 26, 56, 14, 7);
+      bg.fillRoundedRect(sx + 210, sy + 36, 68, 14, 7);
+    }
+
+    // 2. Объёмные горные хребты со снежными/светлыми гранями
+    if (!isAudit) {
+      const mDark = isBad ? 0x3f1d24 : 0x334155;
+      const mLight = isBad ? 0x6b2c35 : 0x64748b;
+      // Левая гора (тень + освещённый склон)
+      bg.fillStyle(mDark, 1);
+      bg.fillTriangle(sx + 8, groundY, sx + 88, sy + 64, sx + 168, groundY);
+      bg.fillStyle(mLight, 1);
+      bg.fillTriangle(sx + 88, sy + 64, sx + 124, groundY, sx + 168, groundY);
+
+      // Правая гора
+      bg.fillStyle(mDark, 1);
+      bg.fillTriangle(sx + 148, groundY, sx + 242, sy + 52, sx + sw - 8, groundY);
+      bg.fillStyle(mLight, 1);
+      bg.fillTriangle(sx + 242, sy + 52, sx + 286, groundY, sx + sw - 8, groundY);
+    }
+
+    // 3. Слой горной породы в разрезе внизу
+    const rockH = sy + sh - groundY;
+    this.add.tileSprite(width / 2, groundY + rockH / 2, sw, rockH, 'rock_tex')
+      .setTint(this.contract.rock.color)
+      .setDepth(22);
+
+    const crust = this.add.graphics().setDepth(23);
+    crust.fillStyle(isBad ? 0x78350f : 0x15803d, 1);
+    crust.fillRect(sx, groundY, sw, 6);
+    crust.lineStyle(2, 0x0f172a, 0.8);
+    crust.lineBetween(sx, groundY, sx + sw, groundY);
+
+    const dustParticles = this.add.particles(0, 0, 'dust_px', {
+      speed: { min: 45, max: 165 },
+      scale: { start: 1.3, end: 0 },
+      lifespan: 520,
+      emitting: false
+    }).setDepth(35);
+
+    // СЮЖЕТ 1: УСПЕШНАЯ СТРОЙКА (Высотный каркас с панорамными окнами + башенный кран)
+    if (outcomeType === 'success') {
+      const craneG = this.add.graphics().setDepth(23);
+      const mastX = sx + sw - 46;
+      craneG.fillStyle(0x475569, 1);
+      craneG.fillRect(mastX - 14, groundY - 8, 28, 8);
+      craneG.lineStyle(3, 0xfacc15, 1);
+      craneG.strokeRect(mastX - 6, sy + 20, 12, groundY - (sy + 28));
+      craneG.fillStyle(0xfacc15, 1);
+      craneG.fillRect(sx + 34, sy + 26, sw - 58, 6);
+      craneG.lineStyle(1.5, 0xfef08a, 0.9);
+      craneG.lineBetween(mastX, sy + 14, sx + 48, sy + 26);
+
+      for (let floor = 0; floor < 3; floor++) {
+        const fy = groundY - 22 - floor * 28;
+        const unit = this.add.container(width / 2 - 22, sy + 42).setDepth(24);
+        const uG = this.add.graphics();
+        uG.fillStyle(0xf8fafc, 1);
+        uG.fillRoundedRect(-64, -13, 128, 26, 3);
+        uG.lineStyle(2, 0x334155, 1);
+        uG.strokeRoundedRect(-64, -13, 128, 26, 3);
+        uG.fillStyle(0x0284c9, 1);
+        for (let wx = -50; wx <= 34; wx += 28) {
+          uG.fillRect(wx, -6, 16, 12);
+        }
+        unit.add(uG);
+
+        this.tweens.add({
+          targets: unit,
+          y: fy,
+          delay: floor * 220,
+          duration: 420,
+          ease: 'Back.easeOut',
+          onComplete: () => dustParticles.emitParticleAt(width / 2 - 22, fy + 12, 10)
+        });
+      }
+    }
+    // СЮЖЕТ 2: ОБЪЕКТ СПАСЁН ОТ ОБВАЛА (Укрепление горного уступа анкерами и геосеткой)
+    else if (outcomeType === 'saved_lives') {
+      const slopeG = this.add.graphics().setDepth(23);
+      // Каменный уступ справа, который мог обрушиться
+      slopeG.fillStyle(0x475569, 1);
+      slopeG.fillTriangle(width / 2 - 10, groundY, width / 2 + 125, sy + 56, width / 2 + 145, groundY);
+      // Подпорная бетонная стенка и стальная геосетка
+      slopeG.fillStyle(0x0284c9, 1);
+      slopeG.fillRoundedRect(width / 2 - 26, groundY - 76, 22, 76, 4);
+      slopeG.lineStyle(2, 0x38bdf8, 1);
+      slopeG.strokeRoundedRect(width / 2 - 26, groundY - 76, 22, 76, 4);
+
+      // Стальные анкерные тяги, уходящие в породу
+      const anchors = this.add.container(0, 0).setDepth(24).setAlpha(0);
+      const aG = this.add.graphics();
+      aG.lineStyle(3, 0xfacc15, 1);
+      [-58, -38, -18].forEach((ay, idx) => {
+        aG.lineBetween(width / 2 - 28, groundY + ay, width / 2 + 45 + idx * 14, groundY + ay + 12);
+        aG.fillStyle(0xfacc15, 1);
+        aG.fillCircle(width / 2 - 28, groundY + ay, 4);
+      });
+      anchors.add(aG);
+
+      // Буровая машина слева
+      const rig = this.add.container(sx + 54, groundY - 18).setDepth(24);
+      const rG = this.add.graphics();
+      rG.fillStyle(0xf59e0b, 1);
+      rG.fillRoundedRect(-24, -14, 48, 24, 5);
+      rG.fillStyle(0x1e293b, 1);
+      rG.fillRoundedRect(-26, 8, 52, 10, 4);
+      rG.fillStyle(0xe2e8f0, 1);
+      rG.fillRect(10, -34, 6, 26);
+      rig.add(rG);
+
+      this.tweens.add({
+        targets: rig,
+        x: width / 2 - 66,
+        duration: 620,
+        ease: 'Cubic.easeOut',
+        onComplete: () => {
+          this.tweens.add({ targets: anchors, alpha: 1, duration: 280 });
+          dustParticles.emitParticleAt(width / 2 - 22, groundY - 40, 14);
+        }
+      });
+    }
+    // СЮЖЕТ 3: ОБВАЛ В КАРЬЕРЕ (Разрушение борта, падение валунов и вышки)
+    else if (outcomeType === 'collapse') {
+      const b1 = this.add.polygon(width / 2 - 42, groundY - 42, [0, -24, 28, -10, 22, 22, -24, 18], 0x64748b)
+        .setStrokeStyle(2, 0x1e293b)
+        .setDepth(24);
+      const b2 = this.add.polygon(width / 2 + 38, groundY - 48, [-20, -22, 26, -16, 30, 20, -26, 24], 0x475569)
+        .setStrokeStyle(2, 0x1e293b)
+        .setDepth(24);
+
+      const tower = this.add.container(width / 2 + 4, groundY - 38).setDepth(25);
+      const tG = this.add.graphics();
+      tG.lineStyle(3, 0xef4444, 1);
+      tG.strokeRect(-8, -36, 16, 72);
+      tG.lineBetween(-8, -36, 8, 0);
+      tG.lineBetween(8, -36, -8, 0);
+      tower.add(tG);
+
+      this.tweens.add({
+        targets: b1,
+        x: width / 2 - 72,
+        y: groundY - 12,
+        angle: -34,
+        duration: 460,
+        ease: 'Bounce.easeOut',
+        onStart: () => dustParticles.emitParticleAt(width / 2, groundY - 16, 34)
+      });
+      this.tweens.add({
+        targets: b2,
+        x: width / 2 + 76,
+        y: groundY - 10,
+        angle: 38,
+        duration: 520,
+        ease: 'Bounce.easeOut'
+      });
+      this.tweens.add({
+        targets: tower,
+        x: width / 2 + 24,
+        y: groundY - 14,
+        angle: 68,
+        duration: 560,
+        ease: 'Cubic.easeIn'
+      });
+    }
+    // СЮЖЕТ 4: ЛОЖНАЯ ТРЕВОГА (Выездная лаборатория независимой экспертизы)
+    else if (outcomeType === 'false_alarm') {
+      const van = this.add.container(sx + 54, groundY - 22).setDepth(24);
+      const vG = this.add.graphics();
+      vG.fillStyle(0xf8fafc, 1);
+      vG.fillRoundedRect(-42, -18, 84, 32, 6);
+      vG.fillStyle(0x0284c9, 1);
+      vG.fillRect(-42, -4, 84, 8);
+      vG.fillStyle(0x38bdf8, 1);
+      vG.fillRect(16, -14, 20, 12);
+      vG.fillStyle(0xf59e0b, 1);
+      vG.fillCircle(-10, -22, 5);
+      vG.fillStyle(0x0f172a, 1);
+      vG.fillCircle(-24, 16, 8);
+      vG.fillCircle(24, 16, 8);
+      van.add(vG);
+
+      this.tweens.add({
+        targets: van,
+        x: width / 2 + 12,
+        duration: 760,
+        ease: 'Cubic.easeOut'
+      });
+    }
+    // СЮЖЕТ 5: УСПЕШНЫЙ АУДИТ РОСТЕХНАДЗОРА (Эталонный стенд + лазерная калибровка + щит)
+    else if (outcomeType === 'audit_pass') {
+      const standG = this.add.graphics().setDepth(23);
+      standG.fillStyle(0x334155, 1);
+      standG.fillRoundedRect(width / 2 - 58, groundY - 96, 116, 96, 8);
+      standG.lineStyle(2, 0x38bdf8, 1);
+      standG.strokeRoundedRect(width / 2 - 58, groundY - 96, 116, 96, 8);
+      standG.fillStyle(0xfacc15, 1);
+      standG.fillRect(width / 2 - 22, groundY - 58, 44, 42);
+
+      const scanBeam = this.add.rectangle(width / 2, groundY - 76, 96, 3, 0x4ade80, 0.95).setDepth(24);
+      this.tweens.add({
+        targets: scanBeam,
+        y: groundY - 18,
+        duration: 750,
+        yoyo: true,
+        repeat: -1
+      });
+    }
+    // СЮЖЕТ 6: ПРОВАЛ АУДИТА РОСТЕХНАДЗОРА (Опломбировка стенда и красная лента)
+    else {
+      const standG = this.add.graphics().setDepth(23);
+      standG.fillStyle(0x334155, 1);
+      standG.fillRoundedRect(width / 2 - 58, groundY - 96, 116, 96, 8);
+      standG.lineStyle(3, 0xef4444, 1);
+      standG.strokeRoundedRect(width / 2 - 58, groundY - 96, 116, 96, 8);
+      // Красный крест предписания поверх стенда
+      standG.lineStyle(5, 0xef4444, 0.95);
+      standG.lineBetween(width / 2 - 44, groundY - 82, width / 2 + 44, groundY - 14);
+      standG.lineBetween(width / 2 + 44, groundY - 82, width / 2 - 44, groundY - 14);
+    }
   }
 }
