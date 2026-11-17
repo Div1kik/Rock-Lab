@@ -171,7 +171,7 @@ export class MenuScene extends Phaser.Scene {
       g.strokePath();
     }
 
-    // Отрисовка шкафа-витрины с редкими минералами
+    // Витрина с найденными минералами слева
     const foundGems = Storage.getGems();
     if (showcaseLvl > 0 || labLvl >= 2 || foundGems.length > 0) {
       const shelfX = 20;
@@ -187,13 +187,21 @@ export class MenuScene extends Phaser.Scene {
         g.fillRect(shelfX + 8, sy + 14, 52, 4);
 
         if (foundGems[i]) {
+          const gx = shelfX + 34;
+          const gy = sy + 4;
           g.fillStyle(foundGems[i].color, 1);
-          g.fillCircle(shelfX + 34, sy + 4, 7);
-          g.lineStyle(1.5, 0xffffff, 0.8);
-          g.strokeCircle(shelfX + 34, sy + 4, 7);
+          g.beginPath();
+          g.moveTo(gx, gy - 9);
+          g.lineTo(gx + 8, gy);
+          g.lineTo(gx, gy + 9);
+          g.lineTo(gx - 8, gy);
+          g.closePath();
+          g.fillPath();
+          g.lineStyle(1.5, 0xffffff, 0.9);
+          g.strokePath();
         } else {
           g.fillStyle(0x27272a, 1);
-          g.fillCircle(shelfX + 34, sy + 4, 4);
+          g.fillCircle(shelfX + 34, sy + 4, 3);
         }
       }
     }
@@ -400,19 +408,20 @@ export class MenuScene extends Phaser.Scene {
     bg.lineStyle(2, tier.accent, 0.75);
     bg.strokeRoundedRect(-pw / 2, -ph / 2, pw, ph, 10);
 
-    const icon = this.add.text(-pw / 2 + 14, 0, '📻', {
-      fontSize: '20px'
+    const icon = this.add.text(-pw / 2 + 12, 0, '📻', {
+      fontSize: '19px'
     }).setOrigin(0, 0.5);
 
     const curTrack = AudioManager.getCurrentTrack();
-    this.trackTxt = this.add.text(-pw / 2 + 44, -7, curTrack.name, {
+    this.trackTxt = this.add.text(-pw / 2 + 40, -7, curTrack.name, {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '11px',
       fontWeight: '700',
       color: '#fef3c7'
     }).setOrigin(0, 0.5);
 
-    const subLabel = this.add.text(-pw / 2 + 44, 10, 'ТАПНИ ЧТОБЫ СМЕНИТЬ ТРЕК ⏭', {
+    const defaultSub = 'ТАПНИ ЧТОБЫ СМЕНИТЬ ТРЕК ⏭';
+    const subLabel = this.add.text(-pw / 2 + 40, 10, defaultSub, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '9px',
       fontWeight: '600',
@@ -421,13 +430,12 @@ export class MenuScene extends Phaser.Scene {
 
     this.eqBars = [];
     for (let i = 0; i < 4; i++) {
-      const bar = this.add.rectangle(pw / 2 - 74 + i * 7, 12, 4, 16, tier.accent)
+      const bar = this.add.rectangle(pw / 2 - 90 + i * 6, 12, 4, 16, tier.accent)
         .setOrigin(0.5, 1);
       this.eqBars.push(bar);
     }
 
-    // Зона переключения трека (левая/основная часть плеера)
-    const nextZone = this.add.zone(-20, 0, pw - 48, ph).setInteractive({ useHandCursor: true });
+    const nextZone = this.add.zone(-30, 0, pw - 74, ph).setInteractive({ useHandCursor: true });
     nextZone.on('pointerdown', () => {
       if (performance.now() < this.inputGuardUntil) return;
       const next = AudioManager.nextTrack();
@@ -441,24 +449,58 @@ export class MenuScene extends Phaser.Scene {
       });
     });
 
-    // Отдельная кнопка режима воспроизведения справа (🔁 по кругу / 🔂 повтор трека)
+    // Явная кнопка режима воспроизведения справа (ВСЕ ↻ / 1 ТРЕК)
+    const modeW = 56;
+    const modeH = 32;
+    const modeX = pw / 2 - 34;
+    const modeBtnContainer = this.add.container(modeX, 0);
     const modeBg = this.add.graphics();
-    modeBg.fillStyle(0x1e293b, 1);
-    modeBg.fillRoundedRect(pw / 2 - 38, -16, 30, 32, 6);
-    modeBg.lineStyle(1, tier.accent, 0.6);
-    modeBg.strokeRoundedRect(pw / 2 - 38, -16, 30, 32, 6);
+    const modeLabel = this.add.text(0, 0, '', {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '9px',
+      fontWeight: '700',
+      align: 'center'
+    }).setOrigin(0.5);
 
-    const modeBtn = this.add.text(pw / 2 - 23, 0, AudioManager.getPlayMode() === 'loop' ? '🔂' : '🔁', {
-      fontSize: '15px'
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    const drawModeBtn = (mode) => {
+      const isLoop = mode === 'loop';
+      modeBg.clear();
+      modeBg.fillStyle(isLoop ? 0xfacc15 : 0x0284c9, 1);
+      modeBg.fillRoundedRect(-modeW / 2, -modeH / 2, modeW, modeH, 7);
+      modeBg.lineStyle(1.5, 0xffffff, 0.45);
+      modeBg.strokeRoundedRect(-modeW / 2, -modeH / 2, modeW, modeH, 7);
+      modeLabel.setText(isLoop ? '🔂\n1 ТРЕК' : '🔁\nВСЕ ↻');
+      modeLabel.setColor(isLoop ? '#0f172a' : '#ffffff');
+    };
 
-    modeBtn.on('pointerdown', () => {
+    drawModeBtn(AudioManager.getPlayMode());
+    modeBtnContainer.add([modeBg, modeLabel]);
+
+    const modeZone = this.add.zone(modeX, 0, modeW + 6, ph).setInteractive({ useHandCursor: true });
+    modeZone.on('pointerdown', () => {
       if (performance.now() < this.inputGuardUntil) return;
       const newMode = AudioManager.togglePlayMode();
-      modeBtn.setText(newMode === 'loop' ? '🔂' : '🔁');
+      drawModeBtn(newMode);
+
+      this.tweens.add({
+        targets: modeBtnContainer,
+        scaleX: 0.9,
+        scaleY: 0.9,
+        duration: 65,
+        yoyo: true
+      });
+
+      subLabel.setText(newMode === 'loop' ? 'РЕЖИМ: ПОВТОР ОДНОГО ТРЕКА' : 'РЕЖИМ: ВСЕ ТРЕКИ ПО КРУГУ');
+      subLabel.setColor(newMode === 'loop' ? '#facc15' : '#38bdf8');
+      this.time.delayedCall(1400, () => {
+        if (subLabel && subLabel.active) {
+          subLabel.setText(defaultSub);
+          subLabel.setColor('#94a3b8');
+        }
+      });
     });
 
-    container.add([bg, icon, this.trackTxt, subLabel, ...this.eqBars, nextZone, modeBg, modeBtn]);
+    container.add([bg, icon, this.trackTxt, subLabel, ...this.eqBars, nextZone, modeBtnContainer, modeZone]);
   }
 
   update(time, delta) {
@@ -470,7 +512,6 @@ export class MenuScene extends Phaser.Scene {
       this.eqBars.forEach((bar) => {
         bar.height = active ? 4 + Math.random() * 14 : 3;
       });
-      // Обновляем название трека, если плейлист сам переключился на следующий
       if (this.trackTxt) {
         const currentName = AudioManager.getCurrentTrack().name;
         if (this.trackTxt.text !== currentName) {
