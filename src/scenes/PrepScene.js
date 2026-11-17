@@ -760,7 +760,7 @@ export class PrepScene extends Phaser.Scene {
     let measuredH = spec.targetH;
     let measuredD = spec.targetD;
 
-    const jawSpeed = Math.max(0.42, 0.72 - (calLvl - 1) * 0.06);
+    const baseJawSpeed = Math.max(0.38, 0.65 - (calLvl - 1) * 0.055);
 
     btn.zone.on('pointerdown', () => {
       if (step !== 'done') holding = true;
@@ -804,7 +804,11 @@ export class PrepScene extends Phaser.Scene {
     this.currentUpdate = (dt) => {
       if (!holding || step === 'done') return;
 
-      gap -= jawSpeed * dt;
+      // В начале хода (gap ~ 1.0) губки двигаются медленнее, а ближе к образцу (gap -> 0) разгоняются
+      const clampedProgress = Math.max(0, Math.min(1, gap));
+      const accelCurve = 0.55 + (1 - clampedProgress) * 1.15;
+      gap -= baseJawSpeed * accelCurve * dt;
+
       if (gap < -0.22) {
         gap = -0.22;
         releaseJaw();
