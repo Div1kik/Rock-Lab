@@ -174,9 +174,9 @@ export class MenuScene extends Phaser.Scene {
       g.strokePath();
     }
 
-    // Интерактивный шкаф-витрина с редкими минералами слева
+    // Витрина появляется ТОЛЬКО после покупки в магазине (со 2-го уровня лабы)
     const foundGems = Storage.getGems();
-    if (showcaseLvl > 0 || labLvl >= 2 || foundGems.length > 0) {
+    if (showcaseLvl > 0) {
       const shelfX = 20;
       const shelfY = 172;
       const shelfW = 68;
@@ -187,15 +187,16 @@ export class MenuScene extends Phaser.Scene {
       g.lineStyle(2, tier.accent, 0.85);
       g.strokeRoundedRect(shelfX, shelfY, shelfW, shelfH, 6);
 
+      const displayed = Storage.getDisplayedGems();
       for (let i = 0; i < 4; i++) {
         const sy = shelfY + 24 + i * 35;
         g.fillStyle(0x3f3f46, 1);
         g.fillRect(shelfX + 8, sy + 14, 52, 4);
 
-        if (foundGems[i]) {
+        if (displayed[i]) {
           const gx = shelfX + 34;
           const gy = sy + 4;
-          g.fillStyle(foundGems[i].color, 1);
+          g.fillStyle(displayed[i].color, 1);
           g.beginPath();
           g.moveTo(gx, gy - 9);
           g.lineTo(gx + 8, gy);
@@ -211,7 +212,6 @@ export class MenuScene extends Phaser.Scene {
         }
       }
 
-      // Стеклянные дверцы шкафа-витрины с анимацией распахивания при клике
       this.leftDoor = this.add.rectangle(shelfX + 2, shelfY + 2, shelfW / 2 - 2, shelfH - 4, 0x38bdf8, 0.16)
         .setOrigin(0, 0)
         .setStrokeStyle(1, 0x7dd3fc, 0.55);
@@ -219,7 +219,7 @@ export class MenuScene extends Phaser.Scene {
         .setOrigin(1, 0)
         .setStrokeStyle(1, 0x7dd3fc, 0.55);
 
-      const shelfBadge = this.add.text(shelfX + shelfW / 2, shelfY + shelfH + 10, `💎 ${foundGems.length}/5`, {
+      this.add.text(shelfX + shelfW / 2, shelfY + shelfH + 10, `💎 ${foundGems.length}/${RARE_INCLUSIONS.length}`, {
         fontFamily: '"JetBrains Mono", monospace',
         fontSize: '10px',
         fontWeight: '700',
@@ -245,6 +245,36 @@ export class MenuScene extends Phaser.Scene {
             this.openShowcaseModal(tier);
           }
         });
+      });
+    } else if (foundGems.length > 0) {
+      // Пока витрина не куплена — показываем компактный индикатор склада образцов
+      const boxX = 20;
+      const boxY = 278;
+      g.fillStyle(0x292524, 0.95);
+      g.fillRoundedRect(boxX, boxY, 68, 54, 6);
+      g.lineStyle(1.5, 0x78716c, 0.8);
+      g.strokeRoundedRect(boxX, boxY, 68, 54, 6);
+
+      this.add.text(boxX + 34, boxY + 18, '📦 СКЛАД', {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '9px',
+        fontWeight: '700',
+        color: '#fde68a'
+      }).setOrigin(0.5);
+
+      this.add.text(boxX + 34, boxY + 36, `💎 ${foundGems.length} шт.`, {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '10px',
+        fontWeight: '700',
+        color: '#38bdf8'
+      }).setOrigin(0.5);
+
+      const boxZone = this.add.zone(boxX + 34, boxY + 27, 74, 60).setInteractive({ useHandCursor: true });
+      boxZone.on('pointerdown', () => {
+        if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+        this.showcaseModalOpen = true;
+        AudioManager.playClick();
+        this.openShowcaseModal(tier);
       });
     }
 
@@ -272,14 +302,15 @@ export class MenuScene extends Phaser.Scene {
   openShowcaseModal(tier) {
     const { width, height } = this.scale;
     const modalContainer = this.add.container(0, 0).setDepth(60);
+    const hasShowcase = Storage.getPerkLevel('showcase') > 0;
 
     const blocker = this.add.zone(width / 2, height / 2, width, height).setInteractive();
     const dimBg = this.add.graphics();
-    dimBg.fillStyle(0x090d16, 0.92);
+    dimBg.fillStyle(0x090d16, 0.94);
     dimBg.fillRect(0, 0, width, height);
 
-    const boxW = 384;
-    const boxH = 540;
+    const boxW = 396;
+    const boxH = 650;
     const boxX = width / 2 - boxW / 2;
     const boxY = height / 2 - boxH / 2;
 
@@ -289,96 +320,111 @@ export class MenuScene extends Phaser.Scene {
     panel.lineStyle(3, tier.accent, 1);
     panel.strokeRoundedRect(boxX, boxY, boxW, boxH, 16);
 
-    const title = this.add.text(width / 2, boxY + 28, '💎 ВИТРИНА РЕДКИХ МИНЕРАЛОВ', {
-      fontFamily: '"Rubik", sans-serif',
-      fontSize: '16px',
-      fontWeight: '700',
-      color: '#fef3c7'
-    }).setOrigin(0.5);
-
-    const foundGems = Storage.getGems();
-    const sub = this.add.text(
+    const title = this.add.text(
       width / 2,
-      boxY + 52,
-      `Собрано образцов: ${foundGems.length} из ${RARE_INCLUSIONS.length} · Престиж лаборатории`,
+      boxY + 24,
+      hasShowcase ? '💎 СКЛАД И ВИТРИНА МИНЕРАЛОВ' : '📦 СКЛАД НАЙДЕННЫХ МИНЕРАЛОВ',
       {
         fontFamily: '"Rubik", sans-serif',
-        fontSize: '11px',
-        color: '#94a3b8'
+        fontSize: '15px',
+        fontWeight: '700',
+        color: '#fef3c7'
       }
     ).setOrigin(0.5);
+
+    const foundGems = Storage.getGems();
+    const subText = hasShowcase
+      ? `Найдено: ${foundGems.length}/${RARE_INCLUSIONS.length} · Выбери до 4 образцов на полку`
+      : `Найдено: ${foundGems.length}/${RARE_INCLUSIONS.length} · Купи витрину в Магазине (Ур. 2+)`;
+
+    const sub = this.add.text(width / 2, boxY + 46, subText, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '11px',
+      color: '#94a3b8'
+    }).setOrigin(0.5);
 
     modalContainer.add([blocker, dimBg, panel, title, sub]);
 
     RARE_INCLUSIONS.forEach((gem, idx) => {
       const owned = foundGems.find((g) => g.id === gem.id);
-      const ry = boxY + 76 + idx * 78;
-      const rowH = 68;
+      const ry = boxY + 66 + idx * 57;
+      const rowH = 51;
 
       const rowG = this.add.graphics();
       rowG.fillStyle(owned ? 0x222938 : 0x131720, 1);
-      rowG.fillRoundedRect(boxX + 16, ry, boxW - 32, rowH, 10);
-      rowG.lineStyle(2, owned ? gem.color : 0x334155, owned ? 0.9 : 0.6);
-      rowG.strokeRoundedRect(boxX + 16, ry, boxW - 32, rowH, 10);
+      rowG.fillRoundedRect(boxX + 14, ry, boxW - 28, rowH, 8);
+      rowG.lineStyle(1.5, owned ? gem.color : 0x334155, owned ? 0.9 : 0.6);
+      rowG.strokeRoundedRect(boxX + 14, ry, boxW - 28, rowH, 8);
 
-      const iconTxt = this.add.text(boxX + 42, ry + rowH / 2, owned ? gem.icon : '❓', {
-        fontSize: '24px'
+      const iconTxt = this.add.text(boxX + 34, ry + rowH / 2, owned ? gem.icon : '❓', {
+        fontSize: '20px'
       }).setOrigin(0.5).setAlpha(owned ? 1 : 0.45);
 
       const nameTxt = this.add.text(
-        boxX + 72,
-        ry + 18,
-        owned ? `${gem.name}${owned.count > 1 ? ` (×${owned.count})` : ''}` : 'Неизвестный минерал',
+        boxX + 56,
+        ry + 15,
+        owned ? `${gem.name}${owned.count > 1 ? ` (×${owned.count})` : ''}` : 'Неизвестный образец',
         {
           fontFamily: '"Rubik", sans-serif',
-          fontSize: '13px',
+          fontSize: '11px',
           fontWeight: '700',
           color: owned ? '#f8fafc' : '#64748b'
         }
       ).setOrigin(0, 0.5);
 
       const descTxt = this.add.text(
-        boxX + 72,
-        ry + 43,
-        owned
-          ? `Оценочная ценность: ${gem.value} ₽ · Выставлен на стенде`
-          : 'Встречается при вскрытии керновых ящиков на объектах',
+        boxX + 56,
+        ry + 35,
+        owned ? `${gem.rarity} · Ценность ${gem.value} ₽` : `Редкость: ${gem.rarity}`,
         {
           fontFamily: '"Rubik", sans-serif',
-          fontSize: '11px',
-          color: owned ? '#38bdf8' : '#475569',
-          wordWrap: { width: boxW - 96 }
+          fontSize: '10px',
+          color: owned ? '#38bdf8' : '#475569'
         }
       ).setOrigin(0, 0.5);
 
       modalContainer.add([rowG, iconTxt, nameTxt, descTxt]);
+
+      if (owned && hasShowcase) {
+        const isShown = Storage.isGemDisplayed(gem.id);
+        const toggleBtn = this.add.text(
+          boxX + boxW - 24,
+          ry + rowH / 2,
+          isShown ? '✅ НА ПОЛКЕ' : '+ НА ПОЛКУ',
+          {
+            fontFamily: '"JetBrains Mono", monospace',
+            fontSize: '9px',
+            fontWeight: '700',
+            color: isShown ? '#0f172a' : '#fef3c7',
+            backgroundColor: isShown ? '#4ade80' : '#334155',
+            padding: { x: 7, y: 5 }
+          }
+        ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+
+        toggleBtn.on('pointerdown', () => {
+          AudioManager.playLatchSnap();
+          Storage.toggleGemDisplay(gem.id);
+          modalContainer.destroy();
+          this.openShowcaseModal(tier);
+        });
+
+        modalContainer.add(toggleBtn);
+      }
     });
 
-    const closeBtn = this.add.text(width / 2, boxY + boxH - 32, 'ЗАКРЫТЬ ВИТРИНУ', {
+    const closeBtn = this.add.text(width / 2, boxY + boxH - 28, 'ЗАКРЫТЬ И ОБНОВИТЬ ПОЛКУ', {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '13px',
+      fontSize: '12px',
       fontWeight: '700',
       color: '#ffffff',
       backgroundColor: '#d97706',
-      padding: { x: 22, y: 10 }
+      padding: { x: 20, y: 9 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
     closeBtn.on('pointerdown', () => {
       AudioManager.playLatchSnap();
       modalContainer.destroy();
-      if (this.leftDoor && this.rightDoor) {
-        this.tweens.add({
-          targets: [this.leftDoor, this.rightDoor],
-          scaleX: 1,
-          duration: 220,
-          ease: 'Cubic.easeInOut',
-          onComplete: () => {
-            this.showcaseModalOpen = false;
-          }
-        });
-      } else {
-        this.showcaseModalOpen = false;
-      }
+      this.scene.restart();
     });
 
     modalContainer.add(closeBtn);
