@@ -1,5 +1,6 @@
 import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
+import { RARE_INCLUSIONS } from '../data/contracts.js';
 
 const LAB_TIERS = {
   1: { name: 'Гаражная геолаборатория', wall: 0x262320, table: 0x57504a, accent: 0xeab308 },
@@ -15,6 +16,7 @@ export class MenuScene extends Phaser.Scene {
     this.eqBars = [];
     this.eqTimer = 0;
     this.trackTxt = null;
+    this.showcaseModalOpen = false;
   }
 
   create() {
@@ -22,6 +24,7 @@ export class MenuScene extends Phaser.Scene {
     const labLvl = Storage.getLabLevel();
     const tier = LAB_TIERS[labLvl] || LAB_TIERS[1];
 
+    this.showcaseModalOpen = false;
     this.inputGuardUntil = performance.now() + 260;
 
     this.particles = this.add.particles(0, 0, 'dust_px', {
@@ -171,15 +174,18 @@ export class MenuScene extends Phaser.Scene {
       g.strokePath();
     }
 
-    // Витрина с найденными минералами слева
+    // Интерактивный шкаф-витрина с редкими минералами слева
     const foundGems = Storage.getGems();
     if (showcaseLvl > 0 || labLvl >= 2 || foundGems.length > 0) {
       const shelfX = 20;
       const shelfY = 172;
+      const shelfW = 68;
+      const shelfH = 160;
+
       g.fillStyle(0x18181b, 0.95);
-      g.fillRoundedRect(shelfX, shelfY, 68, 160, 6);
-      g.lineStyle(2, tier.accent, 0.8);
-      g.strokeRoundedRect(shelfX, shelfY, 68, 160, 6);
+      g.fillRoundedRect(shelfX, shelfY, shelfW, shelfH, 6);
+      g.lineStyle(2, tier.accent, 0.85);
+      g.strokeRoundedRect(shelfX, shelfY, shelfW, shelfH, 6);
 
       for (let i = 0; i < 4; i++) {
         const sy = shelfY + 24 + i * 35;
@@ -204,6 +210,42 @@ export class MenuScene extends Phaser.Scene {
           g.fillCircle(shelfX + 34, sy + 4, 3);
         }
       }
+
+      // Стеклянные дверцы шкафа-витрины с анимацией распахивания при клике
+      this.leftDoor = this.add.rectangle(shelfX + 2, shelfY + 2, shelfW / 2 - 2, shelfH - 4, 0x38bdf8, 0.16)
+        .setOrigin(0, 0)
+        .setStrokeStyle(1, 0x7dd3fc, 0.55);
+      this.rightDoor = this.add.rectangle(shelfX + shelfW - 2, shelfY + 2, shelfW / 2 - 2, shelfH - 4, 0x38bdf8, 0.16)
+        .setOrigin(1, 0)
+        .setStrokeStyle(1, 0x7dd3fc, 0.55);
+
+      const shelfBadge = this.add.text(shelfX + shelfW / 2, shelfY + shelfH + 10, `💎 ${foundGems.length}/5`, {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '10px',
+        fontWeight: '700',
+        color: '#fef3c7',
+        backgroundColor: '#14161bdd',
+        padding: { x: 5, y: 2 }
+      }).setOrigin(0.5);
+
+      const shelfZone = this.add.zone(shelfX + shelfW / 2, shelfY + shelfH / 2, shelfW + 14, shelfH + 24)
+        .setInteractive({ useHandCursor: true });
+
+      shelfZone.on('pointerdown', () => {
+        if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+        this.showcaseModalOpen = true;
+        AudioManager.playLatchSnap();
+
+        this.tweens.add({
+          targets: [this.leftDoor, this.rightDoor],
+          scaleX: 0.12,
+          duration: 240,
+          ease: 'Cubic.easeOut',
+          onComplete: () => {
+            this.openShowcaseModal(tier);
+          }
+        });
+      });
     }
 
     g.fillStyle(0xfef3c7, 0.9);
@@ -225,6 +267,121 @@ export class MenuScene extends Phaser.Scene {
     g.fillRect(0, h * 0.54, w, 12);
     g.fillStyle(0x71717a, 1);
     g.fillRect(0, h * 0.54, w, 3);
+  }
+
+  openShowcaseModal(tier) {
+    const { width, height } = this.scale;
+    const modalContainer = this.add.container(0, 0).setDepth(60);
+
+    const blocker = this.add.zone(width / 2, height / 2, width, height).setInteractive();
+    const dimBg = this.add.graphics();
+    dimBg.fillStyle(0x090d16, 0.92);
+    dimBg.fillRect(0, 0, width, height);
+
+    const boxW = 384;
+    const boxH = 540;
+    const boxX = width / 2 - boxW / 2;
+    const boxY = height / 2 - boxH / 2;
+
+    const panel = this.add.graphics();
+    panel.fillStyle(0x181c26, 1);
+    panel.fillRoundedRect(boxX, boxY, boxW, boxH, 16);
+    panel.lineStyle(3, tier.accent, 1);
+    panel.strokeRoundedRect(boxX, boxY, boxW, boxH, 16);
+
+    const title = this.add.text(width / 2, boxY + 28, '💎 ВИТРИНА РЕДКИХ МИНЕРАЛОВ', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '16px',
+      fontWeight: '700',
+      color: '#fef3c7'
+    }).setOrigin(0.5);
+
+    const foundGems = Storage.getGems();
+    const sub = this.add.text(
+      width / 2,
+      boxY + 52,
+      `Собрано образцов: ${foundGems.length} из ${RARE_INCLUSIONS.length} · Престиж лаборатории`,
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
+        color: '#94a3b8'
+      }
+    ).setOrigin(0.5);
+
+    modalContainer.add([blocker, dimBg, panel, title, sub]);
+
+    RARE_INCLUSIONS.forEach((gem, idx) => {
+      const owned = foundGems.find((g) => g.id === gem.id);
+      const ry = boxY + 76 + idx * 78;
+      const rowH = 68;
+
+      const rowG = this.add.graphics();
+      rowG.fillStyle(owned ? 0x222938 : 0x131720, 1);
+      rowG.fillRoundedRect(boxX + 16, ry, boxW - 32, rowH, 10);
+      rowG.lineStyle(2, owned ? gem.color : 0x334155, owned ? 0.9 : 0.6);
+      rowG.strokeRoundedRect(boxX + 16, ry, boxW - 32, rowH, 10);
+
+      const iconTxt = this.add.text(boxX + 42, ry + rowH / 2, owned ? gem.icon : '❓', {
+        fontSize: '24px'
+      }).setOrigin(0.5).setAlpha(owned ? 1 : 0.45);
+
+      const nameTxt = this.add.text(
+        boxX + 72,
+        ry + 18,
+        owned ? `${gem.name}${owned.count > 1 ? ` (×${owned.count})` : ''}` : 'Неизвестный минерал',
+        {
+          fontFamily: '"Rubik", sans-serif',
+          fontSize: '13px',
+          fontWeight: '700',
+          color: owned ? '#f8fafc' : '#64748b'
+        }
+      ).setOrigin(0, 0.5);
+
+      const descTxt = this.add.text(
+        boxX + 72,
+        ry + 43,
+        owned
+          ? `Оценочная ценность: ${gem.value} ₽ · Выставлен на стенде`
+          : 'Встречается при вскрытии керновых ящиков на объектах',
+        {
+          fontFamily: '"Rubik", sans-serif',
+          fontSize: '11px',
+          color: owned ? '#38bdf8' : '#475569',
+          wordWrap: { width: boxW - 96 }
+        }
+      ).setOrigin(0, 0.5);
+
+      modalContainer.add([rowG, iconTxt, nameTxt, descTxt]);
+    });
+
+    const closeBtn = this.add.text(width / 2, boxY + boxH - 32, 'ЗАКРЫТЬ ВИТРИНУ', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '13px',
+      fontWeight: '700',
+      color: '#ffffff',
+      backgroundColor: '#d97706',
+      padding: { x: 22, y: 10 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    closeBtn.on('pointerdown', () => {
+      AudioManager.playLatchSnap();
+      modalContainer.destroy();
+      if (this.leftDoor && this.rightDoor) {
+        this.tweens.add({
+          targets: [this.leftDoor, this.rightDoor],
+          scaleX: 1,
+          duration: 220,
+          ease: 'Cubic.easeInOut',
+          onComplete: () => {
+            this.showcaseModalOpen = false;
+          }
+        });
+      } else {
+        this.showcaseModalOpen = false;
+      }
+    });
+
+    modalContainer.add(closeBtn);
   }
 
   createTopBar(w, tier) {
@@ -253,7 +410,7 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
 
     soundBtn.on('pointerdown', () => {
-      if (performance.now() < this.inputGuardUntil) return;
+      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
       const enabled = Storage.toggleSound();
       soundBtn.setText(enabled ? '🔊' : '🔇');
       if (enabled) AudioManager.playClick();
@@ -288,7 +445,7 @@ export class MenuScene extends Phaser.Scene {
     }
 
     core.on('pointerdown', () => {
-      if (performance.now() < this.inputGuardUntil) return;
+      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
       AudioManager.playCorePickup();
       this.particles.emitParticleAt(core.x, core.y, 10);
       this.tweens.add({
@@ -313,7 +470,7 @@ export class MenuScene extends Phaser.Scene {
 
       const cmZone = this.add.zone(cmX, cmY - 8, 64, 84).setInteractive({ useHandCursor: true });
       cmZone.on('pointerdown', () => {
-        if (performance.now() < this.inputGuardUntil) return;
+        if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
         AudioManager.playLatchSnap();
         this.particles.emitParticleAt(cmX, cmY - 4, 8);
       });
@@ -382,7 +539,7 @@ export class MenuScene extends Phaser.Scene {
         const zone = this.add.zone(x + colW / 2, panelY + panelH / 2, colW, panelH)
           .setInteractive({ useHandCursor: true });
         zone.on('pointerdown', () => {
-          if (performance.now() < this.inputGuardUntil) return;
+          if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
           if (Storage.spendMoney(item.cost)) {
             Storage.restoreWear(item.key);
             AudioManager.playLatchSnap();
@@ -437,7 +594,7 @@ export class MenuScene extends Phaser.Scene {
 
     const nextZone = this.add.zone(-30, 0, pw - 74, ph).setInteractive({ useHandCursor: true });
     nextZone.on('pointerdown', () => {
-      if (performance.now() < this.inputGuardUntil) return;
+      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
       const next = AudioManager.nextTrack();
       this.trackTxt.setText(next.name);
       this.tweens.add({
@@ -449,7 +606,6 @@ export class MenuScene extends Phaser.Scene {
       });
     });
 
-    // Явная кнопка режима воспроизведения справа (ВСЕ ↻ / 1 ТРЕК)
     const modeW = 56;
     const modeH = 32;
     const modeX = pw / 2 - 34;
@@ -478,7 +634,7 @@ export class MenuScene extends Phaser.Scene {
 
     const modeZone = this.add.zone(modeX, 0, modeW + 6, ph).setInteractive({ useHandCursor: true });
     modeZone.on('pointerdown', () => {
-      if (performance.now() < this.inputGuardUntil) return;
+      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
       const newMode = AudioManager.togglePlayMode();
       drawModeBtn(newMode);
 
@@ -551,7 +707,7 @@ export class MenuScene extends Phaser.Scene {
     container.setInteractive({ useHandCursor: true });
 
     container.on('pointerdown', () => {
-      if (performance.now() < this.inputGuardUntil) return;
+      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
       isPressed = true;
       drawBtn(true);
       txt.y = 3;
