@@ -30,6 +30,7 @@ const DEFAULT_STATE = {
   auditBonusContracts: 0,
   unlockedTests: ['uniaxial', 'shear_cut'],
   unlockedMusicPacks: [],
+  musicPackAds: {},
   musicPlayMode: 'playlist',
   foundGems: [],
   siteHistory: [],
@@ -71,6 +72,7 @@ class StorageManager {
           ? parsed.unlockedTests
           : [...DEFAULT_STATE.unlockedTests],
         unlockedMusicPacks: Array.isArray(parsed.unlockedMusicPacks) ? parsed.unlockedMusicPacks : [],
+        musicPackAds: parsed.musicPackAds && typeof parsed.musicPackAds === 'object' ? parsed.musicPackAds : {},
         musicPlayMode: parsed.musicPlayMode === 'loop' ? 'loop' : 'playlist',
         foundGems: Array.isArray(parsed.foundGems) ? parsed.foundGems : [],
         siteHistory: Array.isArray(parsed.siteHistory) ? parsed.siteHistory : []
@@ -211,6 +213,17 @@ class StorageManager {
     }
   }
 
+  getMusicPackAds(packId) {
+    return this.state.musicPackAds?.[packId] || 0;
+  }
+
+  incrementMusicPackAds(packId) {
+    if (!this.state.musicPackAds) this.state.musicPackAds = {};
+    this.state.musicPackAds[packId] = (this.state.musicPackAds[packId] || 0) + 1;
+    this.save();
+    return this.state.musicPackAds[packId];
+  }
+
   getMusicPlayMode() {
     return this.state.musicPlayMode || 'playlist';
   }
@@ -221,7 +234,13 @@ class StorageManager {
   }
 
   addGem(gem) {
-    this.state.foundGems.unshift({ ...gem, foundAt: Date.now() });
+    const existingIdx = this.state.foundGems.findIndex((g) => g.id === gem.id);
+    if (existingIdx >= 0) {
+      this.state.foundGems[existingIdx].count = (this.state.foundGems[existingIdx].count || 1) + 1;
+      this.state.foundGems[existingIdx].foundAt = Date.now();
+    } else {
+      this.state.foundGems.unshift({ ...gem, count: 1, foundAt: Date.now() });
+    }
     if (this.state.foundGems.length > 30) this.state.foundGems.length = 30;
     this.save();
   }
