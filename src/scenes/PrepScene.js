@@ -155,9 +155,6 @@ export class PrepScene extends Phaser.Scene {
     }
   }
 
-  // =========================================================================
-  // ФАЗА 1А: ОТРЕЗНОЙ СТАНОК (С учётом износа алмазного диска)
-  // =========================================================================
   startSawPhase(spec) {
     const { width, height } = this.scale;
     this.stageContainer.removeAll(true);
@@ -328,7 +325,6 @@ export class PrepScene extends Phaser.Scene {
     let cutting = false;
     let locked = false;
 
-    // Износ алмазного диска замедляет скорость резания
     const sawWearFactor = 0.55 + 0.45 * (sawWear / 100);
     const cutSpeed = (0.52 + (sawLvl - 1) * 0.11) * sawWearFactor;
 
@@ -401,9 +397,6 @@ export class PrepScene extends Phaser.Scene {
     };
   }
 
-  // =========================================================================
-  // ФАЗА 1Б: ГИДРОКЛИН-КОЛУН
-  // =========================================================================
   startSplitCrackPhase(spec) {
     const { width, height } = this.scale;
     this.stageContainer.removeAll(true);
@@ -484,9 +477,6 @@ export class PrepScene extends Phaser.Scene {
     };
   }
 
-  // =========================================================================
-  // ФАЗА 1В: ТОРЦЕШЛИФОВАЛЬНЫЙ СТАНОК (С учётом износа абразивного круга)
-  // =========================================================================
   startGrinderPhase(spec, grinderLvl) {
     const { width, height } = this.scale;
     this.stageContainer.removeAll(true);
@@ -584,7 +574,6 @@ export class PrepScene extends Phaser.Scene {
     let grinding = false;
     let done = false;
 
-    // Износ абразивного круга снижает скорость и чистоту доводки торцов
     const grinderWearFactor = 0.55 + 0.45 * (grinderWear / 100);
     const grindSpeed = (0.56 + (grinderLvl - 1) * 0.14) * grinderWearFactor;
 
@@ -606,9 +595,9 @@ export class PrepScene extends Phaser.Scene {
         statusTxt.setText(`Неплоскостность торцов: ${dev} мм (допуск ≤ 0.05)`);
 
         this.sawSoundTimer += dt * 1000;
-        if (this.sawSoundTimer >= 70) {
+        if (this.sawSoundTimer >= 75) {
           this.sawSoundTimer = 0;
-          AudioManager.playSawCut();
+          AudioManager.playGrindTick();
           this.particles.emitParticleAt(cx + (Math.random() - 0.5) * spec.calCoreW, cy, 4);
         }
 
@@ -629,9 +618,6 @@ export class PrepScene extends Phaser.Scene {
     };
   }
 
-  // =========================================================================
-  // ФАЗА 2: ЗАМЕР ГАБАРИТОВ ШТАНГЕНЦИРКУЛЕМ
-  // =========================================================================
   startMeasurePhase(spec) {
     const { width, height } = this.scale;
     this.stageContainer.removeAll(true);
