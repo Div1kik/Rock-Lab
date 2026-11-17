@@ -1,44 +1,58 @@
 import { Storage } from './Storage.js';
 
-export const MUSIC_TRACKS = [
-  {
-    name: '01. Warm Lab Rhodes',
-    mode: 'rhodes',
-    stepSec: 0.36,
-    lead: [329.63, 0, 392.00, 493.88, 392.00, 0, 329.63, 0, 293.66, 0, 349.23, 440.00, 329.63, 0, 261.63, 0],
-    bass: [87.31, 0, 0, 0, 82.41, 0, 0, 0, 73.42, 0, 0, 0, 65.41, 0, 0, 0]
-  },
-  {
-    name: '02. Original SEGA Rock',
-    mode: 'rock',
-    stepSec: 0.145,
-    riff: [82.41, 0, 82.41, 98.00, 110.00, 0, 82.41, 0, 116.54, 110.00, 98.00, 0, 82.41, 0, 73.42, 82.41]
-  },
-  {
-    name: '03. Quarry Heavy Riff',
-    mode: 'rock',
-    stepSec: 0.148,
-    riff: [73.42, 0, 73.42, 87.31, 98.00, 0, 73.42, 0, 103.83, 98.00, 87.31, 0, 73.42, 65.41, 73.42, 0]
-  },
-  {
-    name: '04. Vice Stadium Rock',
-    mode: 'rock',
-    stepSec: 0.138,
-    riff: [110.00, 0, 110.00, 130.81, 146.83, 0, 164.81, 146.83, 130.81, 0, 110.00, 98.00, 110.00, 0, 146.83, 130.81]
-  },
-  {
-    name: '05. Core Drill Blues-Rock',
-    mode: 'rock',
-    stepSec: 0.152,
-    riff: [98.00, 0, 116.54, 130.81, 146.83, 0, 130.81, 116.54, 98.00, 0, 87.31, 98.00, 116.54, 0, 98.00, 0]
-  },
-  {
-    name: '06. Highway Rig Overdrive',
-    mode: 'rock',
-    stepSec: 0.140,
-    riff: [92.50, 0, 92.50, 110.00, 123.47, 0, 138.59, 123.47, 110.00, 0, 92.50, 82.41, 92.50, 110.00, 123.47, 0]
-  }
+export const MUSIC_PACK_CATALOG = [
+  { id: 'industrial', name: 'Пак: Арктический Индастриал', desc: '5 тяжёлых механических и буровых треков', price: 650, icon: '🏭' },
+  { id: 'retro', name: 'Пак: Ретро-Грунт 80-х', desc: '5 неоновых синтвейв и Outrun-композиций', price: 800, icon: '🌆' },
+  { id: 'stoner', name: 'Пак: Стоунер-Карьер', desc: '5 густых качающих риффов для тяжёлых пород', price: 950, icon: '🏜️' },
+  { id: 'cyber', name: 'Пак: Кибер-Керн', desc: '5 быстрых техно-секвенций и синтезаторов', price: 1100, icon: '💠' },
+  { id: 'blues', name: 'Пак: Ночной Блюз Буровиков', desc: '5 ламповых вечерних мелодий после смены', price: 1250, icon: '🎸' }
 ];
+
+const BASE_TRACKS = [
+  { name: '01. Warm Lab Rhodes', mode: 'rhodes', stepSec: 0.36, lead: [329.63, 0, 392.00, 493.88, 392.00, 0, 329.63, 0, 293.66, 0, 349.23, 440.00, 329.63, 0, 261.63, 0], bass: [87.31, 0, 0, 0, 82.41, 0, 0, 0, 73.42, 0, 0, 0, 65.41, 0, 0, 0] },
+  { name: '02. Original SEGA Rock', mode: 'rock', stepSec: 0.145, riff: [82.41, 0, 82.41, 98.00, 110.00, 0, 82.41, 0, 116.54, 110.00, 98.00, 0, 82.41, 0, 73.42, 82.41] },
+  { name: '03. Quarry Heavy Riff', mode: 'rock', stepSec: 0.148, riff: [73.42, 0, 73.42, 87.31, 98.00, 0, 73.42, 0, 103.83, 98.00, 87.31, 0, 73.42, 65.41, 73.42, 0] },
+  { name: '04. Vice Stadium Rock', mode: 'rock', stepSec: 0.138, riff: [110.00, 0, 110.00, 130.81, 146.83, 0, 164.81, 146.83, 130.81, 0, 110.00, 98.00, 110.00, 0, 146.83, 130.81] },
+  { name: '05. Core Drill Blues-Rock', mode: 'rock', stepSec: 0.152, riff: [98.00, 0, 116.54, 130.81, 146.83, 0, 130.81, 116.54, 98.00, 0, 87.31, 98.00, 116.54, 0, 98.00, 0] }
+];
+
+const PACK_TRACKS = {
+  industrial: [
+    { name: '🏭 01. Deep Shaft Pulse', mode: 'rock', stepSec: 0.130, riff: [65.41, 0, 73.42, 65.41, 98.00, 0, 87.31, 0, 65.41, 0, 110.00, 98.00, 73.42, 0, 65.41, 0] },
+    { name: '🏭 02. Permafrost Heavy Gear', mode: 'rock', stepSec: 0.135, riff: [73.42, 73.42, 0, 87.31, 98.00, 0, 103.83, 0, 73.42, 0, 87.31, 0, 65.41, 73.42, 0, 0] },
+    { name: '🏭 03. Subzero Cybernetic', mode: 'rock', stepSec: 0.128, riff: [82.41, 0, 98.00, 110.00, 0, 123.47, 110.00, 0, 82.41, 0, 73.42, 0, 92.50, 0, 82.41, 0] },
+    { name: '🏭 04. Drill Bit Overload', mode: 'rock', stepSec: 0.125, riff: [92.50, 92.50, 110.00, 0, 123.47, 0, 110.00, 92.50, 82.41, 0, 73.42, 0, 92.50, 0, 110.00, 0] },
+    { name: '🏭 05. Titan Foundation', mode: 'rock', stepSec: 0.140, riff: [55.00, 0, 73.42, 0, 82.41, 0, 73.42, 65.41, 55.00, 0, 98.00, 87.31, 73.42, 0, 55.00, 0] }
+  ],
+  retro: [
+    { name: '🌆 01. Neon Core Synth', mode: 'rhodes', stepSec: 0.32, lead: [261.63, 329.63, 392.00, 523.25, 392.00, 329.63, 261.63, 0, 220.00, 261.63, 329.63, 440.00, 329.63, 261.63, 220.00, 0], bass: [110.00, 0, 110.00, 0, 98.00, 0, 98.00, 0, 87.31, 0, 87.31, 0, 92.50, 0, 92.50, 0] },
+    { name: '🌆 02. Quarry Highway 1984', mode: 'rock', stepSec: 0.140, riff: [110.00, 0, 130.81, 146.83, 164.81, 0, 146.83, 130.81, 110.00, 0, 98.00, 110.00, 130.81, 0, 110.00, 0] },
+    { name: '🌆 03. Seismic Night Drive', mode: 'rock', stepSec: 0.142, riff: [98.00, 0, 116.54, 130.81, 0, 146.83, 130.81, 116.54, 98.00, 0, 87.31, 0, 98.00, 116.54, 130.81, 0] },
+    { name: '🌆 04. Stratum Sunset', mode: 'rhodes', stepSec: 0.34, lead: [293.66, 349.23, 440.00, 523.25, 440.00, 349.23, 293.66, 0, 261.63, 293.66, 349.23, 392.00, 349.23, 293.66, 261.63, 0], bass: [73.42, 0, 73.42, 0, 82.41, 0, 82.41, 0, 65.41, 0, 65.41, 0, 73.42, 0, 73.42, 0] },
+    { name: '🌆 05. Digital Drillbeat', mode: 'rock', stepSec: 0.136, riff: [123.47, 0, 146.83, 164.81, 0, 185.00, 164.81, 146.83, 123.47, 0, 110.00, 0, 123.47, 146.83, 164.81, 0] }
+  ],
+  stoner: [
+    { name: '🏜️ 01. Basalt Fuzz Groove', mode: 'rock', stepSec: 0.165, riff: [65.41, 0, 65.41, 77.78, 87.31, 0, 98.00, 87.31, 77.78, 0, 65.41, 58.27, 65.41, 0, 87.31, 0] },
+    { name: '🏜️ 02. Red Canyon Rig', mode: 'rock', stepSec: 0.160, riff: [73.42, 0, 87.31, 0, 98.00, 110.00, 98.00, 0, 87.31, 0, 73.42, 65.41, 73.42, 0, 65.41, 0] },
+    { name: '🏜️ 03. Magma Chamber', mode: 'rock', stepSec: 0.170, riff: [58.27, 0, 58.27, 69.30, 77.78, 0, 87.31, 0, 77.78, 69.30, 58.27, 0, 51.91, 0, 58.27, 0] },
+    { name: '🏜️ 04. Dust & Granite', mode: 'rock', stepSec: 0.158, riff: [82.41, 0, 98.00, 110.00, 123.47, 0, 110.00, 98.00, 82.41, 0, 73.42, 82.41, 98.00, 0, 82.41, 0] },
+    { name: '🏜️ 05. Deep Earth Crawler', mode: 'rock', stepSec: 0.168, riff: [61.74, 0, 73.42, 0, 82.41, 92.50, 82.41, 0, 73.42, 0, 61.74, 55.00, 61.74, 0, 73.42, 0] }
+  ],
+  cyber: [
+    { name: '💠 01. Ultrasonic Matrix', mode: 'rock', stepSec: 0.122, riff: [110.00, 130.81, 146.83, 164.81, 146.83, 130.81, 110.00, 0, 123.47, 146.83, 164.81, 196.00, 164.81, 146.83, 123.47, 0] },
+    { name: '💠 02. Laser Caliper Grid', mode: 'rhodes', stepSec: 0.28, lead: [440.00, 523.25, 659.25, 523.25, 440.00, 392.00, 440.00, 0, 349.23, 440.00, 523.25, 440.00, 349.23, 329.63, 349.23, 0], bass: [110.00, 110.00, 0, 110.00, 98.00, 98.00, 0, 98.00, 87.31, 87.31, 0, 87.31, 82.41, 82.41, 0, 82.41] },
+    { name: '💠 03. Core Scanner 2099', mode: 'rock', stepSec: 0.126, riff: [98.00, 0, 116.54, 146.83, 130.81, 0, 116.54, 98.00, 110.00, 0, 130.81, 164.81, 146.83, 0, 130.81, 0] },
+    { name: '💠 04. Triaxial Telemetry', mode: 'rock', stepSec: 0.124, riff: [130.81, 146.83, 164.81, 0, 196.00, 164.81, 146.83, 0, 110.00, 130.81, 146.83, 0, 164.81, 146.83, 130.81, 0] },
+    { name: '💠 05. Quantum Stratum', mode: 'rhodes', stepSec: 0.30, lead: [392.00, 493.88, 587.33, 493.88, 392.00, 329.63, 392.00, 0, 349.23, 440.00, 523.25, 440.00, 349.23, 293.66, 349.23, 0], bass: [98.00, 0, 98.00, 0, 82.41, 0, 82.41, 0, 87.31, 0, 87.31, 0, 73.42, 0, 73.42, 0] }
+  ],
+  blues: [
+    { name: '🎸 01. Midnight Shift Blues', mode: 'rhodes', stepSec: 0.38, lead: [293.66, 0, 349.23, 392.00, 440.00, 0, 392.00, 349.23, 261.63, 0, 329.63, 392.00, 349.23, 0, 293.66, 0], bass: [73.42, 0, 87.31, 0, 98.00, 0, 87.31, 0, 65.41, 0, 82.41, 0, 73.42, 0, 65.41, 0] },
+    { name: '🎸 02. Coffee & Core Samples', mode: 'rhodes', stepSec: 0.37, lead: [329.63, 392.00, 440.00, 0, 392.00, 329.63, 293.66, 0, 261.63, 329.63, 392.00, 0, 329.63, 293.66, 261.63, 0], bass: [82.41, 0, 98.00, 0, 110.00, 0, 98.00, 0, 65.41, 0, 82.41, 0, 73.42, 0, 65.41, 0] },
+    { name: '🎸 03. Rusty Wrench Shuffle', mode: 'rock', stepSec: 0.162, riff: [82.41, 0, 98.00, 110.00, 123.47, 0, 110.00, 98.00, 82.41, 0, 98.00, 110.00, 98.00, 0, 82.41, 0] },
+    { name: '🎸 04. Northern Lights Acoustic', mode: 'rhodes', stepSec: 0.39, lead: [349.23, 0, 440.00, 523.25, 493.88, 0, 440.00, 392.00, 329.63, 0, 392.00, 440.00, 392.00, 0, 349.23, 0], bass: [87.31, 0, 0, 0, 82.41, 0, 0, 0, 73.42, 0, 0, 0, 65.41, 0, 0, 0] },
+    { name: '🎸 05. Last Core of the Day', mode: 'rhodes', stepSec: 0.38, lead: [261.63, 0, 329.63, 392.00, 440.00, 0, 392.00, 329.63, 293.66, 0, 349.23, 392.00, 329.63, 0, 261.63, 0], bass: [65.41, 0, 82.41, 0, 73.42, 0, 87.31, 0, 65.41, 0, 82.41, 0, 65.41, 0, 0, 0] }
+  ]
+};
 
 class AudioController {
   constructor() {
@@ -54,6 +68,7 @@ class AudioController {
     this.nextNoteTime = 0;
     this.musicStep = 0;
     this.noiseBuffer = null;
+    this.trackStepCount = 0;
 
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', () => {
@@ -68,6 +83,17 @@ class AudioController {
         }
       });
     }
+  }
+
+  getAllUnlockedTracks() {
+    let tracks = [...BASE_TRACKS];
+    const unlockedPacks = Storage.getUnlockedMusicPacks ? Storage.getUnlockedMusicPacks() : [];
+    for (const packId of ['industrial', 'retro', 'stoner', 'cyber', 'blues']) {
+      if (unlockedPacks.includes(packId) && PACK_TRACKS[packId]) {
+        tracks = tracks.concat(PACK_TRACKS[packId]);
+      }
+    }
+    return tracks;
   }
 
   ensureContext() {
@@ -103,23 +129,38 @@ class AudioController {
   }
 
   getCurrentTrack() {
+    const tracks = this.getAllUnlockedTracks();
     const raw = Number(Storage.getMusicTrack()) || 0;
-    const idx = ((raw % MUSIC_TRACKS.length) + MUSIC_TRACKS.length) % MUSIC_TRACKS.length;
-    return MUSIC_TRACKS[idx] || MUSIC_TRACKS[0];
+    const idx = ((raw % tracks.length) + tracks.length) % tracks.length;
+    return tracks[idx] || tracks[0];
   }
 
   nextTrack() {
+    const tracks = this.getAllUnlockedTracks();
     const raw = Number(Storage.getMusicTrack()) || 0;
-    const nextIdx = (raw + 1) % MUSIC_TRACKS.length;
+    const nextIdx = (raw + 1) % tracks.length;
     Storage.setMusicTrack(nextIdx);
     this.musicStep = 0;
+    this.trackStepCount = 0;
     const ctx = this.ensureContext();
     if (ctx) {
       this.nextNoteTime = ctx.currentTime + 0.05;
       if (!this.musicPlaying) this.startMusic();
     }
     this.playLatchSnap();
-    return MUSIC_TRACKS[nextIdx];
+    return tracks[nextIdx];
+  }
+
+  togglePlayMode() {
+    const currentMode = Storage.getMusicPlayMode ? Storage.getMusicPlayMode() : 'playlist';
+    const newMode = currentMode === 'playlist' ? 'loop' : 'playlist';
+    if (Storage.setMusicPlayMode) Storage.setMusicPlayMode(newMode);
+    this.playLatchSnap();
+    return newMode;
+  }
+
+  getPlayMode() {
+    return Storage.getMusicPlayMode ? Storage.getMusicPlayMode() : 'playlist';
   }
 
   suspendForAd() {
@@ -142,6 +183,7 @@ class AudioController {
     if (this.musicPlaying && this.musicRafId) return;
     this.musicPlaying = true;
     this.musicStep = 0;
+    this.trackStepCount = 0;
     this.nextNoteTime = this.ctx.currentTime + 0.06;
 
     const scheduler = () => {
@@ -177,6 +219,18 @@ class AudioController {
               }
               this.nextNoteTime += track.stepSec;
               this.musicStep += 1;
+              this.trackStepCount += 1;
+
+              // Длительность круга трека (~96 шагов в роке / ~48 шагов в Rhodes)
+              const cycleLimit = track.mode === 'rhodes' ? 48 : 96;
+              if (this.trackStepCount >= cycleLimit) {
+                this.trackStepCount = 0;
+                if (this.getPlayMode() === 'playlist') {
+                  const tracks = this.getAllUnlockedTracks();
+                  const raw = Number(Storage.getMusicTrack()) || 0;
+                  Storage.setMusicTrack((raw + 1) % tracks.length);
+                }
+              }
             }
           }
         }
@@ -210,13 +264,14 @@ class AudioController {
     osc.stop(now + dur + 0.02);
   }
 
-  triggerNoise(now, freq, dur, vol) {
+  triggerNoise(now, freq, dur, vol, q = 1.0) {
     if (!this.noiseBuffer) return;
     const src = this.ctx.createBufferSource();
     src.buffer = this.noiseBuffer;
     const flt = this.ctx.createBiquadFilter();
     flt.type = 'bandpass';
     flt.frequency.setValueAtTime(freq, now);
+    flt.Q.setValueAtTime(q, now);
     const gain = this.ctx.createGain();
     gain.gain.setValueAtTime(vol, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
@@ -270,39 +325,35 @@ class AudioController {
     o2.stop(now + dur + 0.02);
   }
 
-  playClick() {
-    if (this.ensureContext()) this.triggerTone(this.ctx.currentTime, 320, 140, 0.04, 'sine', 0.11);
-  }
+  playClick() { if (this.ensureContext()) this.triggerTone(this.ctx.currentTime, 320, 140, 0.04, 'sine', 0.11); }
+  playDrillTick() { if (this.ensureContext()) this.triggerTone(this.ctx.currentTime, 225, 250, 0.06, 'triangle', 0.09); }
+  playCrowbarPry() { if (this.ensureContext()) this.triggerTone(this.ctx.currentTime, 160, 260, 0.1, 'triangle', 0.13); }
+  playCorePickup() { if (!this.ensureContext()) return; this.triggerTone(this.ctx.currentTime, 260, 145, 0.085, 'sine', 0.16); this.triggerNoise(this.ctx.currentTime, 700, 0.07, 0.045); }
 
-  playDrillTick() {
-    if (this.ensureContext()) this.triggerTone(this.ctx.currentTime, 225, 250, 0.06, 'triangle', 0.09);
-  }
-
-  playCrowbarPry() {
-    if (this.ensureContext()) this.triggerTone(this.ctx.currentTime, 160, 260, 0.1, 'triangle', 0.13);
-  }
-
-  playCorePickup() {
-    if (!this.ensureContext()) return;
-    this.triggerTone(this.ctx.currentTime, 260, 145, 0.085, 'sine', 0.16);
-    this.triggerNoise(this.ctx.currentTime, 700, 0.07, 0.045);
-  }
-
+  // 1. Звук алмазного отрезного станка (звонкий диск + рез камня с водой)
   playSawCut() {
     if (!this.ensureContext()) return;
-    this.triggerTone(this.ctx.currentTime, 155, 170, 0.07, 'triangle', 0.07);
-    this.triggerNoise(this.ctx.currentTime, 980, 0.07, 0.06);
+    const now = this.ctx.currentTime;
+    const pitchJitter = Math.random() * 45;
+    // Высокочастотный металлический свист алмазного диска
+    this.triggerTone(now, 880 + pitchJitter, 940 + pitchJitter, 0.075, 'sine', 0.045);
+    // Резонансный хруст пропила породы
+    this.triggerNoise(now, 1480 + pitchJitter * 2, 0.075, 0.065, 2.4);
   }
 
-  playLatchSnap() {
-    if (this.ensureContext()) this.triggerTone(this.ctx.currentTime, 860, 340, 0.05, 'triangle', 0.13);
-  }
-
-  playRockCrack() {
+  // 2. Звук торцевого шлифовального станка (мягкий низкий гул двигателя + бархатный абразив)
+  playGrindTick() {
     if (!this.ensureContext()) return;
-    this.triggerTone(this.ctx.currentTime, 110, 34, 0.17, 'sine', 0.26);
-    this.triggerNoise(this.ctx.currentTime, 680, 0.24, 0.22);
+    const now = this.ctx.currentTime;
+    // Глубокий ровный гул мотора планшайбы
+    this.triggerTone(now, 118, 126, 0.085, 'triangle', 0.075);
+    // Приглушённое мягкое шуршание шлифовального круга (без резкого скрежета)
+    this.triggerNoise(now, 460 + Math.random() * 50, 0.085, 0.055, 0.85);
   }
+
+  playLatchSnap() { if (this.ensureContext()) this.triggerTone(this.ctx.currentTime, 860, 340, 0.05, 'triangle', 0.13); }
+  playRockCrack() { if (!this.ensureContext()) return; this.triggerTone(this.ctx.currentTime, 110, 34, 0.17, 'sine', 0.26); this.triggerNoise(this.ctx.currentTime, 680, 0.24, 0.22); }
+  playStamp() { if (this.ensureContext()) this.triggerTone(this.ctx.currentTime, 135, 38, 0.14, 'sine', 0.22); }
 
   updatePressHum(loadRatio) {
     const ctx = this.ensureContext();
@@ -340,10 +391,6 @@ class AudioController {
     this.pressOsc = null;
     this.pressSubOsc = null;
     this.pressGain = null;
-  }
-
-  playStamp() {
-    if (this.ensureContext()) this.triggerTone(this.ctx.currentTime, 135, 38, 0.14, 'sine', 0.22);
   }
 }
 
