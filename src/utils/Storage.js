@@ -22,6 +22,8 @@ const DEFAULT_STATE = {
     decor: 0,
     cryobox: 0
   },
+  decorOwned: [],
+  activeSkin: 'default',
   wear: {
     saw: 100,
     grinder: 100,
@@ -29,7 +31,8 @@ const DEFAULT_STATE = {
   },
   auditBonusContracts: 0,
   unlockedTests: ['uniaxial', 'shear_cut'],
-  unlockedMusicPacks: [],
+  unlockedMusicPacks: ['base'],
+  enabledMusicPacks: ['base'],
   musicPackAds: {},
   musicPlayMode: 'playlist',
   foundGems: [],
@@ -62,6 +65,14 @@ class StorageManager {
         ? parsed.displayedGems.filter((id) => foundGems.some((g) => g.id === id)).slice(0, 4)
         : foundGems.slice(0, 4).map((g) => g.id);
 
+      const unlockedPacks = Array.isArray(parsed.unlockedMusicPacks) ? [...parsed.unlockedMusicPacks] : [];
+      if (!unlockedPacks.includes('base')) unlockedPacks.unshift('base');
+
+      const enabledPacks = Array.isArray(parsed.enabledMusicPacks) && parsed.enabledMusicPacks.length
+        ? parsed.enabledMusicPacks.filter((id) => unlockedPacks.includes(id))
+        : [...unlockedPacks];
+      if (!enabledPacks.length) enabledPacks.push('base');
+
       return {
         ...structuredClone(DEFAULT_STATE),
         ...parsed,
@@ -70,6 +81,8 @@ class StorageManager {
           ...DEFAULT_STATE.perks,
           ...(parsed.perks || {})
         },
+        decorOwned: Array.isArray(parsed.decorOwned) ? parsed.decorOwned : [],
+        activeSkin: parsed.activeSkin || 'default',
         wear: {
           ...DEFAULT_STATE.wear,
           ...(parsed.wear || {})
@@ -77,7 +90,8 @@ class StorageManager {
         unlockedTests: Array.isArray(parsed.unlockedTests) && parsed.unlockedTests.length
           ? parsed.unlockedTests
           : [...DEFAULT_STATE.unlockedTests],
-        unlockedMusicPacks: Array.isArray(parsed.unlockedMusicPacks) ? parsed.unlockedMusicPacks : [],
+        unlockedMusicPacks: unlockedPacks,
+        enabledMusicPacks: enabledPacks,
         musicPackAds: parsed.musicPackAds && typeof parsed.musicPackAds === 'object' ? parsed.musicPackAds : {},
         musicPlayMode: parsed.musicPlayMode === 'loop' ? 'loop' : 'playlist',
         foundGems,
@@ -148,6 +162,27 @@ class StorageManager {
     return this.state.perks[key];
   }
 
+  hasDecor(key) {
+    return Array.isArray(this.state.decorOwned) && this.state.decorOwned.includes(key);
+  }
+
+  buyDecor(key) {
+    if (!Array.isArray(this.state.decorOwned)) this.state.decorOwned = [];
+    if (!this.state.decorOwned.includes(key)) {
+      this.state.decorOwned.push(key);
+      this.save();
+    }
+  }
+
+  getActiveSkin() {
+    return this.state.activeSkin || 'default';
+  }
+
+  setActiveSkin(skinId) {
+    this.state.activeSkin = skinId || 'default';
+    this.save();
+  }
+
   getWear(key) {
     return Math.max(0, Math.min(100, this.state.wear?.[key] ?? 100));
   }
@@ -205,18 +240,50 @@ class StorageManager {
   }
 
   getUnlockedMusicPacks() {
-    return this.state.unlockedMusicPacks || [];
+    const list = this.state.unlockedMusicPacks || ['base'];
+    return list.includes('base') ? list : ['base', ...list];
   }
 
   isMusicPackUnlocked(packId) {
+    if (packId === 'base') return true;
     return this.getUnlockedMusicPacks().includes(packId);
   }
 
   unlockMusicPack(packId) {
-    if (!this.state.unlockedMusicPacks) this.state.unlockedMusicPacks = [];
+    if (!this.state.unlockedMusicPacks) this.state.unlockedMusicPacks = ['base'];
     if (!this.state.unlockedMusicPacks.includes(packId)) {
       this.state.unlockedMusicPacks.push(packId);
+    }
+    if (!this.state.enabledMusicPacks) this.state.enabledMusicPacks = ['base'];
+    if (!this.state.enabledMusicPacks.includes(packId)) {
+      this.state.enabledMusicPacks.push(packId);
+    }
+    this.save();
+  }
+
+  getEnabledMusicPacks() {
+    const enabled = this.state.enabledMusicPacks || ['base'];
+    return enabled.length ? enabled : ['base'];
+  }
+
+  isMusicPackEnabled(packId) {
+    return this.getEnabledMusicPacks().includes(packId);
+  }
+
+  toggleMusicPackEnabled(packId) {
+    if (!this.isMusicPackUnlocked(packId)) return false;
+    if (!Array.isArray(this.state.enabledMusicPacks)) this.state.enabledMusicPacks = ['base'];
+    const idx = this.state.enabledMusicPacks.indexOf(packId);
+    if (idx >= 0) {
+      // Не даём выключить последний активный пак, чтобы плеер не остался без треков
+      if (this.state.enabledMusicPacks.length <= 1) return true;
+      this.state.enabledMusicPacks.splice(idx, 1);
       this.save();
+      return false;
+    } else {
+      this.state.enabledMusicPacks.push(packId);
+      this.save();
+      return true;
     }
   }
 
