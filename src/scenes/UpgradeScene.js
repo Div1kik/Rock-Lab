@@ -223,18 +223,20 @@ export class UpgradeScene extends Phaser.Scene {
       MUSIC_PACK_CATALOG.forEach((pack, idx) => {
         const y = 190 + idx * 108;
         const unlocked = Storage.isMusicPackUnlocked(pack.id);
-        this.renderMusicPackCard(y, pack, idx, unlocked, money >= pack.price);
+        this.renderMusicPackCard(y, pack, idx, unlocked, money);
       });
     }
   }
 
-  renderMusicPackCard(y, pack, packIndex, unlocked, canBuyCoins) {
+  renderMusicPackCard(y, pack, packIndex, unlocked, money) {
     const { width } = this.scale;
     const cardH = 98;
+    const isAdPack = Boolean(pack.reqAds);
+
     const card = this.add.graphics();
     card.fillStyle(0x292524, 1);
     card.fillRoundedRect(18, y, width - 36, cardH, 10);
-    card.lineStyle(2, unlocked ? 0x22c55e : 0xf59e0b, 0.85);
+    card.lineStyle(2, unlocked ? 0x22c55e : isAdPack ? 0x38bdf8 : 0xf59e0b, 0.85);
     card.strokeRoundedRect(18, y, width - 36, cardH, 10);
 
     const title = this.add.text(30, y + 9, `${pack.icon} ${pack.name}`, {
@@ -285,24 +287,47 @@ export class UpgradeScene extends Phaser.Scene {
       });
 
       this.listContainer.add([statusTxt, playBtn]);
-    } else {
-      const adBtn = this.add.text(30, y + cardH - 18, '🎬 ЗА РЕКЛАМУ', {
+    } else if (isAdPack) {
+      const watched = Storage.getMusicPackAds(pack.id);
+      const tagTxt = this.add.text(30, y + cardH - 18, `📺 ПРОМО-СБОРНИК · ПРОГРЕСС ${watched}/${pack.reqAds}`, {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '10px',
+        fontWeight: '700',
+        color: '#7dd3fc'
+      }).setOrigin(0, 0.5);
+
+      const adBtn = this.add.text(width - 30, y + cardH - 18, `🎬 СМОТРЕТЬ (${watched}/${pack.reqAds})`, {
         fontFamily: '"JetBrains Mono", monospace',
         fontSize: '11px',
         fontWeight: '700',
         color: '#0f172a',
         backgroundColor: '#facc15',
         padding: { x: 10, y: 5 }
-      }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
+      }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
       adBtn.on('pointerdown', () => {
         adBtn.disableInteractive();
         PlatformSDK.showRewarded(() => {
-          Storage.unlockMusicPack(pack.id);
-          activatePackFirstTrack();
+          const totalWatched = Storage.incrementMusicPackAds(pack.id);
+          if (totalWatched >= pack.reqAds) {
+            Storage.unlockMusicPack(pack.id);
+            activatePackFirstTrack();
+          } else {
+            AudioManager.playLatchSnap();
+          }
           this.refreshUI();
         });
       });
+
+      this.listContainer.add([tagTxt, adBtn]);
+    } else {
+      const canBuyCoins = money >= pack.price;
+      const tagTxt = this.add.text(30, y + cardH - 18, '💿 ПРЕМИУМ-ПАК · 5 ТРЕКОВ', {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '10px',
+        fontWeight: '700',
+        color: '#fde68a'
+      }).setOrigin(0, 0.5);
 
       const coinBtn = this.add.text(width - 30, y + cardH - 18, `КУПИТЬ · ${pack.price} ₽`, {
         fontFamily: '"JetBrains Mono", monospace',
@@ -310,7 +335,7 @@ export class UpgradeScene extends Phaser.Scene {
         fontWeight: '700',
         color: canBuyCoins ? '#ffffff' : '#a8a29e',
         backgroundColor: canBuyCoins ? '#d97706' : '#44403c',
-        padding: { x: 10, y: 5 }
+        padding: { x: 12, y: 5 }
       }).setOrigin(1, 0.5).setInteractive({ useHandCursor: canBuyCoins });
 
       if (canBuyCoins) {
@@ -323,7 +348,7 @@ export class UpgradeScene extends Phaser.Scene {
         });
       }
 
-      this.listContainer.add([adBtn, coinBtn]);
+      this.listContainer.add([tagTxt, coinBtn]);
     }
   }
 
