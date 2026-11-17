@@ -222,8 +222,9 @@ class AudioController {
               this.musicStep += 1;
               this.trackStepCount += 1;
 
-              const cycleLimit = track.mode === 'rhodes' ? 48 : 96;
-              if (this.trackStepCount >= cycleLimit) {
+              // Каждый трек играет ровно ~2 минуты (120 секунд) перед переключением
+              const stepsForTwoMinutes = Math.max(320, Math.round(120 / track.stepSec));
+              if (this.trackStepCount >= stepsForTwoMinutes) {
                 this.trackStepCount = 0;
                 if (this.getPlayMode() === 'playlist') {
                   const tracks = this.getAllUnlockedTracks();
