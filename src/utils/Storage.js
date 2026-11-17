@@ -29,6 +29,8 @@ const DEFAULT_STATE = {
   },
   auditBonusContracts: 0,
   unlockedTests: ['uniaxial', 'shear_cut'],
+  unlockedMusicPacks: [],
+  musicPlayMode: 'playlist',
   foundGems: [],
   siteHistory: [],
   soundEnabled: true,
@@ -68,6 +70,8 @@ class StorageManager {
         unlockedTests: Array.isArray(parsed.unlockedTests) && parsed.unlockedTests.length
           ? parsed.unlockedTests
           : [...DEFAULT_STATE.unlockedTests],
+        unlockedMusicPacks: Array.isArray(parsed.unlockedMusicPacks) ? parsed.unlockedMusicPacks : [],
+        musicPlayMode: parsed.musicPlayMode === 'loop' ? 'loop' : 'playlist',
         foundGems: Array.isArray(parsed.foundGems) ? parsed.foundGems : [],
         siteHistory: Array.isArray(parsed.siteHistory) ? parsed.siteHistory : []
       };
@@ -82,13 +86,8 @@ class StorageManager {
     } catch {}
   }
 
-  getState() {
-    return this.state;
-  }
-
-  getMoney() {
-    return this.state.money;
-  }
+  getState() { return this.state; }
+  getMoney() { return this.state.money; }
 
   addMoney(amount) {
     this.state.money = Math.max(0, Math.round(this.state.money + amount));
@@ -103,9 +102,7 @@ class StorageManager {
     return true;
   }
 
-  getReputation() {
-    return this.state.reputation;
-  }
+  getReputation() { return this.state.reputation; }
 
   addReputation(delta) {
     this.state.reputation = Math.max(0, this.state.reputation + delta);
@@ -113,9 +110,7 @@ class StorageManager {
     return this.state.reputation;
   }
 
-  getLabLevel() {
-    return this.state.labLevel;
-  }
+  getLabLevel() { return this.state.labLevel; }
 
   setLabLevel(lvl) {
     this.state.labLevel = Math.min(5, Math.max(1, lvl));
@@ -176,9 +171,7 @@ class StorageManager {
     this.save();
   }
 
-  getAuditBonus() {
-    return this.state.auditBonusContracts || 0;
-  }
+  getAuditBonus() { return this.state.auditBonusContracts || 0; }
 
   setAuditBonus(count) {
     this.state.auditBonusContracts = Math.max(0, count);
@@ -192,13 +185,8 @@ class StorageManager {
     }
   }
 
-  getUnlockedTests() {
-    return this.state.unlockedTests || ['uniaxial', 'shear_cut'];
-  }
-
-  isTestUnlocked(testKey) {
-    return this.getUnlockedTests().includes(testKey);
-  }
+  getUnlockedTests() { return this.state.unlockedTests || ['uniaxial', 'shear_cut']; }
+  isTestUnlocked(testKey) { return this.getUnlockedTests().includes(testKey); }
 
   unlockTest(testKey) {
     if (!this.isTestUnlocked(testKey)) {
@@ -207,15 +195,38 @@ class StorageManager {
     }
   }
 
+  getUnlockedMusicPacks() {
+    return this.state.unlockedMusicPacks || [];
+  }
+
+  isMusicPackUnlocked(packId) {
+    return this.getUnlockedMusicPacks().includes(packId);
+  }
+
+  unlockMusicPack(packId) {
+    if (!this.state.unlockedMusicPacks) this.state.unlockedMusicPacks = [];
+    if (!this.state.unlockedMusicPacks.includes(packId)) {
+      this.state.unlockedMusicPacks.push(packId);
+      this.save();
+    }
+  }
+
+  getMusicPlayMode() {
+    return this.state.musicPlayMode || 'playlist';
+  }
+
+  setMusicPlayMode(mode) {
+    this.state.musicPlayMode = mode === 'loop' ? 'loop' : 'playlist';
+    this.save();
+  }
+
   addGem(gem) {
     this.state.foundGems.unshift({ ...gem, foundAt: Date.now() });
     if (this.state.foundGems.length > 30) this.state.foundGems.length = 30;
     this.save();
   }
 
-  getGems() {
-    return this.state.foundGems || [];
-  }
+  getGems() { return this.state.foundGems || []; }
 
   addSiteRecord(record) {
     this.state.siteHistory.unshift({ ...record, date: Date.now() });
@@ -223,13 +234,9 @@ class StorageManager {
     this.save();
   }
 
-  getSiteHistory() {
-    return this.state.siteHistory || [];
-  }
+  getSiteHistory() { return this.state.siteHistory || []; }
 
-  isSoundEnabled() {
-    return this.state.soundEnabled !== false;
-  }
+  isSoundEnabled() { return this.state.soundEnabled !== false; }
 
   toggleSound() {
     this.state.soundEnabled = !this.isSoundEnabled();
@@ -237,9 +244,7 @@ class StorageManager {
     return this.state.soundEnabled;
   }
 
-  getMusicTrack() {
-    return this.state.musicTrack || 0;
-  }
+  getMusicTrack() { return this.state.musicTrack || 0; }
 
   setMusicTrack(idx) {
     this.state.musicTrack = idx;
@@ -251,9 +256,7 @@ class StorageManager {
     this.save();
   }
 
-  getActiveContract() {
-    return this.state.activeContract;
-  }
+  getActiveContract() { return this.state.activeContract; }
 
   incrementCompleted() {
     this.state.completedContracts += 1;
