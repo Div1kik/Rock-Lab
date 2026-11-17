@@ -77,10 +77,11 @@ export const PERK_UPGRADES = [
   {
     key: 'showcase',
     name: 'Витрина редких минералов',
-    desc: 'Украшает стену образцами породы и приносит +30 ₽/контракт',
-    baseCost: 300,
-    costMult: 1.85,
-    maxLevel: 4
+    desc: 'Открывает шкаф-витрину в цехе (со 2-го ур. лабы) и даёт +35 ₽/заказ',
+    baseCost: 550,
+    costMult: 1.9,
+    maxLevel: 4,
+    reqLab: 2
   },
   {
     key: 'assistant',
