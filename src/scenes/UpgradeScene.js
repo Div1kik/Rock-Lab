@@ -4,6 +4,7 @@ import { PlatformSDK } from '../utils/PlatformSDK.js';
 import {
   TOOL_UPGRADES,
   PERK_UPGRADES,
+  DECOR_ITEMS,
   TEST_UPGRADES,
   LAB_UPGRADES,
   getToolCost,
@@ -64,9 +65,9 @@ export class UpgradeScene extends Phaser.Scene {
     const nextLab = LAB_UPGRADES.find((l) => l.level === labLvl + 1);
     const labCard = this.add.graphics();
     labCard.fillStyle(0x292524, 1);
-    labCard.fillRoundedRect(18, 64, width - 36, 84, 12);
+    labCard.fillRoundedRect(18, 64, width - 36, 80, 12);
     labCard.lineStyle(2, 0x38bdf8, 0.85);
-    labCard.strokeRoundedRect(18, 64, width - 36, 84, 12);
+    labCard.strokeRoundedRect(18, 64, width - 36, 80, 12);
     this.listContainer.add(labCard);
 
     if (nextLab) {
@@ -79,7 +80,7 @@ export class UpgradeScene extends Phaser.Scene {
       });
       const buyLabBtn = this.add.text(
         width - 30,
-        124,
+        120,
         `РАСШИРИТЬ: ${nextLab.cost} ₽ (нужно ★${nextLab.reqRep})`,
         {
           fontFamily: '"JetBrains Mono", monospace',
@@ -102,7 +103,7 @@ export class UpgradeScene extends Phaser.Scene {
       }
       this.listContainer.add([t1, buyLabBtn]);
     } else {
-      const maxTxt = this.add.text(width / 2, 106, '🏆 МАКСИМАЛЬНЫЙ УРОВЕНЬ ЛАБОРАТОРИИ (Ур. 5)', {
+      const maxTxt = this.add.text(width / 2, 104, '🏆 МАКСИМАЛЬНЫЙ УРОВЕНЬ ЛАБОРАТОРИИ (Ур. 5)', {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
         fontWeight: '700',
@@ -111,20 +112,20 @@ export class UpgradeScene extends Phaser.Scene {
       this.listContainer.add(maxTxt);
     }
 
-    const tabY = 166;
-    const gap = 6;
-    const tabW = (width - 36 - gap * 3) / 4;
+    const tabY = 162;
+    const gap = 4;
+    const tabW = (width - 36 - gap * 4) / 5;
 
     const makeTab = (idx, label, tabKey) => {
       const x = 18 + tabW / 2 + idx * (tabW + gap);
       const isSelected = this.activeTab === tabKey;
       const btn = this.add.text(x, tabY, label, {
         fontFamily: '"Rubik", sans-serif',
-        fontSize: '11px',
+        fontSize: '10px',
         fontWeight: '700',
         color: isSelected ? '#1c1917' : '#e7e5e4',
         backgroundColor: isSelected ? '#facc15' : '#292524',
-        padding: { x: 4, y: 7 },
+        padding: { x: 2, y: 7 },
         fixedWidth: tabW,
         align: 'center'
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
@@ -141,12 +142,13 @@ export class UpgradeScene extends Phaser.Scene {
 
     makeTab(0, '🧪 СТЕНДЫ', 'tests');
     makeTab(1, '⚙️ СТАНКИ', 'tools');
-    makeTab(2, '🏢 ИНТЕРЬЕР', 'perks');
-    makeTab(3, '📻 МУЗЫКА', 'music');
+    makeTab(2, '🏢 ЦЕХ', 'perks');
+    makeTab(3, '🎨 ДЕКОР', 'decor');
+    makeTab(4, '📻 МУЗЫКА', 'music');
 
     if (this.activeTab === 'tests') {
       TEST_UPGRADES.forEach((item, idx) => {
-        const y = 190 + idx * 96;
+        const y = 186 + idx * 96;
         const unlocked = Storage.isTestUnlocked(item.key);
         const labOk = labLvl >= item.reqLab;
         const canBuy = !unlocked && labOk && money >= item.cost;
@@ -176,7 +178,7 @@ export class UpgradeScene extends Phaser.Scene {
       });
     } else if (this.activeTab === 'tools') {
       TOOL_UPGRADES.forEach((tool, idx) => {
-        const y = 190 + idx * 84;
+        const y = 186 + idx * 84;
         const lvl = Storage.getUpgradeLevel(tool.key);
         const isMax = lvl >= tool.maxLevel;
         const cost = getToolCost(tool, lvl);
@@ -205,7 +207,7 @@ export class UpgradeScene extends Phaser.Scene {
       });
     } else if (this.activeTab === 'perks') {
       PERK_UPGRADES.forEach((perk, idx) => {
-        const y = 190 + idx * 112;
+        const y = 186 + idx * 112;
         const lvl = Storage.getPerkLevel(perk.key);
         const isMax = lvl >= perk.maxLevel;
         const reqLab = perk.reqLab || 1;
@@ -226,84 +228,131 @@ export class UpgradeScene extends Phaser.Scene {
           }
         }, 102, customBtn);
       });
+    } else if (this.activeTab === 'decor') {
+      DECOR_ITEMS.forEach((item, idx) => {
+        const y = 186 + idx * 84;
+        const owned = Storage.hasDecor(item.key);
+        const isEquippedSkin = item.isSkin && Storage.getActiveSkin() === item.skinId;
+        const canBuy = !owned && money >= item.cost;
+
+        let btnLabel = `КУПИТЬ · ${item.cost} ₽`;
+        if (owned) {
+          if (item.isSkin) {
+            btnLabel = isEquippedSkin ? '👕 НАДЕТО' : 'ОДЕТЬ';
+          } else {
+            btnLabel = '✅ УСТАНОВЛЕНО';
+          }
+        }
+
+        this.renderItemCard(
+          y,
+          `${item.icon} ${item.name}`,
+          item.desc,
+          owned,
+          item.cost,
+          canBuy || (owned && item.isSkin && !isEquippedSkin),
+          () => {
+            if (!owned) {
+              if (Storage.spendMoney(item.cost)) {
+                Storage.buyDecor(item.key);
+                if (item.isSkin) Storage.setActiveSkin(item.skinId);
+                AudioManager.playStamp();
+                this.refreshUI();
+              }
+            } else if (item.isSkin) {
+              Storage.setActiveSkin(item.skinId);
+              AudioManager.playLatchSnap();
+              this.refreshUI();
+            }
+          },
+          77,
+          btnLabel
+        );
+      });
     } else if (this.activeTab === 'music') {
       MUSIC_PACK_CATALOG.forEach((pack, idx) => {
-        const y = 190 + idx * 108;
+        const y = 186 + idx * 98;
         const unlocked = Storage.isMusicPackUnlocked(pack.id);
-        this.renderMusicPackCard(y, pack, idx, unlocked, money);
+        this.renderMusicPackCard(y, pack, unlocked, money);
       });
     }
   }
 
-  renderMusicPackCard(y, pack, packIndex, unlocked, money) {
+  renderMusicPackCard(y, pack, unlocked, money) {
     const { width } = this.scale;
-    const cardH = 98;
+    const cardH = 90;
     const isAdPack = Boolean(pack.reqAds);
+    const isEnabled = Storage.isMusicPackEnabled(pack.id);
 
     const card = this.add.graphics();
     card.fillStyle(0x292524, 1);
     card.fillRoundedRect(18, y, width - 36, cardH, 10);
-    card.lineStyle(2, unlocked ? 0x22c55e : isAdPack ? 0x38bdf8 : 0xf59e0b, 0.85);
+    card.lineStyle(2, unlocked ? (isEnabled ? 0x22c55e : 0x64748b) : isAdPack ? 0x38bdf8 : 0xf59e0b, 0.85);
     card.strokeRoundedRect(18, y, width - 36, cardH, 10);
 
-    const title = this.add.text(30, y + 9, `${pack.icon} ${pack.name}`, {
+    const title = this.add.text(30, y + 8, `${pack.icon} ${pack.name}`, {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '13px',
+      fontSize: '12px',
       fontWeight: '700',
       color: '#fef3c7'
     });
 
-    const desc = this.add.text(30, y + 28, pack.desc, {
+    const desc = this.add.text(30, y + 25, pack.desc, {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '11px',
+      fontSize: '10px',
       color: '#a8a29e',
       wordWrap: { width: width - 64 }
     });
 
     this.listContainer.add([card, title, desc]);
 
-    const activatePackFirstTrack = () => {
-      const firstTrackIdx = 5 + packIndex * 5;
-      Storage.setMusicTrack(firstTrackIdx);
-      AudioManager.musicStep = 0;
-      AudioManager.trackStepCount = 0;
-      AudioManager.ensureContext();
-      AudioManager.playStamp();
-    };
-
     if (unlocked) {
-      const statusTxt = this.add.text(30, y + cardH - 18, '✅ В ФОНОТЕКЕ (5 ТРЕКОВ)', {
-        fontFamily: '"JetBrains Mono", monospace',
-        fontSize: '10px',
-        fontWeight: '700',
-        color: '#4ade80'
-      }).setOrigin(0, 0.5);
+      const statusTxt = this.add.text(
+        30,
+        y + cardH - 16,
+        isEnabled ? '🟢 ИГРАЕТ В ПЛЕЙЛИСТЕ' : '⚪ ОТКЛЮЧЕН ИЗ РОТАЦИИ',
+        {
+          fontFamily: '"JetBrains Mono", monospace',
+          fontSize: '10px',
+          fontWeight: '700',
+          color: isEnabled ? '#4ade80' : '#94a3b8'
+        }
+      ).setOrigin(0, 0.5);
 
-      const playBtn = this.add.text(width - 30, y + cardH - 18, '▶️ ВКЛЮЧИТЬ', {
-        fontFamily: '"JetBrains Mono", monospace',
-        fontSize: '11px',
-        fontWeight: '700',
-        color: '#0f172a',
-        backgroundColor: '#38bdf8',
-        padding: { x: 10, y: 5 }
-      }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+      const toggleBtn = this.add.text(
+        width - 30,
+        y + cardH - 16,
+        isEnabled ? 'ВКЛ 🟢' : 'ВЫКЛ ⚫',
+        {
+          fontFamily: '"JetBrains Mono", monospace',
+          fontSize: '11px',
+          fontWeight: '700',
+          color: isEnabled ? '#0f172a' : '#e2e8f0',
+          backgroundColor: isEnabled ? '#4ade80' : '#44403c',
+          padding: { x: 12, y: 5 }
+        }
+      ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
-      playBtn.on('pointerdown', () => {
-        activatePackFirstTrack();
+      toggleBtn.on('pointerdown', () => {
+        const nowOn = Storage.toggleMusicPackEnabled(pack.id);
+        AudioManager.playLatchSnap();
+        if (nowOn) {
+          AudioManager.activatePackFirstTrack(pack.id);
+        }
         this.refreshUI();
       });
 
-      this.listContainer.add([statusTxt, playBtn]);
+      this.listContainer.add([statusTxt, toggleBtn]);
     } else if (isAdPack) {
       const watched = Storage.getMusicPackAds(pack.id);
-      const tagTxt = this.add.text(30, y + cardH - 18, `📺 ПРОМО-СБОРНИК · ПРОГРЕСС ${watched}/${pack.reqAds}`, {
+      const tagTxt = this.add.text(30, y + cardH - 16, `📺 ПРОМО · ПРОГРЕСС ${watched}/${pack.reqAds}`, {
         fontFamily: '"JetBrains Mono", monospace',
         fontSize: '10px',
         fontWeight: '700',
         color: '#7dd3fc'
       }).setOrigin(0, 0.5);
 
-      const adBtn = this.add.text(width - 30, y + cardH - 18, `🎬 СМОТРЕТЬ (${watched}/${pack.reqAds})`, {
+      const adBtn = this.add.text(width - 30, y + cardH - 16, `🎬 СМОТРЕТЬ (${watched}/${pack.reqAds})`, {
         fontFamily: '"JetBrains Mono", monospace',
         fontSize: '11px',
         fontWeight: '700',
@@ -318,7 +367,7 @@ export class UpgradeScene extends Phaser.Scene {
           const totalWatched = Storage.incrementMusicPackAds(pack.id);
           if (totalWatched >= pack.reqAds) {
             Storage.unlockMusicPack(pack.id);
-            activatePackFirstTrack();
+            AudioManager.activatePackFirstTrack(pack.id);
           } else {
             AudioManager.playLatchSnap();
           }
@@ -329,14 +378,14 @@ export class UpgradeScene extends Phaser.Scene {
       this.listContainer.add([tagTxt, adBtn]);
     } else {
       const canBuyCoins = money >= pack.price;
-      const tagTxt = this.add.text(30, y + cardH - 18, '💿 ПРЕМИУМ-ПАК · 5 ТРЕКОВ', {
+      const tagTxt = this.add.text(30, y + cardH - 16, '💿 ПРЕМИУМ · 5 ТРЕКОВ', {
         fontFamily: '"JetBrains Mono", monospace',
         fontSize: '10px',
         fontWeight: '700',
         color: '#fde68a'
       }).setOrigin(0, 0.5);
 
-      const coinBtn = this.add.text(width - 30, y + cardH - 18, `КУПИТЬ · ${pack.price} ₽`, {
+      const coinBtn = this.add.text(width - 30, y + cardH - 16, `КУПИТЬ · ${pack.price} ₽`, {
         fontFamily: '"JetBrains Mono", monospace',
         fontSize: '11px',
         fontWeight: '700',
@@ -349,7 +398,7 @@ export class UpgradeScene extends Phaser.Scene {
         coinBtn.on('pointerdown', () => {
           if (Storage.spendMoney(pack.price)) {
             Storage.unlockMusicPack(pack.id);
-            activatePackFirstTrack();
+            AudioManager.activatePackFirstTrack(pack.id);
             this.refreshUI();
           }
         });
