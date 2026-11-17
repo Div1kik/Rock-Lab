@@ -1,6 +1,6 @@
 import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
-import { RARE_INCLUSIONS } from '../data/contracts.js';
+import { rollWeightedInclusion } from '../data/contracts.js';
 
 export class UnpackScene extends Phaser.Scene {
   constructor() {
@@ -412,11 +412,9 @@ export class UnpackScene extends Phaser.Scene {
       return;
     }
 
-    if (Math.random() < 0.35 && Array.isArray(RARE_INCLUSIONS) && RARE_INCLUSIONS.length) {
-      const existingIds = Storage.getGems().map((g) => g.id);
-      const unseen = RARE_INCLUSIONS.filter((g) => !existingIds.includes(g.id));
-      const pool = unseen.length > 0 ? unseen : RARE_INCLUSIONS;
-      const foundGem = pool[Math.floor(Math.random() * pool.length)];
+    // 22% шанс найти редкое включение со взвешенной редкостью
+    if (Math.random() < 0.22) {
+      const foundGem = rollWeightedInclusion();
       Storage.addGem(foundGem);
       this.showRareGemModal(foundGem);
       return;
@@ -433,48 +431,61 @@ export class UnpackScene extends Phaser.Scene {
     AudioManager.playStamp();
 
     const overlay = this.add.graphics().setDepth(60);
-    overlay.fillStyle(0x0b101b, 0.92);
+    overlay.fillStyle(0x0b101b, 0.93);
     overlay.fillRect(0, 0, width, height);
 
-    const cardW = 340;
-    const cardH = 290;
+    const cardW = 352;
+    const cardH = 330;
+    const cardX = width / 2 - cardW / 2;
+    const cardY = height / 2 - cardH / 2;
+
     const card = this.add.graphics().setDepth(61);
     card.fillStyle(0x1e293b, 1);
-    card.fillRoundedRect(width / 2 - cardW / 2, height / 2 - cardH / 2, cardW, cardH, 16);
+    card.fillRoundedRect(cardX, cardY, cardW, cardH, 16);
     card.lineStyle(3, gem.color, 1);
-    card.strokeRoundedRect(width / 2 - cardW / 2, height / 2 - cardH / 2, cardW, cardH, 16);
+    card.strokeRoundedRect(cardX, cardY, cardW, cardH, 16);
 
-    this.add.text(width / 2, height / 2 - 106, '✨ РЕДКОЕ ВКЛЮЧЕНИЕ В КЕРНЕ!', {
+    this.add.text(width / 2, cardY + 32, '✨ НАХОДКА В КЕРНЕ!', {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '14px',
+      fontSize: '15px',
       fontWeight: '700',
       color: '#facc15'
     }).setOrigin(0.5).setDepth(62);
 
-    this.add.text(width / 2, height / 2 - 52, `${gem.icon} ${gem.name}`, {
+    this.add.text(width / 2, cardY + 62, `Редкость: ${gem.rarity.toUpperCase()}`, {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '11px',
+      fontWeight: '700',
+      color: '#38bdf8',
+      backgroundColor: '#0f172a',
+      padding: { x: 10, y: 4 }
+    }).setOrigin(0.5).setDepth(62);
+
+    this.add.text(width / 2, cardY + 118, `${gem.icon} ${gem.name}`, {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '16px',
+      fontSize: '17px',
       fontWeight: '700',
       color: '#ffffff',
       align: 'center',
-      wordWrap: { width: 300 }
+      lineSpacing: 6,
+      wordWrap: { width: cardW - 36 }
     }).setOrigin(0.5).setDepth(62);
 
-    this.add.text(
-      width / 2,
-      height / 2 + 8,
-      'Образец помещён в шкаф-витрину лаборатории!\nОткрой витрину на главном экране, чтобы рассмотреть.',
-      {
-        fontFamily: '"Rubik", sans-serif',
-        fontSize: '12px',
-        color: '#cbd5e1',
-        align: 'center',
-        lineSpacing: 4,
-        wordWrap: { width: 300 }
-      }
-    ).setOrigin(0.5).setDepth(62);
+    const hasShowcase = Storage.getPerkLevel('showcase') > 0;
+    const storageHint = hasShowcase
+      ? 'Образец отправлен на склад.\nВыбери его в окне витрины, чтобы выставить на полку!'
+      : 'Образец сохранён на складе лаборатории.\nКупи витрину в Магазине (со 2-го ур. лабы), чтобы выставить его!';
 
-    const btn = this.add.text(width / 2, height / 2 + 95, 'ПРОДОЛЖИТЬ ПОДГОТОВКУ →', {
+    this.add.text(width / 2, cardY + 196, storageHint, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '12px',
+      color: '#cbd5e1',
+      align: 'center',
+      lineSpacing: 5,
+      wordWrap: { width: cardW - 36 }
+    }).setOrigin(0.5).setDepth(62);
+
+    const btn = this.add.text(width / 2, cardY + cardH - 36, 'ПРОДОЛЖИТЬ ПОДГОТОВКУ →', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '13px',
       fontWeight: '700',
