@@ -9,243 +9,483 @@ export class UnpackScene extends Phaser.Scene {
 
   init(data) {
     this.contract = data?.contract || Storage.getActiveContract();
-    this.boxesLeft = this.contract?.boxesCount || 1;
-    this.totalBoxes = this.boxesLeft;
+    this.currentBox = 1;
+    this.totalBoxes = this.contract?.boxesCount || 1;
+    this.bolts = [];
+    this.unscrewedCount = 0;
+    this.lidOpened = false;
+    this.coresCollected = 0;
+    this.drillTickTimer = 0;
+    this.boxMode = 'screws';
+    this.pryProgress = 0;
+    this.isPrying = false;
   }
 
   create() {
     const { width, height } = this.scale;
 
     const bg = this.add.graphics();
-    bg.fillStyle(0x181e29, 1);
+    bg.fillStyle(0x292524, 1);
     bg.fillRect(0, 0, width, height);
+    bg.fillStyle(0x44403c, 1);
+    bg.fillRect(0, 130, width, height - 130);
 
-    this.add.text(width / 2, 34, `ВСКРЫТИЕ КЕРНОВ (${this.totalBoxes - this.boxesLeft + 1}/${this.totalBoxes})`, {
+    this.headerTxt = this.add.text(width / 2, 34, 'ЭТАП 1: ВСКРЫТИЕ КЕРНОВОГО ЯЩИКА', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '16px',
+      fontWeight: '700',
+      color: '#fef3c7'
+    }).setOrigin(0.5);
+
+    this.subTxt = this.add.text(width / 2, 64, '', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '13px',
+      fontWeight: '600',
+      color: '#fde68a'
+    }).setOrigin(0.5);
+
+    this.hintTxt = this.add.text(width / 2, 102, '', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '14px',
+      fontWeight: '600',
+      color: '#38bdf8',
+      align: 'center'
+    }).setOrigin(0.5);
+
+    this.particles = this.add.particles(0, 0, 'dust_px', {
+      speed: { min: 40, max: 130 },
+      scale: { start: 1.1, end: 0 },
+      lifespan: 350,
+      emitting: false
+    }).setDepth(30);
+
+    this.crateContainer = this.add.container(width / 2, height * 0.54);
+    this.buildDrillSprite();
+    this.buildCrowbarSprite();
+    this.buildCrate();
+  }
+
+  buildDrillSprite() {
+    const drillLvl = Storage.getUpgradeLevel('drill');
+    const bodyColors = [0xd97706, 0xeab308, 0x22c55e, 0x0ea5e9, 0x8b5cf6, 0xf43f5e];
+    const bodyColor = bodyColors[Math.min(bodyColors.length - 1, drillLvl - 1)];
+
+    this.drillSprite = this.add.container(0, 0).setDepth(45).setVisible(false);
+
+    const g = this.add.graphics();
+    g.fillStyle(0x94a3b8, 1);
+    g.fillRect(-3, -24, 6, 24);
+    g.fillStyle(0x1e293b, 1);
+    g.fillRoundedRect(-10, -44, 20, 22, 4);
+    if (drillLvl >= 3) {
+      g.fillStyle(0x38bdf8, 1);
+      g.fillRect(-10, -26, 20, 3);
+    }
+
+    g.fillStyle(bodyColor, 1);
+    g.fillRoundedRect(-17, -88, 38, 46, 8);
+    g.fillStyle(0x1c1917, 0.85);
+    g.fillRect(-12, -76, 24, 6);
+    g.fillRect(-12, -64, 24, 6);
+
+    g.fillStyle(0x27272a, 1);
+    g.fillRoundedRect(12, -78, 46, 18, 6);
+    g.fillStyle(bodyColor, 1);
+    const batW = drillLvl >= 4 ? 28 : 22;
+    g.fillRoundedRect(46, -84, batW, 32, 5);
+
+    this.drillSprite.add(g);
+    this.drillSprite.setAngle(-22);
+  }
+
+  buildCrowbarSprite() {
+    const drillLvl = Storage.getUpgradeLevel('drill');
+    const barColor = drillLvl >= 4 ? 0x38bdf8 : drillLvl >= 2 ? 0xdc2626 : 0x64748b;
+
+    this.crowbarSprite = this.add.container(0, 0).setDepth(45).setVisible(false);
+    const g = this.add.graphics();
+
+    g.fillStyle(0x94a3b8, 1);
+    g.fillRoundedRect(-6, -12, 16, 24, 4);
+    g.fillStyle(barColor, 1);
+    g.fillRoundedRect(4, -8, 130, 14, 6);
+    g.fillStyle(0x1c1917, 1);
+    g.fillRoundedRect(85, -10, 48, 18, 6);
+
+    this.crowbarSprite.add(g);
+    this.crowbarSprite.setAngle(-28);
+  }
+
+  buildCrate() {
+    this.crateContainer.removeAll(true);
+    this.bolts = [];
+    this.unscrewedCount = 0;
+    this.lidOpened = false;
+    this.coresCollected = 0;
+    this.pryProgress = 0;
+    this.isPrying = false;
+    this.drillSprite.setVisible(false);
+    this.crowbarSprite.setVisible(false);
+
+    this.boxMode = Math.random() < 0.45 ? 'crowbar' : 'screws';
+    this.subTxt.setText(`${this.contract.title} · Ящик ${this.currentBox} из ${this.totalBoxes}`);
+
+    const boxW = 310;
+    const boxH = 380;
+
+    const tray = this.add.graphics();
+    tray.fillStyle(0x1c1917, 1);
+    tray.fillRoundedRect(-boxW / 2, -boxH / 2, boxW, boxH, 12);
+    tray.lineStyle(4, 0x78350f, 1);
+    tray.strokeRoundedRect(-boxW / 2, -boxH / 2, boxW, boxH, 12);
+
+    tray.fillStyle(0x27272a, 1);
+    tray.fillRoundedRect(-boxW / 2 + 18, -boxH / 2 + 24, boxW - 36, 145, 8);
+    tray.fillRoundedRect(-boxW / 2 + 18, 16, boxW - 36, 145, 8);
+    this.crateContainer.add(tray);
+
+    this.coreSprites = [];
+    const corePositions = [
+      { x: -65, y: -92 },
+      { x: 65, y: -92 },
+      { x: 0, y: 88 }
+    ];
+
+    corePositions.forEach((pos) => {
+      const core = this.add.image(pos.x, pos.y, 'rock_core')
+        .setScale(1.15)
+        .setTint(this.contract.rock.color);
+
+      core.collected = false;
+      core.setInteractive({ useHandCursor: true });
+
+      core.on('pointerdown', () => {
+        if (!this.lidOpened || core.collected) return;
+        core.collected = true;
+        this.coresCollected += 1;
+        AudioManager.playCorePickup();
+        this.particles.emitParticleAt(
+          this.crateContainer.x + core.x,
+          this.crateContainer.y + core.y,
+          10
+        );
+
+        this.tweens.add({
+          targets: core,
+          y: core.y - 60,
+          scale: 0.2,
+          alpha: 0,
+          duration: 260,
+          onComplete: () => {
+            if (this.coresCollected >= this.coreSprites.length) {
+              this.onBoxCompleted();
+            }
+          }
+        });
+      });
+
+      this.crateContainer.add(core);
+      this.coreSprites.push(core);
+    });
+
+    this.lidContainer = this.add.container(0, 0);
+    const lid = this.add.graphics();
+    lid.fillStyle(this.boxMode === 'crowbar' ? 0x78350f : 0x92400e, 1);
+    lid.fillRoundedRect(-boxW / 2, -boxH / 2, boxW, boxH, 12);
+    lid.lineStyle(3, 0x451a03, 1);
+    lid.strokeRoundedRect(-boxW / 2, -boxH / 2, boxW, boxH, 12);
+
+    for (let y = -boxH / 2 + 76; y < boxH / 2; y += 76) {
+      lid.lineBetween(-boxW / 2 + 6, y, boxW / 2 - 6, y);
+    }
+
+    const modeTag = this.boxMode === 'crowbar' ? 'ЗАКОЛОЧЕНО ГВОЗДЯМИ' : 'НА САМОРЕЗАХ';
+    const stamp = this.add.text(0, 0, `ПРОБА: ${this.contract.rock.name.toUpperCase()}\n${modeTag}`, {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '13px',
       fontWeight: '700',
-      color: '#38bdf8'
+      color: '#fef3c7',
+      align: 'center',
+      backgroundColor: '#451a03bb',
+      padding: { x: 10, y: 6 }
     }).setOrigin(0.5);
 
-    this.titleTxt = this.add.text(width / 2, 64, 'МОНТАЖКА И ГРУБОЕ ЗУБИЛО', {
-      fontFamily: '"Rubik", sans-serif',
-      fontSize: '18px',
-      fontWeight: '700',
-      color: '#f8fafc'
-    }).setOrigin(0.5);
+    this.lidContainer.add([lid, stamp]);
+    this.crateContainer.add(this.lidContainer);
 
-    this.subTxt = this.add.text(width / 2, 90, `Объект: ${this.contract?.title || 'Заказ'}`, {
-      fontFamily: '"Rubik", sans-serif',
-      fontSize: '12px',
-      color: '#cbd5e1'
-    }).setOrigin(0.5);
+    if (this.boxMode === 'screws') {
+      this.hintTxt.setText('Зажми по очереди 4 болта шуруповёртом');
+      const offsetX = boxW / 2 - 28;
+      const offsetY = boxH / 2 - 28;
+      const corners = [
+        { x: -offsetX, y: -offsetY },
+        { x: offsetX, y: -offsetY },
+        { x: -offsetX, y: offsetY },
+        { x: offsetX, y: offsetY }
+      ];
 
-    this.cx = width / 2;
-    this.cy = height * 0.44;
+      corners.forEach((pt) => {
+        const bolt = this.add.image(pt.x, pt.y, 'bolt_head').setScale(1.2);
+        bolt.progress = 0;
+        bolt.isHolding = false;
+        bolt.done = false;
+        bolt.setInteractive({ useHandCursor: true });
 
-    this.crateContainer = this.add.container(this.cx, this.cy);
-    this.drawCrate(0);
+        bolt.on('pointerdown', () => {
+          if (!bolt.done) bolt.isHolding = true;
+        });
+        bolt.on('pointerup', () => { bolt.isHolding = false; });
+        bolt.on('pointerout', () => { bolt.isHolding = false; });
 
-    const hint = this.add.text(
-      width / 2,
-      height * 0.72,
-      'Тапай по деревянному ящику монтажкой,\nчтобы сорвать крышку и извлечь керн!',
-      {
-        fontFamily: '"Rubik", sans-serif',
-        fontSize: '13px',
-        color: '#94a3b8',
-        align: 'center',
-        lineSpacing: 4
-      }
-    ).setOrigin(0.5);
+        this.lidContainer.add(bolt);
+        this.bolts.push(bolt);
+      });
+    } else {
+      this.hintTxt.setText('Зажми или быстро тапай по скобе сбоку,\nчтобы поддеть и сорвать крышку ломиком!');
 
-    this.progressBg = this.add.graphics();
-    this.progressFill = this.add.graphics();
-    this.drawProgressBar(0);
+      const pryX = boxW / 2 - 14;
+      const pryY = 0;
 
-    this.crateContainer.setInteractive(
-      new Phaser.Geom.Rectangle(-110, -110, 220, 220),
-      Phaser.Geom.Rectangle.Contains
-    );
+      const notch = this.add.graphics();
+      notch.fillStyle(0x1c1917, 1);
+      notch.fillRoundedRect(pryX - 18, pryY - 34, 24, 68, 6);
+      notch.lineStyle(2, 0xfacc15, 0.9);
+      notch.strokeRoundedRect(pryX - 18, pryY - 34, 24, 68, 6);
 
-    this.hits = 0;
-    this.requiredHits = 5;
+      const pryLabel = this.add.text(pryX - 42, pryY, 'ПОДДЕТЬ →', {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '12px',
+        fontWeight: '700',
+        color: '#facc15',
+        backgroundColor: '#1c1917cc',
+        padding: { x: 6, y: 4 }
+      }).setOrigin(1, 0.5);
 
-    this.crateContainer.on('pointerdown', () => {
-      this.hits += 1;
-      AudioManager.playCrowbarPry();
-      this.cameras.main.shake(120, 0.008);
+      const pryZone = this.add.zone(pryX - 20, pryY, 90, 110).setInteractive({ useHandCursor: true });
 
-      const ratio = this.hits / this.requiredHits;
-      this.drawCrate(ratio);
-      this.drawProgressBar(ratio);
-
-      this.tweens.add({
-        targets: this.crateContainer,
-        scaleX: 1.05,
-        scaleY: 0.95,
-        duration: 50,
-        yoyo: true
+      pryZone.on('pointerdown', () => {
+        if (this.lidOpened) return;
+        this.isPrying = true;
+        const drillLvl = Storage.getUpgradeLevel('drill');
+        this.pryProgress = Math.min(1, this.pryProgress + 0.16 + (drillLvl - 1) * 0.03);
+        AudioManager.playCrowbarPry();
+        this.particles.emitParticleAt(this.crateContainer.x + pryX, this.crateContainer.y, 6);
+        this.checkCrowbarBreak();
       });
 
-      if (this.hits >= this.requiredHits) {
-        this.crateContainer.disableInteractive();
-        this.openBoxSuccess();
+      pryZone.on('pointerup', () => { this.isPrying = false; });
+      pryZone.on('pointerout', () => { this.isPrying = false; });
+
+      this.lidContainer.add([notch, pryLabel, pryZone]);
+    }
+  }
+
+  checkCrowbarBreak() {
+    if (this.pryProgress >= 1 && !this.lidOpened) {
+      this.lidOpened = true;
+      this.isPrying = false;
+      this.crowbarSprite.setVisible(false);
+      AudioManager.playRockCrack();
+      this.cameras.main.shake(140, 0.008);
+      this.hintTxt.setText('Крышка сорвана! Кликни по каждому керну');
+
+      this.tweens.add({
+        targets: this.lidContainer,
+        x: -360,
+        y: -240,
+        alpha: 0,
+        angle: -24,
+        duration: 380,
+        ease: 'Back.easeIn'
+      });
+    }
+  }
+
+  update(time, delta) {
+    if (this.lidOpened) return;
+
+    const drillLvl = Storage.getUpgradeLevel('drill');
+
+    if (this.boxMode === 'crowbar') {
+      const pryWorldX = this.crateContainer.x + 140;
+      const pryWorldY = this.crateContainer.y;
+
+      if (this.isPrying) {
+        this.pryProgress = Math.min(1, this.pryProgress + (0.55 + (drillLvl - 1) * 0.12) * (delta / 1000));
+        this.crowbarSprite.setVisible(true);
+        this.crowbarSprite.setPosition(pryWorldX, pryWorldY);
+        this.crowbarSprite.setAngle(-28 + this.pryProgress * 34);
+        this.lidContainer.x = -this.pryProgress * 18;
+        this.lidContainer.angle = -this.pryProgress * 4;
+
+        this.drillTickTimer += delta;
+        if (this.drillTickTimer >= 95) {
+          this.drillTickTimer = 0;
+          AudioManager.playCrowbarPry();
+        }
+
+        this.checkCrowbarBreak();
+      } else {
+        this.crowbarSprite.setVisible(false);
       }
+      return;
+    }
+
+    const speed = (0.95 + (drillLvl - 1) * 0.35) * (delta / 1000);
+    let activeBolt = null;
+
+    for (const bolt of this.bolts) {
+      if (bolt.isHolding && !bolt.done) {
+        activeBolt = bolt;
+        bolt.progress = Math.min(1, bolt.progress + speed);
+        bolt.angle += 18;
+        bolt.setScale(1.2 + bolt.progress * 0.35);
+
+        if (bolt.progress >= 1) {
+          bolt.done = true;
+          bolt.isHolding = false;
+          this.unscrewedCount += 1;
+          AudioManager.playLatchSnap();
+
+          this.tweens.add({
+            targets: bolt,
+            x: bolt.x + (bolt.x < 0 ? -70 : 70),
+            y: bolt.y - 40,
+            alpha: 0,
+            angle: bolt.angle + 240,
+            duration: 280
+          });
+
+          if (this.unscrewedCount >= this.bolts.length) {
+            this.unlockLid();
+          }
+        }
+      }
+    }
+
+    if (activeBolt && !activeBolt.done) {
+      const worldX = this.crateContainer.x + activeBolt.x;
+      const worldY = this.crateContainer.y + activeBolt.y - activeBolt.progress * 14;
+      this.drillSprite.setVisible(true);
+      this.drillSprite.setPosition(
+        worldX + (Math.random() - 0.5) * 3,
+        worldY + (Math.random() - 0.5) * 3
+      );
+
+      this.drillTickTimer += delta;
+      if (this.drillTickTimer >= 55) {
+        this.drillTickTimer = 0;
+        AudioManager.playDrillTick();
+        this.particles.emitParticleAt(worldX, worldY, 2);
+      }
+    } else {
+      this.drillSprite.setVisible(false);
+    }
+  }
+
+  unlockLid() {
+    this.drillSprite.setVisible(false);
+    this.hintTxt.setText('Нажми на крышку ящика, чтобы снять её!');
+    this.lidContainer.setSize(310, 380);
+    this.lidContainer.setInteractive({ useHandCursor: true });
+
+    this.lidContainer.once('pointerdown', () => {
+      this.lidOpened = true;
+      AudioManager.playStamp();
+      this.hintTxt.setText('Кликни по каждому керну, чтобы отправить на распил');
+
+      this.tweens.add({
+        targets: this.lidContainer,
+        y: -480,
+        alpha: 0,
+        angle: -8,
+        duration: 360,
+        ease: 'Back.easeIn'
+      });
     });
   }
 
-  drawCrate(damageRatio) {
-    this.crateContainer.removeAll(true);
-    const g = this.add.graphics();
-
-    // Деревянный ящик
-    g.fillStyle(0x78350f, 1);
-    g.fillRoundedRect(-96, -96, 192, 192, 10);
-    g.lineStyle(4, 0x451a03, 1);
-    g.strokeRoundedRect(-96, -96, 192, 192, 10);
-
-    // Доски
-    g.lineStyle(3, 0x291203, 0.8);
-    g.lineBetween(-96, -32, 96, -32);
-    g.lineBetween(-96, 32, 96, 32);
-
-    // Трещины при ударах
-    if (damageRatio > 0.2) {
-      g.lineStyle(2, 0x180b01, 1);
-      g.beginPath();
-      g.moveTo(-20, -96);
-      g.lineTo(10, -10);
-      g.lineTo(-10, 40);
-      g.strokePath();
-    }
-    if (damageRatio > 0.6) {
-      g.beginPath();
-      g.moveTo(40, -96);
-      g.lineTo(20, 20);
-      g.lineTo(60, 96);
-      g.strokePath();
+  onBoxCompleted() {
+    if (this.currentBox < this.totalBoxes) {
+      this.currentBox += 1;
+      this.buildCrate();
+      return;
     }
 
-    // Гвозди по углам
-    g.fillStyle(0x94a3b8, 1);
-    g.fillCircle(-75, -75, 5);
-    g.fillCircle(75, -75, 5);
-    g.fillCircle(-75, 75, 5);
-    g.fillCircle(75, 75, 5);
-
-    // Керн внутри (проглядывает при разрушении)
-    if (damageRatio > 0.5) {
-      g.fillStyle(this.contract.rock.color, 1);
-      g.fillRoundedRect(-45, -70, 90, 140, 8);
+    if (Math.random() < 0.35 && Array.isArray(RARE_INCLUSIONS) && RARE_INCLUSIONS.length) {
+      const existingIds = Storage.getGems().map((g) => g.id);
+      const unseen = RARE_INCLUSIONS.filter((g) => !existingIds.includes(g.id));
+      const pool = unseen.length > 0 ? unseen : RARE_INCLUSIONS;
+      const foundGem = pool[Math.floor(Math.random() * pool.length)];
+      Storage.addGem(foundGem);
+      this.showRareGemModal(foundGem);
+      return;
     }
 
-    this.crateContainer.add(g);
-  }
-
-  drawProgressBar(ratio) {
-    const { width } = this.scale;
-    const bw = 260;
-    const bh = 18;
-    const bx = width / 2 - bw / 2;
-    const by = this.cy + 128;
-
-    this.progressBg.clear();
-    this.progressBg.fillStyle(0x0f172a, 1);
-    this.progressBg.fillRoundedRect(bx, by, bw, bh, 6);
-
-    this.progressFill.clear();
-    this.progressFill.fillStyle(0xd97706, 1);
-    this.progressFill.fillRoundedRect(bx + 2, by + 2, (bw - 4) * Math.min(1, ratio), bh - 4, 4);
-  }
-
-  openBoxSuccess() {
-    AudioManager.playRockCrack();
-
-    // Шанс 35% найти редкий минерал при вскрытии ящика
-    let foundRare = null;
-    if (Math.random() < 0.35) {
-      const existingGems = Storage.getGems().map(g => g.id);
-      const available = RARE_INCLUSIONS.filter(g => !existingGems.includes(g.id));
-      const pool = available.length > 0 ? available : RARE_INCLUSIONS;
-      foundRare = pool[Math.floor(Math.random() * pool.length)];
-      Storage.addGem(foundRare);
-    }
-
-    this.tweens.add({
-      targets: this.crateContainer,
-      alpha: 0,
-      scaleX: 1.2,
-      scaleY: 1.2,
-      duration: 300,
-      onComplete: () => {
-        if (foundRare) {
-          this.showRareGemModal(foundRare);
-        } else {
-          this.proceedNext();
-        }
-      }
+    this.hintTxt.setText('Керны отправлены на отрезной станок!');
+    this.time.delayedCall(450, () => {
+      this.scene.start('PrepScene', { contract: this.contract });
     });
   }
 
   showRareGemModal(gem) {
     const { width, height } = this.scale;
+    AudioManager.playStamp();
 
-    const overlay = this.add.graphics();
+    const overlay = this.add.graphics().setDepth(60);
     overlay.fillStyle(0x0b101b, 0.92);
     overlay.fillRect(0, 0, width, height);
 
-    const mBox = this.add.graphics();
-    mBox.fillStyle(0x1e293b, 1);
-    mBox.fillRoundedRect(width / 2 - 170, height / 2 - 140, 340, 280, 16);
-    mBox.lineStyle(3, gem.color, 1);
-    mBox.strokeRoundedRect(width / 2 - 170, height / 2 - 140, 340, 280, 16);
+    const cardW = 340;
+    const cardH = 290;
+    const card = this.add.graphics().setDepth(61);
+    card.fillStyle(0x1e293b, 1);
+    card.fillRoundedRect(width / 2 - cardW / 2, height / 2 - cardH / 2, cardW, cardH, 16);
+    card.lineStyle(3, gem.color, 1);
+    card.strokeRoundedRect(width / 2 - cardW / 2, height / 2 - cardH / 2, cardW, cardH, 16);
 
-    this.add.text(width / 2, height / 2 - 100, '✨ НАЙДЕН РЕДКИЙ МИНЕРАЛ!', {
+    this.add.text(width / 2, height / 2 - 106, '✨ РЕДКОЕ ВКЛЮЧЕНИЕ В КЕРНЕ!', {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '15px',
+      fontSize: '14px',
       fontWeight: '700',
       color: '#facc15'
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(62);
 
-    this.add.text(width / 2, height / 2 - 40, `${gem.icon} ${gem.name}`, {
+    this.add.text(width / 2, height / 2 - 52, `${gem.icon} ${gem.name}`, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '16px',
       fontWeight: '700',
       color: '#ffffff',
       align: 'center',
       wordWrap: { width: 300 }
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(62);
 
-    this.add.text(width / 2, height / 2 + 10, 'Добавлено на витрину в лабораторию!\nБонус к престижу активирован.', {
-      fontFamily: '"Rubik", sans-serif',
-      fontSize: '12px',
-      color: '#94a3b8',
-      align: 'center',
-      lineSpacing: 4
-    }).setOrigin(0.5);
+    this.add.text(
+      width / 2,
+      height / 2 + 8,
+      'Образец помещён в шкаф-витрину лаборатории!\nОткрой витрину на главном экране, чтобы рассмотреть.',
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '12px',
+        color: '#cbd5e1',
+        align: 'center',
+        lineSpacing: 4,
+        wordWrap: { width: 300 }
+      }
+    ).setOrigin(0.5).setDepth(62);
 
-    const btn = this.add.text(width / 2, height / 2 + 90, 'КРУТО, ПРОДОЛЖИТЬ →', {
+    const btn = this.add.text(width / 2, height / 2 + 95, 'ПРОДОЛЖИТЬ ПОДГОТОВКУ →', {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '14px',
+      fontSize: '13px',
       fontWeight: '700',
       color: '#0f172a',
       backgroundColor: '#facc15',
-      padding: { x: 20, y: 12 }
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      padding: { x: 18, y: 11 }
+    }).setOrigin(0.5).setDepth(62).setInteractive({ useHandCursor: true });
 
     btn.on('pointerdown', () => {
       AudioManager.playClick();
-      this.proceedNext();
-    });
-  }
-
-  proceedNext() {
-    this.boxesLeft -= 1;
-    if (this.boxesLeft > 0) {
-      this.scene.restart({ contract: this.contract });
-    } else {
       this.scene.start('PrepScene', { contract: this.contract });
-    }
+    });
   }
 }
