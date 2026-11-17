@@ -33,6 +33,7 @@ const DEFAULT_STATE = {
   musicPackAds: {},
   musicPlayMode: 'playlist',
   foundGems: [],
+  displayedGems: [],
   siteHistory: [],
   soundEnabled: true,
   musicTrack: 0,
@@ -56,6 +57,11 @@ class StorageManager {
       if (!mergedUpgrades.grinder || mergedUpgrades.grinder < 1) {
         mergedUpgrades.grinder = 1;
       }
+      const foundGems = Array.isArray(parsed.foundGems) ? parsed.foundGems : [];
+      const displayedGems = Array.isArray(parsed.displayedGems)
+        ? parsed.displayedGems.filter((id) => foundGems.some((g) => g.id === id)).slice(0, 4)
+        : foundGems.slice(0, 4).map((g) => g.id);
+
       return {
         ...structuredClone(DEFAULT_STATE),
         ...parsed,
@@ -74,7 +80,8 @@ class StorageManager {
         unlockedMusicPacks: Array.isArray(parsed.unlockedMusicPacks) ? parsed.unlockedMusicPacks : [],
         musicPackAds: parsed.musicPackAds && typeof parsed.musicPackAds === 'object' ? parsed.musicPackAds : {},
         musicPlayMode: parsed.musicPlayMode === 'loop' ? 'loop' : 'playlist',
-        foundGems: Array.isArray(parsed.foundGems) ? parsed.foundGems : [],
+        foundGems,
+        displayedGems,
         siteHistory: Array.isArray(parsed.siteHistory) ? parsed.siteHistory : []
       };
     } catch {
@@ -240,12 +247,41 @@ class StorageManager {
       this.state.foundGems[existingIdx].foundAt = Date.now();
     } else {
       this.state.foundGems.unshift({ ...gem, count: 1, foundAt: Date.now() });
+      if (!this.state.displayedGems) this.state.displayedGems = [];
+      if (this.state.displayedGems.length < 4) {
+        this.state.displayedGems.push(gem.id);
+      }
     }
-    if (this.state.foundGems.length > 30) this.state.foundGems.length = 30;
     this.save();
   }
 
   getGems() { return this.state.foundGems || []; }
+
+  getDisplayedGems() {
+    if (!Array.isArray(this.state.displayedGems)) return [];
+    return this.state.displayedGems
+      .map((id) => this.state.foundGems.find((g) => g.id === id))
+      .filter(Boolean);
+  }
+
+  isGemDisplayed(gemId) {
+    return Array.isArray(this.state.displayedGems) && this.state.displayedGems.includes(gemId);
+  }
+
+  toggleGemDisplay(gemId) {
+    if (!Array.isArray(this.state.displayedGems)) this.state.displayedGems = [];
+    const idx = this.state.displayedGems.indexOf(gemId);
+    if (idx >= 0) {
+      this.state.displayedGems.splice(idx, 1);
+    } else {
+      if (this.state.displayedGems.length >= 4) {
+        this.state.displayedGems.shift();
+      }
+      this.state.displayedGems.push(gemId);
+    }
+    this.save();
+    return this.state.displayedGems.includes(gemId);
+  }
 
   addSiteRecord(record) {
     this.state.siteHistory.unshift({ ...record, date: Date.now() });
