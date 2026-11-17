@@ -267,20 +267,16 @@ export class ReportScene extends Phaser.Scene {
     const sceneW = boxW - 40;
     const sceneH = 206;
 
-    // Улучшенный контрастный фон с видимым горным рельефом и подсветкой
+    // Контекстный фон мини-сцены
     const backdrop = this.add.graphics().setDepth(22);
     backdrop.fillStyle(isBad ? 0x450a0a : 0x0f172a, 1);
     backdrop.fillRoundedRect(sceneX, sceneY, sceneW, sceneH, 10);
 
-    // Контрастные многослойные горы/склоны (отчетливо видны на синем/темном фоне)
+    // Четкие контрастные горы на заднике
     backdrop.fillStyle(isBad ? 0x7f1d1d : 0x1e293b, 1);
-    backdrop.fillTriangle(sceneX + 12, sceneY + 155, sceneX + 90, sceneY + 72, sceneX + 175, sceneY + 155);
+    backdrop.fillTriangle(sceneX + 16, sceneY + 155, sceneX + 90, sceneY + 75, sceneX + 170, sceneY + 155);
     backdrop.fillStyle(isBad ? 0x991b1b : 0x334155, 1);
-    backdrop.fillTriangle(sceneX + 130, sceneY + 155, sceneX + 230, sceneY + 58, sceneX + 335, sceneY + 155);
-
-    // Дополнительный светящийся горизонт для глубины
-    backdrop.lineStyle(2, isBad ? 0xf87171 : 0x38bdf8, 0.4);
-    backdrop.lineBetween(sceneX + 10, sceneY + 155, sceneX + sceneW - 10, sceneY + 155);
+    backdrop.fillTriangle(sceneX + 140, sceneY + 155, sceneX + 235, sceneY + 62, sceneX + 330, sceneY + 155);
 
     const groundY = sceneY + 148;
     this.add.tileSprite(width / 2, groundY + 25, sceneW, 50, 'rock_tex')
@@ -298,111 +294,107 @@ export class ReportScene extends Phaser.Scene {
       emitting: false
     }).setDepth(35);
 
-    // Кат-сцена 1: Успешный запуск стройки (детальный высотный каркас + башенный кран с проработкой)
+    // 1. УСПЕШНАЯ СТРОЙКА (Аккуратный кран и здание с этажами)
     if (outcomeType === 'success' || outcomeType === 'audit_pass') {
       const craneG = this.add.graphics().setDepth(23);
-      const mastX = sceneX + sceneW - 48;
-      // Основание и стрела крана
+      const mastX = sceneX + sceneW - 55;
+      
+      // Башня крана
       craneG.lineStyle(3, 0xfacc15, 1);
-      craneG.strokeRect(mastX - 6, sceneY + 18, 12, 130);
-      craneG.lineBetween(mastX, sceneY + 18, sceneX + 32, sceneY + 28); // стрела
+      craneG.strokeRect(mastX - 5, sceneY + 22, 10, 126);
+      craneG.lineBetween(mastX, sceneY + 22, sceneX + 40, sceneY + 30);
       craneG.fillStyle(0xfacc15, 1);
-      craneG.fillRect(sceneX + 30, sceneY + 26, sceneW - 55, 6);
+      craneG.fillRect(sceneX + 38, sceneY + 28, sceneW - 65, 5);
 
-      // Сборка этажей здания с деталями окон
+      // Блоки этажей здания
       for (let floor = 0; floor < 3; floor++) {
-        const fy = groundY - 24 - floor * 28;
-        const unit = this.add.rectangle(width / 2 - 20, sceneY + 40, 130, 26, 0xf8fafc)
+        const fy = groundY - 24 - floor * 27;
+        const unit = this.add.rectangle(width / 2 - 25, sceneY + 40, 120, 25, 0xf8fafc)
           .setStrokeStyle(2, 0x475569)
           .setDepth(24);
         
-        // Окошки на блоке
         const winG = this.add.graphics().setDepth(25);
-        winG.fillStyle(0x0284c9, 0.8);
-        winG.fillRect(width / 2 - 70, fy - 6, 18, 12);
-        winG.fillRect(width / 2 - 35, fy - 6, 18, 12);
-        winG.fillRect(width / 2, fy - 6, 18, 12);
-        winG.fillRect(width / 2 + 35, fy - 6, 18, 12);
+        winG.fillStyle(0x0284c9, 0.85);
+        winG.fillRect(width / 2 - 68, fy - 5, 16, 10);
+        winG.fillRect(width / 2 - 34, fy - 5, 16, 10);
+        winG.fillRect(width / 2, fy - 5, 16, 10);
+        winG.fillRect(width / 2 + 34, fy - 5, 16, 10);
 
         this.tweens.add({
           targets: [unit],
           y: fy,
-          delay: floor * 250,
-          duration: 450,
+          delay: floor * 220,
+          duration: 400,
           ease: 'Back.easeOut',
-          onComplete: () => dustParticles.emitParticleAt(width / 2 - 20, fy + 12, 12)
+          onComplete: () => dustParticles.emitParticleAt(width / 2 - 25, fy + 12, 10)
         });
       }
     } 
-    // Кат-сцена 2: Предотвращен обвал / Установлено надежное анкерное укрепление (НОВАЯ ДЕТАЛЬНАЯ КАТ-СЦЕНА)
+    // 2. ОБЪЕКТ СПАСЁН / УКРЕПЛЕНИЕ (Аккуратные анкеры в склоне без перекрытий текста)
     else if (outcomeType === 'saved_lives') {
       const shieldG = this.add.graphics().setDepth(23);
-      // Укрепленный склон с металлическими гео-панелями и анкерными балками
-      shieldG.fillStyle(0x0284c9, 0.9);
-      shieldG.fillRoundedRect(width / 2 - 80, groundY - 60, 160, 60, 8);
-      shieldG.lineStyle(3, 0x38bdf8, 1);
-      shieldG.strokeRoundedRect(width / 2 - 80, groundY - 60, 160, 60, 8);
+      
+      // Горный склон в разрезе со стальными панелями
+      shieldG.fillStyle(0x0284c9, 0.85);
+      shieldG.fillRoundedRect(width / 2 - 90, groundY - 45, 180, 45, 6);
+      shieldG.lineStyle(2.5, 0x38bdf8, 1);
+      shieldG.strokeRoundedRect(width / 2 - 90, groundY - 45, 180, 45, 6);
 
-      // Анкерные крестовины и болты
+      // Аккуратные анкерные точки крепления
       shieldG.fillStyle(0xfacc15, 1);
-      [-50, 0, 50].forEach(ox => {
-        shieldG.fillRect(width / 2 + ox - 6, groundY - 35, 12, 12);
+      [-60, -20, 20, 60].forEach(ox => {
+        shieldG.fillCircle(width / 2 + ox, groundY - 22, 5);
+        shieldG.lineStyle(1.5, 0x0f172a, 1);
+        shieldG.strokeCircle(width / 2 + ox, groundY - 22, 5);
       });
 
-      const indicator = this.add.text(width / 2, groundY - 30, '🛡️ АНКЕРА OK', {
-        fontFamily: '"JetBrains Mono", monospace',
-        fontSize: '11px',
-        fontWeight: '700',
-        color: '#ffffff'
-      }).setOrigin(0.5).setDepth(25);
-
-      const rig = this.add.rectangle(sceneX + 55, groundY - 26, 42, 32, 0x38bdf8)
+      // Буровая геологоразведочная машина на платформе
+      const rig = this.add.rectangle(sceneX + 60, groundY - 22, 38, 28, 0x38bdf8)
         .setStrokeStyle(2, 0x0f172a)
+        .setDepth(24);
+      const rigMast = this.add.rectangle(sceneX + 70, groundY - 42, 6, 36, 0x94a3b8)
         .setDepth(24);
 
       this.tweens.add({
-        targets: [rig],
-        x: width / 2 + 95,
+        targets: [rig, rigMast],
+        x: '+= 35',
         duration: 900,
         ease: 'Cubic.easeInOut'
       });
     } 
-    // Кат-сцена 3: Реальный обвал в карьере / Авария из-за ошибки в пробах (НОВАЯ КАТ-СЦЕНА С РАЗРУШЕНИЕМ)
+    // 3. ОБВАЛ В КАРЬЕРЕ (Падение породы и сломанная вышка)
     else if (outcomeType === 'collapse') {
-      const debrisG = this.add.graphics().setDepth(23);
-      // Рухнувшие скальные блоки и накренившаяся буровая вышка
-      const leftBlock = this.add.rectangle(width / 2 - 42, groundY - 20, 72, 48, 0x64748b)
+      const leftBlock = this.add.rectangle(width / 2 - 45, groundY - 18, 68, 44, 0x64748b)
         .setStrokeStyle(2, 0x1e293b)
         .setDepth(24);
-      const rightBlock = this.add.rectangle(width / 2 + 48, groundY - 14, 64, 40, 0x475569)
+      const rightBlock = this.add.rectangle(width / 2 + 50, groundY - 12, 60, 36, 0x475569)
         .setStrokeStyle(2, 0x1e293b)
         .setDepth(24);
 
-      // Сломанная вышка
-      const brokenRig = this.add.rectangle(width / 2 + 10, groundY - 55, 14, 75, 0xef4444)
-        .setAngle(28)
+      const brokenRig = this.add.rectangle(width / 2 + 12, groundY - 50, 12, 68, 0xef4444)
+        .setAngle(32)
         .setStrokeStyle(2, 0x0f172a)
         .setDepth(25);
 
       this.tweens.add({
         targets: [leftBlock],
-        x: width / 2 - 62,
+        x: width / 2 - 65,
         y: groundY + 4,
-        angle: -18,
-        duration: 500,
+        angle: -20,
+        duration: 450,
         ease: 'Bounce.easeOut',
-        onStart: () => dustParticles.emitParticleAt(width / 2, groundY - 10, 35)
+        onStart: () => dustParticles.emitParticleAt(width / 2, groundY - 8, 30)
       });
       this.tweens.add({
         targets: [rightBlock],
-        x: width / 2 + 68,
-        y: groundY + 6,
-        angle: 22,
-        duration: 550,
+        x: width / 2 + 70,
+        y: groundY + 5,
+        angle: 25,
+        duration: 500,
         ease: 'Bounce.easeOut'
       });
     } 
-    // Кат-сцена 4: Ложная тревога заказчика
+    // 4. Ложная тревога
     else {
       const van = this.add.rectangle(sceneX + 50, groundY - 18, 74, 26, 0xf8fafc)
         .setStrokeStyle(2, 0x0284c9)
