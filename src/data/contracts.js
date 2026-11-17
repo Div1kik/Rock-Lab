@@ -100,11 +100,11 @@ export const TEST_CATALOG = {
 };
 
 export const RARE_INCLUSIONS = [
-  { id: 'pyrite', name: 'Друза золотистого пирита', value: 140, color: 0xfacc15 },
-  { id: 'quartz', name: 'Кристалл горного хрусталя', value: 190, color: 0xe2e8f0 },
-  { id: 'ammonite', name: 'Отпечаток древнего аммонита', value: 260, color: 0xf59e0b },
-  { id: 'malachite', name: 'Жилка уральского малахита', value: 340, color: 0x34d399 },
-  { id: 'diamond_kimberlite', name: 'Алмаз в кимберлите', value: 550, color: 0x38bdf8 }
+  { id: 'pyrite', name: 'Друза золотистого пирита', value: 140, color: 0xfacc15, icon: '🟡' },
+  { id: 'quartz', name: 'Кристалл горного хрусталя', value: 190, color: 0xe2e8f0, icon: '💎' },
+  { id: 'ammonite', name: 'Отпечаток древнего аммонита', value: 260, color: 0xf59e0b, icon: '🐚' },
+  { id: 'malachite', name: 'Жилка уральского малахита', value: 340, color: 0x34d399, icon: '🟢' },
+  { id: 'diamond_kimberlite', name: 'Алмаз в кимберлите', value: 550, color: 0x38bdf8, icon: '✨' }
 ];
 
 const COMPANIES = [
