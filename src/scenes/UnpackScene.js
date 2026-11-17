@@ -214,7 +214,15 @@ export class UnpackScene extends Phaser.Scene {
     this.crateContainer.add(this.lidContainer);
 
     if (this.boxMode === 'screws') {
-      this.hintTxt.setText('Зажми по очереди 4 болта шуруповёртом');
+      const assistantLvl = Storage.getPerkLevel('assistant');
+      const autoBolts = Math.min(3, assistantLvl);
+
+      this.hintTxt.setText(
+        autoBolts > 0
+          ? `👷 Стажёр скрутил ${autoBolts} болт(а)! Докрути оставшиеся шуруповёртом`
+          : 'Зажми по очереди 4 болта шуруповёртом'
+      );
+
       const offsetX = boxW / 2 - 28;
       const offsetY = boxH / 2 - 28;
       const corners = [
@@ -224,7 +232,7 @@ export class UnpackScene extends Phaser.Scene {
         { x: offsetX, y: offsetY }
       ];
 
-      corners.forEach((pt) => {
+      corners.forEach((pt, idx) => {
         const bolt = this.add.image(pt.x, pt.y, 'bolt_head').setScale(1.2);
         bolt.progress = 0;
         bolt.isHolding = false;
@@ -239,9 +247,43 @@ export class UnpackScene extends Phaser.Scene {
 
         this.lidContainer.add(bolt);
         this.bolts.push(bolt);
+
+        // Стажёр-лаборант автоматически выкручивает первые N болтов
+        if (idx < autoBolts) {
+          bolt.done = true;
+          this.unscrewedCount += 1;
+          this.time.delayedCall(220 + idx * 180, () => {
+            if (!bolt.active) return;
+            AudioManager.playLatchSnap();
+            this.particles.emitParticleAt(
+              this.crateContainer.x + bolt.x,
+              this.crateContainer.y + bolt.y,
+              6
+            );
+            this.tweens.add({
+              targets: bolt,
+              x: bolt.x + (bolt.x < 0 ? -70 : 70),
+              y: bolt.y - 40,
+              alpha: 0,
+              angle: 240,
+              duration: 300
+            });
+          });
+        }
       });
     } else {
-      this.hintTxt.setText('Зажми или быстро тапай по скобе сбоку,\nчтобы поддеть и сорвать крышку ломиком!');
+      const assistantLvl = Storage.getPerkLevel('assistant');
+      if (assistantLvl > 0) {
+        this.pryProgress = Math.min(0.6, assistantLvl * 0.2);
+        this.lidContainer.x = -this.pryProgress * 18;
+        this.lidContainer.angle = -this.pryProgress * 4;
+      }
+
+      this.hintTxt.setText(
+        assistantLvl > 0
+          ? '👷 Стажёр уже подцепил крышку! Дожми скобу ломиком!'
+          : 'Зажми или быстро тапай по скобе сбоку,\nчтобы поддеть и сорвать крышку ломиком!'
+      );
 
       const pryX = boxW / 2 - 14;
       const pryY = 0;
@@ -412,7 +454,6 @@ export class UnpackScene extends Phaser.Scene {
       return;
     }
 
-    // 22% шанс найти редкое включение со взвешенной редкостью
     if (Math.random() < 0.22) {
       const foundGem = rollWeightedInclusion();
       Storage.addGem(foundGem);
