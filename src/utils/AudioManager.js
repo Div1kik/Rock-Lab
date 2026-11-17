@@ -1,11 +1,11 @@
 import { Storage } from './Storage.js';
 
 export const MUSIC_PACK_CATALOG = [
-  { id: 'industrial', name: 'Пак: Арктический Индастриал', desc: '5 тяжёлых механических и буровых треков', price: 650, icon: '🏭' },
-  { id: 'retro', name: 'Пак: Ретро-Грунт 80-х', desc: '5 неоновых синтвейв и Outrun-композиций', price: 800, icon: '🌆' },
-  { id: 'stoner', name: 'Пак: Стоунер-Карьер', desc: '5 густых качающих риффов для тяжёлых пород', price: 950, icon: '🏜️' },
-  { id: 'cyber', name: 'Пак: Кибер-Керн', desc: '5 быстрых техно-секвенций и синтезаторов', price: 1100, icon: '💠' },
-  { id: 'blues', name: 'Пак: Ночной Блюз Буровиков', desc: '5 ламповых вечерних мелодий после смены', price: 1250, icon: '🎸' }
+  { id: 'industrial', name: 'Пак: Арктический Индастриал', desc: '5 тяжёлых механических и буровых треков', price: 6500, icon: '🏭' },
+  { id: 'retro', name: 'Пак: Ретро-Грунт 80-х', desc: '5 неоновых синтвейв и Outrun-композиций', reqAds: 3, icon: '🌆' },
+  { id: 'stoner', name: 'Пак: Стоунер-Карьер', desc: '5 густых качающих риффов для тяжёлых пород', price: 14000, icon: '🏜️' },
+  { id: 'cyber', name: 'Пак: Кибер-Керн', desc: '5 быстрых техно-секвенций и синтезаторов', reqAds: 5, icon: '💠' },
+  { id: 'blues', name: 'Пак: Ночной Блюз Буровиков', desc: '5 ламповых вечерних мелодий после смены', price: 25000, icon: '🎸' }
 ];
 
 const BASE_TRACKS = [
@@ -155,6 +155,7 @@ class AudioController {
     const currentMode = Storage.getMusicPlayMode ? Storage.getMusicPlayMode() : 'playlist';
     const newMode = currentMode === 'playlist' ? 'loop' : 'playlist';
     if (Storage.setMusicPlayMode) Storage.setMusicPlayMode(newMode);
+    this.ensureContext();
     this.playLatchSnap();
     return newMode;
   }
@@ -221,7 +222,6 @@ class AudioController {
               this.musicStep += 1;
               this.trackStepCount += 1;
 
-              // Длительность круга трека (~96 шагов в роке / ~48 шагов в Rhodes)
               const cycleLimit = track.mode === 'rhodes' ? 48 : 96;
               if (this.trackStepCount >= cycleLimit) {
                 this.trackStepCount = 0;
@@ -330,24 +330,18 @@ class AudioController {
   playCrowbarPry() { if (this.ensureContext()) this.triggerTone(this.ctx.currentTime, 160, 260, 0.1, 'triangle', 0.13); }
   playCorePickup() { if (!this.ensureContext()) return; this.triggerTone(this.ctx.currentTime, 260, 145, 0.085, 'sine', 0.16); this.triggerNoise(this.ctx.currentTime, 700, 0.07, 0.045); }
 
-  // 1. Звук алмазного отрезного станка (звонкий диск + рез камня с водой)
   playSawCut() {
     if (!this.ensureContext()) return;
     const now = this.ctx.currentTime;
     const pitchJitter = Math.random() * 45;
-    // Высокочастотный металлический свист алмазного диска
     this.triggerTone(now, 880 + pitchJitter, 940 + pitchJitter, 0.075, 'sine', 0.045);
-    // Резонансный хруст пропила породы
     this.triggerNoise(now, 1480 + pitchJitter * 2, 0.075, 0.065, 2.4);
   }
 
-  // 2. Звук торцевого шлифовального станка (мягкий низкий гул двигателя + бархатный абразив)
   playGrindTick() {
     if (!this.ensureContext()) return;
     const now = this.ctx.currentTime;
-    // Глубокий ровный гул мотора планшайбы
     this.triggerTone(now, 118, 126, 0.085, 'triangle', 0.075);
-    // Приглушённое мягкое шуршание шлифовального круга (без резкого скрежета)
     this.triggerNoise(now, 460 + Math.random() * 50, 0.085, 0.055, 0.85);
   }
 
