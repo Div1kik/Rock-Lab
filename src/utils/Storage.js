@@ -44,7 +44,8 @@ const DEFAULT_STATE = {
   siteHistory: [],
   soundEnabled: true,
   musicTrack: 0,
-  activeContract: null
+  activeContract: null,
+  pendingTender: null
 };
 
 class StorageManager {
@@ -107,7 +108,8 @@ class StorageManager {
         musicPlayMode: parsed.musicPlayMode === 'loop' ? 'loop' : 'playlist',
         foundGems,
         displayedGems,
-        siteHistory: Array.isArray(parsed.siteHistory) ? parsed.siteHistory : []
+        siteHistory: Array.isArray(parsed.siteHistory) ? parsed.siteHistory : [],
+        pendingTender: parsed.pendingTender || null
       };
     } catch {
       return structuredClone(DEFAULT_STATE);
@@ -432,6 +434,20 @@ class StorageManager {
 
   setMusicTrack(idx) {
     this.state.musicTrack = idx;
+    this.save();
+  }
+
+  setPendingTender(tender) {
+    this.state.pendingTender = tender;
+    this.save();
+  }
+
+  getPendingTender() {
+    return this.state.pendingTender || null;
+  }
+
+  clearPendingTender() {
+    this.state.pendingTender = null;
     this.save();
   }
 
