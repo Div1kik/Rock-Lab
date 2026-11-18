@@ -1,6 +1,6 @@
 import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
-import { RARE_INCLUSIONS } from '../data/contracts.js';
+import { RARE_INCLUSIONS, MEGA_PROJECTS } from '../data/contracts.js';
 
 const LAB_TIERS = {
   1: { name: 'Гаражная геолаборатория', wall: 0x292524, floor: 0x3f3a36, table: 0x57504a, accent: 0xeab308 },
@@ -28,7 +28,7 @@ const ENGINEER_LINES = [
   'Керн плотный, по ГОСТу пройдёт!',
   'Проверяю калибровку датчиков...',
   'Неплоскостность торцов в допуске!',
-  'Отличная проба с объекта!',
+  'Готовим расчёты для Стройки века!',
   'Пора выпить чашечку кофе ☕'
 ];
 
@@ -48,6 +48,7 @@ export class MenuScene extends Phaser.Scene {
     this.trackTxt = null;
     this.showcaseModalOpen = false;
     this.staffActors = [];
+    this.navNodes = [];
   }
 
   create() {
@@ -81,9 +82,13 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const auditLeft = Storage.getAuditBonus();
-    const subLabel = auditLeft > 0
-      ? `Ур. ${labLvl} · ${tier.name} · 🛡️ Аккредитация (+15% ×${auditLeft})`
-      : `Ур. ${labLvl} · ${tier.name}`;
+    const completedMegas = Storage.getCompletedMegasCount();
+    let subLabel = `Ур. ${labLvl} · ${tier.name}`;
+    if (auditLeft > 0) {
+      subLabel += ` · 🛡️ +15% (×${auditLeft})`;
+    } else if (completedMegas > 0) {
+      subLabel += ` · 🏗️ Строек века: ${completedMegas}/${MEGA_PROJECTS.length}`;
+    }
 
     this.add.text(width / 2, 122, subLabel, {
       fontFamily: '"Rubik", sans-serif',
@@ -103,13 +108,14 @@ export class MenuScene extends Phaser.Scene {
       height - 178,
       340,
       54,
-      'ДОСКА ЗАКАЗОВ',
+      'ДОСКА ЗАКАЗОВ И СТРОЙКИ ВЕКА',
       0xd97706,
       0xffffff,
       () => {
         AudioManager.playClick();
         this.scene.start('ContractsScene');
-      }
+      },
+      15
     );
 
     const halfW = 165;
@@ -527,7 +533,7 @@ export class MenuScene extends Phaser.Scene {
       backG.fillRect(cbx - 16, backFloorY - 26, 32, 5);
     }
 
-    const midG = this.add.graphics().setDepth(4);
+    const midG = this.add.graphics().setDepth(9);
     const midX = w / 2;
 
     if (labLvl === 1) {
@@ -565,7 +571,7 @@ export class MenuScene extends Phaser.Scene {
       midG.fillStyle(0x38bdf8, 0.22);
       midG.fillTriangle(projX - 10, projY - 4, projX + 10, projY - 4, projX, projY - 36);
 
-      const holoGroup = this.add.container(projX, projY - 20).setDepth(5);
+      const holoGroup = this.add.container(projX, projY - 20).setDepth(10);
       const hG = this.add.graphics();
       hG.fillStyle(0x38bdf8, 0.35);
       hG.fillRoundedRect(-8, -11, 16, 22, 3);
@@ -589,29 +595,25 @@ export class MenuScene extends Phaser.Scene {
     }
 
     if (hasLoungeSofa) {
-      const sx = 104;
+      const sx = 98;
       midG.fillStyle(0x92400e, 1);
-      midG.fillRoundedRect(sx - 26, midFloorY - 26, 52, 16, 4);
+      midG.fillRoundedRect(sx - 24, midFloorY - 26, 48, 16, 4);
       midG.fillStyle(0xd97706, 1);
-      midG.fillRoundedRect(sx - 22, midFloorY - 14, 44, 10, 3);
+      midG.fillRoundedRect(sx - 20, midFloorY - 14, 40, 10, 3);
       midG.fillStyle(0x78350f, 1);
-      midG.fillRoundedRect(sx - 28, midFloorY - 18, 6, 18, 2);
-      midG.fillRoundedRect(sx + 22, midFloorY - 18, 6, 18, 2);
-      midG.fillStyle(0xe2e8f0, 1);
-      midG.fillRect(sx + 32, midFloorY - 12, 16, 3);
-      midG.fillStyle(0x475569, 1);
-      midG.fillRect(sx + 39, midFloorY - 9, 3, 9);
+      midG.fillRoundedRect(sx - 26, midFloorY - 18, 5, 18, 2);
+      midG.fillRoundedRect(sx + 21, midFloorY - 18, 5, 18, 2);
     }
 
     if (hasArchiveDesk) {
-      const ax = w - 108;
+      const ax = w - 102;
       midG.fillStyle(0x334155, 1);
-      midG.fillRoundedRect(ax - 22, midFloorY - 34, 44, 34, 4);
+      midG.fillRoundedRect(ax - 20, midFloorY - 34, 40, 34, 4);
       midG.lineStyle(1.5, 0x0f172a, 0.9);
-      midG.strokeRoundedRect(ax - 22, midFloorY - 34, 44, 34, 4);
+      midG.strokeRoundedRect(ax - 20, midFloorY - 34, 40, 34, 4);
       [-28, -18, -8].forEach((dy) => {
         midG.fillStyle(0x475569, 1);
-        midG.fillRect(ax - 17, midFloorY + dy, 34, 7);
+        midG.fillRect(ax - 15, midFloorY + dy, 30, 7);
         midG.fillStyle(0xfacc15, 1);
         midG.fillRect(ax - 4, midFloorY + dy + 2, 8, 2);
       });
@@ -623,7 +625,7 @@ export class MenuScene extends Phaser.Scene {
       midG.fillStyle(0x64748b, 1);
       midG.fillRoundedRect(armX - 12, armY - 6, 24, 6, 2);
 
-      const armPivot = this.add.container(armX, armY - 6).setDepth(5);
+      const armPivot = this.add.container(armX, armY - 6).setDepth(10);
       const aG = this.add.graphics();
       aG.lineStyle(5, 0xdc2626, 1);
       aG.lineBetween(0, 0, -10, -24);
@@ -659,7 +661,7 @@ export class MenuScene extends Phaser.Scene {
       });
     }
 
-    const eqG = this.add.graphics().setDepth(6);
+    const eqG = this.add.graphics().setDepth(14);
 
     const sawX = 52;
     eqG.fillStyle(0x334155, 1);
@@ -744,22 +746,32 @@ export class MenuScene extends Phaser.Scene {
       eqG.fillRect(cmX - 4, frontBenchY - 11, 8, 9);
     }
 
-    // Точки интереса по всей площади цеха (в глубине, в центре и у передних станков)
-    const waypoints = [
-      { x: 94, y: frontBenchY - 6 },
-      { x: w / 2 - 20, y: frontBenchY - 6 },
-      { x: w - 92, y: frontBenchY - 6 },
-      { x: 118, y: 304 },
-      { x: w / 2 + 12, y: 312 },
-      { x: w - 96, y: 304 },
-      { x: 135, y: 356 },
-      { x: w - 128, y: 356 }
+    // =========================================================================
+    // НАВИГАЦИОННЫЙ ГРАФ ПРОХОДОВ (Персонажи и роботы обходят всю мебель!)
+    // =========================================================================
+    const topLaneY = 304;
+    const botLaneY = frontBenchY - 6;
+    const leftCorridorX = 62;
+    const midLeftCorridorX = 138;
+    const midRightCorridorX = w - 138;
+    const rightCorridorX = w - 64;
+
+    this.navNodes = [
+      // Верхний проход (0..3) — за мебелью центрального ряда
+      { id: 0, x: leftCorridorX, y: topLaneY, neighbors: [1, 4] },
+      { id: 1, x: midLeftCorridorX, y: topLaneY, neighbors: [0, 2, 5] },
+      { id: 2, x: midRightCorridorX, y: topLaneY, neighbors: [1, 3, 6] },
+      { id: 3, x: rightCorridorX, y: topLaneY, neighbors: [2, 7] },
+      // Нижний проход вдоль передних станков (4..7) — перед мебелью центрального ряда
+      { id: 4, x: leftCorridorX, y: botLaneY, neighbors: [0, 5] },
+      { id: 5, x: midLeftCorridorX, y: botLaneY, neighbors: [1, 4, 6] },
+      { id: 6, x: midRightCorridorX, y: botLaneY, neighbors: [2, 5, 7] },
+      { id: 7, x: rightCorridorX, y: botLaneY, neighbors: [3, 6] }
     ];
 
     const skin = SKIN_PALETTES[Storage.getActiveSkin()] || SKIN_PALETTES.default;
-    this.spawnLabWorker(waypoints[0], waypoints, skin, 'engineer', 0);
+    this.spawnLabWorker(4, skin, 'engineer', 0);
 
-    // За каждые 2 уровня прокачки штата (Ур. 1, Ур. 3, Ур. 5) добавляется новый сотрудник
     const extraStaffCount = assistantLvl > 0 ? Math.min(3, Math.floor((assistantLvl + 1) / 2)) : 0;
     const internPalettes = [
       { coat: 0x38bdf8, pants: 0x1e293b, helmet: 0xfef3c7 },
@@ -767,33 +779,36 @@ export class MenuScene extends Phaser.Scene {
       { coat: 0xa78bfa, pants: 0x1e293b, helmet: 0xfacc15 }
     ];
 
+    const startNodes = [7, 1, 2];
     for (let i = 0; i < extraStaffCount; i++) {
-      const startWp = waypoints[(i * 2 + 2) % waypoints.length];
-      this.spawnLabWorker(startWp, waypoints, internPalettes[i % internPalettes.length], 'intern', i + 1);
+      this.spawnLabWorker(startNodes[i % startNodes.length], internPalettes[i % internPalettes.length], 'intern', i + 1);
     }
 
     if (hasRoboHumanoid) {
       const androidPalette = { coat: 0x94a3b8, pants: 0x0f172a, helmet: 0x38bdf8 };
-      this.spawnLabWorker(waypoints[4], waypoints, androidPalette, 'android', 9);
+      this.spawnLabWorker(6, androidPalette, 'android', 9);
     }
 
     if (hasRoboRover) {
-      this.spawnMobileRobot(waypoints[3], waypoints, 'rover');
+      this.spawnMobileRobot(0, 'rover');
     }
 
     if (hasRoboDog) {
-      this.spawnMobileRobot(waypoints[7], waypoints, 'dog');
+      this.spawnMobileRobot(5, 'dog');
     }
   }
 
-  pickNextWaypoint(waypoints, currentX, currentY) {
-    const candidates = waypoints.filter((wp) => Phaser.Math.Distance.Between(currentX, currentY, wp.x, wp.y) > 45);
-    if (!candidates.length) return waypoints[0];
-    return candidates[Math.floor(Math.random() * candidates.length)];
+  pickNextNeighborNode(currentNodeId, prevNodeId) {
+    const node = this.navNodes[currentNodeId] || this.navNodes[0];
+    const choices = node.neighbors.filter((id) => id !== prevNodeId);
+    const pool = choices.length > 0 ? choices : node.neighbors;
+    const nextId = pool[Math.floor(Math.random() * pool.length)];
+    return this.navNodes[nextId] || node;
   }
 
-  spawnLabWorker(startPos, waypoints, palette, role, seedIdx) {
-    const worker = this.add.container(startPos.x, startPos.y).setDepth(5);
+  spawnLabWorker(startNodeId, palette, role, seedIdx) {
+    const startNode = this.navNodes[startNodeId] || this.navNodes[0];
+    const worker = this.add.container(startNode.x, startNode.y).setDepth(6);
 
     const g = this.add.graphics();
     g.fillStyle(palette.pants, 1);
@@ -822,17 +837,17 @@ export class MenuScene extends Phaser.Scene {
 
     worker.add(g);
 
-    const firstTarget = this.pickNextWaypoint(waypoints, startPos.x, startPos.y);
+    const nextNode = this.pickNextNeighborNode(startNode.id, -1);
     const actor = {
       sprite: worker,
       role,
-      waypoints,
-      targetX: firstTarget.x,
-      targetY: firstTarget.y,
+      currentNodeId: startNode.id,
+      prevNodeId: -1,
+      targetNodeId: nextNode.id,
+      targetX: nextNode.x,
+      targetY: nextNode.y,
       speed: role === 'intern' ? 32 : role === 'android' ? 28 : 24,
-      pauseTimer: 0.4 + seedIdx * 0.35,
-      bobPhase: Math.random() * Math.PI * 2,
-      bobAmp: 2.5
+      pauseTimer: 0.4 + seedIdx * 0.35
     };
 
     const hitZone = this.add.zone(0, -34, 38, 72).setInteractive({ useHandCursor: true });
@@ -863,8 +878,9 @@ export class MenuScene extends Phaser.Scene {
     this.staffActors.push(actor);
   }
 
-  spawnMobileRobot(startPos, waypoints, type) {
-    const bot = this.add.container(startPos.x, startPos.y).setDepth(5);
+  spawnMobileRobot(startNodeId, type) {
+    const startNode = this.navNodes[startNodeId] || this.navNodes[0];
+    const bot = this.add.container(startNode.x, startNode.y).setDepth(6);
     const g = this.add.graphics();
 
     if (type === 'rover') {
@@ -891,17 +907,17 @@ export class MenuScene extends Phaser.Scene {
 
     bot.add(g);
 
-    const firstTarget = this.pickNextWaypoint(waypoints, startPos.x, startPos.y);
+    const nextNode = this.pickNextNeighborNode(startNode.id, -1);
     const actor = {
       sprite: bot,
       role: type,
-      waypoints,
-      targetX: firstTarget.x,
-      targetY: firstTarget.y,
+      currentNodeId: startNode.id,
+      prevNodeId: -1,
+      targetNodeId: nextNode.id,
+      targetX: nextNode.x,
+      targetY: nextNode.y,
       speed: type === 'rover' ? 38 : 46,
-      pauseTimer: 0.3,
-      bobPhase: 0,
-      bobAmp: type === 'rover' ? 0.8 : 3.2
+      pauseTimer: 0.3
     };
 
     const hitZone = this.add.zone(0, -16, 40, 36).setInteractive({ useHandCursor: true });
@@ -1296,22 +1312,27 @@ export class MenuScene extends Phaser.Scene {
       const dist = Math.hypot(dx, dy);
 
       if (dist < 4) {
-        // Остановились у станка/точки интереса — немного «поработали» и выбрали следующую точку
         if (Math.random() < 0.35) {
           this.particles.emitParticleAt(actor.sprite.x, actor.sprite.y - 26, 3);
         }
-        const nextWp = this.pickNextWaypoint(actor.waypoints, actor.sprite.x, actor.sprite.y);
-        actor.targetX = nextWp.x;
-        actor.targetY = nextWp.y;
-        actor.pauseTimer = 0.8 + Math.random() * 1.5;
+        const prevId = actor.currentNodeId;
+        actor.currentNodeId = actor.targetNodeId;
+        const nextNode = this.pickNextNeighborNode(actor.currentNodeId, prevId);
+        actor.targetNodeId = nextNode.id;
+        actor.targetX = nextNode.x;
+        actor.targetY = nextNode.y;
+        actor.pauseTimer = 0.7 + Math.random() * 1.4;
         continue;
       }
 
       const step = Math.min(dist, actor.speed * dt);
       actor.sprite.x += (dx / dist) * step;
       actor.sprite.y += (dy / dist) * step;
-      actor.sprite.scaleX = dx >= 0 ? 1 : -1;
-      actor.sprite.setDepth(4 + Math.round((actor.sprite.y - 280) / 20));
+      if (Math.abs(dx) > 1) {
+        actor.sprite.scaleX = dx >= 0 ? 1 : -1;
+      }
+      // Y-сортировка глубины: в верхнем проходе (y <= 316) персонаж за центральной мебелью (depth 7), в нижнем — перед ней (depth 12)
+      actor.sprite.setDepth(actor.sprite.y <= 318 ? 7 : 12);
     }
 
     if (!this.eqBars.length) return;
