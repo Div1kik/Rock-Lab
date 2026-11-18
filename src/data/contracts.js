@@ -131,13 +131,15 @@ const COMPANIES = [
 ];
 
 const SITES = [
-  { tier: 1, title: 'Коттеджный посёлок «Сосны»', reqMpa: 25, boxes: 1, maxTests: 1 },
-  { tier: 1, title: 'Опора ЛЭП №14', reqMpa: 32, boxes: 1, maxTests: 2 },
-  { tier: 2, title: 'Мост через р. Каменка', reqMpa: 48, boxes: 1, maxTests: 2 },
-  { tier: 2, title: 'ЖК «Высота» (24 этажа)', reqMpa: 55, boxes: 2, maxTests: 3 },
-  { tier: 3, title: 'Тоннель метро «Восточный»', reqMpa: 72, boxes: 2, maxTests: 3 },
-  { tier: 4, title: 'Борт алмазного карьера', reqMpa: 85, boxes: 3, maxTests: 4 },
-  { tier: 5, title: 'Плотина Саянской ГЭС-2', reqMpa: 98, boxes: 3, maxTests: 4 }
+  { tier: 1, siteType: 'cottage', title: 'Коттеджный посёлок «Сосны»', reqMpa: 25, boxes: 1, maxTests: 1 },
+  { tier: 1, siteType: 'powerline', title: 'Опора ЛЭП №14', reqMpa: 32, boxes: 1, maxTests: 2 },
+  { tier: 2, siteType: 'bridge', title: 'Мост через р. Каменка', reqMpa: 48, boxes: 1, maxTests: 2 },
+  { tier: 2, siteType: 'highrise', title: 'ЖК «Высота» (24 этажа)', reqMpa: 55, boxes: 2, maxTests: 3 },
+  { tier: 3, siteType: 'tunnel', title: 'Тоннель метро «Восточный»', reqMpa: 72, boxes: 2, maxTests: 3 },
+  { tier: 3, siteType: 'bridge', title: 'Вантовый виадук «Северный»', reqMpa: 76, boxes: 2, maxTests: 3 },
+  { tier: 4, siteType: 'quarry', title: 'Борт алмазного карьера', reqMpa: 85, boxes: 3, maxTests: 4 },
+  { tier: 4, siteType: 'tunnel', title: 'Ж/д тоннель «Уральский хребет»', reqMpa: 88, boxes: 3, maxTests: 4 },
+  { tier: 5, siteType: 'dam', title: 'Плотина Саянской ГЭС-2', reqMpa: 98, boxes: 3, maxTests: 4 }
 ];
 
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -156,6 +158,7 @@ export function generateAuditContract(labLevel = 1) {
     id: `audit_${Date.now()}_${randInt(100, 999)}`,
     company: 'РосТехНадзор · Метрология',
     title: '🛡️ ПЛАНОВЫЙ АУДИТ АККРЕДИТАЦИИ',
+    siteType: 'audit',
     tier: labLevel,
     isAudit: true,
     isVip: false,
@@ -171,7 +174,7 @@ export function generateAuditContract(labLevel = 1) {
   };
 }
 
-export function generateContract(labLevel = 1, completedCount = 0, forceVip = false) {
+export function generateContract(labLevel = 1, completedCount = 0, forceVip = false, tenderMultiplier = 1) {
   const maxTier = Math.min(5, Math.max(1, labLevel + (completedCount >= 3 ? 1 : 0)));
   const pool = SITES.filter((s) => s.tier <= maxTier);
   const site = pick(pool);
@@ -189,7 +192,7 @@ export function generateContract(labLevel = 1, completedCount = 0, forceVip = fa
 
   const isVip = forceVip || (completedCount >= 2 && Math.random() < 0.25);
   const auditBonusMult = Storage.getAuditBonus() > 0 ? 1.15 : 1;
-  const vipMult = (isVip ? 1.75 : 1) * auditBonusMult;
+  const vipMult = (isVip ? 1.75 : 1) * auditBonusMult * tenderMultiplier;
 
   const premiumCount = selectedTests.filter((t) =>
     ['shear_crack', 'water_sat', 'frost_test', 'ultrasonic', 'triaxial', 'shear_load'].includes(t)
@@ -199,12 +202,16 @@ export function generateContract(labLevel = 1, completedCount = 0, forceVip = fa
     (95 + site.tier * 65 + selectedTests.length * 35 + premiumCount * 45) * vipMult
   );
 
+  const prefix = tenderMultiplier > 1 ? '🔥 ГОСТЕНДЕР: ' : isVip ? '⚡ СРОЧНО: ' : '';
+
   return {
     id: `cnt_${Date.now()}_${randInt(100, 999)}`,
     company,
-    title: isVip ? `⚡ СРОЧНО: ${site.title}` : site.title,
+    title: `${prefix}${site.title}`,
+    siteType: site.siteType,
     tier: site.tier,
     isVip,
+    isTender: tenderMultiplier > 1,
     isAudit: false,
     rock,
     reqMpa: site.reqMpa,
