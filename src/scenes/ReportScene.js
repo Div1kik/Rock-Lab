@@ -1,6 +1,7 @@
 import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
 import { PlatformSDK } from '../utils/PlatformSDK.js';
+import { AchievementManager } from '../utils/AchievementManager.js';
 
 export class ReportScene extends Phaser.Scene {
   constructor() {
@@ -269,6 +270,7 @@ export class ReportScene extends Phaser.Scene {
         moneyDelta = this.contract.reward;
         repDelta = this.contract.repReward;
         Storage.setAuditBonus(3);
+        AchievementManager.unlock(this, 'clean_audit');
       } else {
         outcomeType = 'audit_fail';
         moneyDelta = 0;
@@ -297,7 +299,6 @@ export class ReportScene extends Phaser.Scene {
       }
     }
 
-    // Если это этап Мега-проекта и решение верное — продвигаем этап стройки века!
     if (isMega && isCorrectDecision) {
       Storage.advanceMegaProject(this.contract.megaProjectId, this.contract.megaTotalStages);
     }
@@ -306,6 +307,12 @@ export class ReportScene extends Phaser.Scene {
     Storage.addReputation(repDelta);
     Storage.setActiveContract(null);
     if (!isAudit && isCorrectDecision) Storage.incrementCompleted();
+
+    if (isCorrectDecision && this.errorPct <= 2) {
+      AchievementManager.unlock(this, 'metrology_standard');
+    }
+
+    AchievementManager.evaluateAll(this);
 
     Storage.addSiteRecord({
       title: this.contract.title,
@@ -443,6 +450,7 @@ export class ReportScene extends Phaser.Scene {
           Storage.addMoney(moneyDelta);
           AudioManager.playLatchSnap();
           adBtn.setText(`✅ ПОЛУЧЕНО ЕЩЁ +${moneyDelta} ₽!`);
+          AchievementManager.evaluateAll(this);
         });
       });
     } else {
