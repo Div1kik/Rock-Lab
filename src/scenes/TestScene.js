@@ -1,6 +1,7 @@
 import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
 import { TEST_CATALOG } from '../data/contracts.js';
+import { AchievementManager } from '../utils/AchievementManager.js';
 
 export class TestScene extends Phaser.Scene {
   constructor() {
@@ -20,7 +21,6 @@ export class TestScene extends Phaser.Scene {
     this.coreTempC = -12.0;
     this.thawPenalty = 0;
 
-    // На 6-м уровне штата старший лаборант автоматически выполняет 1 испытание из заказа (если их >= 2)
     this.autoTestIdx =
       Storage.getPerkLevel('assistant') >= 6 && this.testsQueue.length >= 2
         ? Math.floor(Math.random() * this.testsQueue.length)
@@ -103,7 +103,6 @@ export class TestScene extends Phaser.Scene {
     this.stepTxt.setText(`ЭТАП 3 · СТЕНД ${this.currentTestIdx + 1} ИЗ ${this.testsQueue.length}`);
     this.titleTxt.setText(meta.name.toUpperCase());
 
-    // Автоматическое выполнение одного из испытаний старшим лаборантом (Ур. 6)
     if (this.currentTestIdx === this.autoTestIdx) {
       this.autoTestIdx = -1;
       AudioManager.playLatchSnap();
@@ -333,6 +332,11 @@ export class TestScene extends Phaser.Scene {
       holding = false;
       AudioManager.stopPressHum();
 
+      // Достижение «На грани разрыва!»: отпустил пресс в самой верхней кромке (94–99% от разрушения)
+      if (load >= 0.94 && load < 1.0) {
+        AchievementManager.unlock(this, 'edge_of_rupture');
+      }
+
       if (load >= targetMin && load <= targetMax) {
         const center = (targetMin + targetMax) / 2;
         const dist = Math.abs(load - center) / ((targetMax - targetMin) / 2);
@@ -414,9 +418,6 @@ export class TestScene extends Phaser.Scene {
     };
   }
 
-  // =========================================================================
-  // 2, 3, 4. СРЕЗ ПО РАСПИЛУ / ПО ТРЕЩИНЕ / СДВИГ СО СЖАТИЕМ
-  // =========================================================================
   buildShearTest({ withVerticalLoad, isCrack }) {
     const { width, height } = this.scale;
     const pressLvl = Storage.getUpgradeLevel('press');
@@ -614,9 +615,6 @@ export class TestScene extends Phaser.Scene {
     };
   }
 
-  // =========================================================================
-  // 5. ВОДОПОГЛОЩЕНИЕ И СУШКА
-  // =========================================================================
   buildWaterSaturationTest() {
     const { width, height } = this.scale;
     const sensorsLvl = Storage.getUpgradeLevel('sensors');
@@ -757,9 +755,6 @@ export class TestScene extends Phaser.Scene {
     };
   }
 
-  // =========================================================================
-  // 6. МОРОЗОСТОЙКОСТЬ (Криокамера F200)
-  // =========================================================================
   buildFrostResistanceTest() {
     const { width, height } = this.scale;
     const pressLvl = Storage.getUpgradeLevel('press');
@@ -898,9 +893,6 @@ export class TestScene extends Phaser.Scene {
     };
   }
 
-  // =========================================================================
-  // 7. УЛЬТРАЗВУКОВОЕ ПРОЗВУЧИВАНИЕ (УЗК)
-  // =========================================================================
   buildUltrasonicTest() {
     const { width, height } = this.scale;
     const sensorsLvl = Storage.getUpgradeLevel('sensors');
@@ -1011,9 +1003,6 @@ export class TestScene extends Phaser.Scene {
     };
   }
 
-  // =========================================================================
-  // 8. ТРЁХОСНОЕ СЖАТИЕ: Стабилометр в раме пресса + пауза после накачки σ3
-  // =========================================================================
   buildTriaxialTest() {
     const { width, height } = this.scale;
     const pressLvl = Storage.getUpgradeLevel('press');
@@ -1200,6 +1189,10 @@ export class TestScene extends Phaser.Scene {
       holdingAxial = false;
       AudioManager.stopPressHum();
 
+      if (axialLoad >= 0.94 && axialLoad < 1.0) {
+        AchievementManager.unlock(this, 'edge_of_rupture');
+      }
+
       if (axialLoad >= axialTargetMin && axialLoad <= axialTargetMax) {
         const center = (axialTargetMin + axialTargetMax) / 2;
         const dist = Math.abs(axialLoad - center) / ((axialTargetMax - axialTargetMin) / 2);
@@ -1348,6 +1341,10 @@ export class TestScene extends Phaser.Scene {
   }
 
   finishAllTests() {
+    if (this.isFrozenRock && this.coreTempC <= -9.5) {
+      AchievementManager.unlock(this, 'ice_nerves');
+    }
+
     const sensorsLvl = Storage.getUpgradeLevel('sensors');
     const calPct = Storage.getWear('calibration');
     const calDriftPenalty = Math.round(((100 - calPct) / 100) * 8);
