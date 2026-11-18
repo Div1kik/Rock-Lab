@@ -44,6 +44,7 @@ const DEFAULT_STATE = {
   siteHistory: [],
   megaProgress: {},
   megaCompleted: [],
+  unlockedAchievements: [],
   soundEnabled: true,
   musicTrack: 0,
   activeContract: null,
@@ -113,6 +114,7 @@ class StorageManager {
         siteHistory: Array.isArray(parsed.siteHistory) ? parsed.siteHistory : [],
         megaProgress: parsed.megaProgress && typeof parsed.megaProgress === 'object' ? parsed.megaProgress : {},
         megaCompleted: Array.isArray(parsed.megaCompleted) ? parsed.megaCompleted : [],
+        unlockedAchievements: Array.isArray(parsed.unlockedAchievements) ? parsed.unlockedAchievements : [],
         pendingTender: parsed.pendingTender || null
       };
     } catch {
@@ -279,6 +281,24 @@ class StorageManager {
     }
     this.save();
     return this.state.megaProgress[projectId];
+  }
+
+  getUnlockedAchievements() {
+    return Array.isArray(this.state.unlockedAchievements) ? this.state.unlockedAchievements : [];
+  }
+
+  isAchievementUnlocked(id) {
+    return this.getUnlockedAchievements().includes(id);
+  }
+
+  unlockAchievement(id) {
+    if (!Array.isArray(this.state.unlockedAchievements)) this.state.unlockedAchievements = [];
+    if (!this.state.unlockedAchievements.includes(id)) {
+      this.state.unlockedAchievements.push(id);
+      this.save();
+      return true;
+    }
+    return false;
   }
 
   getWear(key) {
