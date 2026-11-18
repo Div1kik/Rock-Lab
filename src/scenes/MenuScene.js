@@ -24,6 +24,22 @@ const SKIN_PALETTES = {
   gold: { coat: 0xfacc15, pants: 0x78350f, helmet: 0xfef08a }
 };
 
+const ENGINEER_LINES = [
+  'Керн плотный, по ГОСТу пройдёт!',
+  'Проверяю калибровку датчиков...',
+  'Неплоскостность торцов в допуске!',
+  'Отличная проба с объекта!',
+  'Пора выпить чашечку кофе ☕'
+];
+
+const INTERN_LINES = [
+  'Несу ящик на распил!',
+  'Все саморезы выкручены, шеф!',
+  'Подготовил шайбы для среза!',
+  'Штангенциркуль обнулён!',
+  'Учусь работать на стабилометре!'
+];
+
 export class MenuScene extends Phaser.Scene {
   constructor() {
     super('MenuScene');
@@ -134,6 +150,63 @@ export class MenuScene extends Phaser.Scene {
       letterSpacing: 2,
       color: '#a8a29e'
     }).setOrigin(0.5).setAlpha(0.85);
+  }
+
+  showSpeechBubble(targetContainer, text, accentColor = 0xfacc15) {
+    if (targetContainer.activeBubble) {
+      targetContainer.activeBubble.destroy();
+      targetContainer.activeBubble = null;
+    }
+
+    const bubble = this.add.container(targetContainer.x, targetContainer.y - 74).setDepth(28);
+    const label = this.add.text(0, 0, text, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '10px',
+      fontWeight: '700',
+      color: '#0f172a',
+      align: 'center',
+      wordWrap: { width: 145 }
+    }).setOrigin(0.5);
+
+    const padX = 10;
+    const padY = 6;
+    const bw = Math.max(76, label.width + padX * 2);
+    const bh = label.height + padY * 2;
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0xfef3c7, 0.98);
+    bg.fillRoundedRect(-bw / 2, -bh / 2, bw, bh, 8);
+    bg.lineStyle(2, accentColor, 1);
+    bg.strokeRoundedRect(-bw / 2, -bh / 2, bw, bh, 8);
+    bg.fillStyle(0xfef3c7, 0.98);
+    bg.fillTriangle(-5, bh / 2, 5, bh / 2, 0, bh / 2 + 6);
+
+    bubble.add([bg, label]);
+    bubble.setScale(0.3);
+    targetContainer.activeBubble = bubble;
+
+    this.tweens.add({
+      targets: bubble,
+      scale: 1,
+      duration: 160,
+      ease: 'Back.easeOut'
+    });
+
+    this.time.delayedCall(2100, () => {
+      if (!bubble.active) return;
+      this.tweens.add({
+        targets: bubble,
+        alpha: 0,
+        y: bubble.y - 10,
+        duration: 240,
+        onComplete: () => {
+          if (targetContainer.activeBubble === bubble) {
+            targetContainer.activeBubble = null;
+          }
+          bubble.destroy();
+        }
+      });
+    });
   }
 
   drawLabRoom(w, h, tier, labLvl) {
@@ -402,7 +475,6 @@ export class MenuScene extends Phaser.Scene {
     const hasRoboDog = Storage.isDecorActive('robo_dog');
     const hasRoboHumanoid = Storage.isDecorActive('robo_humanoid');
 
-    // --- 1. ЗАДНИЙ ЯРУС (С чёткими контурами и деталями) ---
     const backG = this.add.graphics().setDepth(4);
 
     if (hasWater) {
@@ -455,12 +527,10 @@ export class MenuScene extends Phaser.Scene {
       backG.fillRect(cbx - 16, backFloorY - 26, 32, 5);
     }
 
-    // --- 2. ЦЕНТРАЛЬНАЯ ЗОНА (Детализированная мебель + голографический стенд керна) ---
     const midG = this.add.graphics().setDepth(4);
     const midX = w / 2;
 
     if (labLvl === 1) {
-      // Ур. 1: деревянный стол на ножках с чертежом и лампой
       midG.fillStyle(0x78350f, 1);
       midG.fillRect(midX - 30, midFloorY - 18, 60, 5);
       midG.fillRect(midX - 26, midFloorY - 13, 5, 13);
@@ -468,7 +538,6 @@ export class MenuScene extends Phaser.Scene {
       midG.fillStyle(0xfef3c7, 0.9);
       midG.fillRect(midX - 18, midFloorY - 21, 24, 3);
     } else if (labLvl <= 3) {
-      // Ур. 2-3: инженерный стол с монитором и клавиатурой
       midG.fillStyle(0x334155, 1);
       midG.fillRoundedRect(midX - 42, midFloorY - 22, 84, 22, 4);
       midG.lineStyle(1.5, 0x0f172a, 0.9);
@@ -480,18 +549,15 @@ export class MenuScene extends Phaser.Scene {
       midG.fillStyle(0x94a3b8, 1);
       midG.fillRect(midX - 4, midFloorY - 24, 8, 3);
     } else {
-      // Ур. 4-5: центральный диспетчерский пульт с голографическим проектором керна
       midG.fillStyle(0x1e293b, 1);
       midG.fillRoundedRect(midX - 58, midFloorY - 24, 116, 24, 6);
       midG.lineStyle(2, tier.accent, 0.9);
       midG.strokeRoundedRect(midX - 58, midFloorY - 24, 116, 24, 6);
-      // Панель индикаторов на торце стола
       midG.fillStyle(0x38bdf8, 0.9);
       midG.fillRect(midX - 46, midFloorY - 15, 18, 5);
       midG.fillStyle(0x4ade80, 0.9);
       midG.fillRect(midX - 22, midFloorY - 15, 18, 5);
 
-      // Линза-проектор на столешнице слева
       const projX = midX - 22;
       const projY = midFloorY - 24;
       midG.fillStyle(0x0f172a, 1);
@@ -499,18 +565,15 @@ export class MenuScene extends Phaser.Scene {
       midG.fillStyle(0x38bdf8, 0.22);
       midG.fillTriangle(projX - 10, projY - 4, projX + 10, projY - 4, projX, projY - 36);
 
-      // Детализированная голограмма керна с лазерным кольцом сканирования
       const holoGroup = this.add.container(projX, projY - 20).setDepth(5);
       const hG = this.add.graphics();
       hG.fillStyle(0x38bdf8, 0.35);
       hG.fillRoundedRect(-8, -11, 16, 22, 3);
       hG.lineStyle(1.5, 0x7dd3fc, 0.95);
       hG.strokeRoundedRect(-8, -11, 16, 22, 3);
-      // Трещинки на 3D-модели керна
       hG.lineStyle(1, 0xe0f2fe, 0.8);
       hG.lineBetween(-5, -4, 4, -2);
       hG.lineBetween(-3, 4, 6, 6);
-      // Горизонтальное лазерное кольцо
       hG.lineStyle(1.5, 0x4ade80, 1);
       hG.lineBetween(-12, 0, 12, 0);
       holoGroup.add(hG);
@@ -525,34 +588,28 @@ export class MenuScene extends Phaser.Scene {
       });
     }
 
-    // Докупаемая мебель 1: Уютный диванчик со спинкой, подлокотниками и журнальным столиком
     if (hasLoungeSofa) {
       const sx = 104;
-      // Спинка и подлокотники дивана
       midG.fillStyle(0x92400e, 1);
       midG.fillRoundedRect(sx - 26, midFloorY - 26, 52, 16, 4);
       midG.fillStyle(0xd97706, 1);
       midG.fillRoundedRect(sx - 22, midFloorY - 14, 44, 10, 3);
-      // Подлокотники
       midG.fillStyle(0x78350f, 1);
       midG.fillRoundedRect(sx - 28, midFloorY - 18, 6, 18, 2);
       midG.fillRoundedRect(sx + 22, midFloorY - 18, 6, 18, 2);
-      // Небольшой кофейный столик рядом
       midG.fillStyle(0xe2e8f0, 1);
       midG.fillRect(sx + 32, midFloorY - 12, 16, 3);
       midG.fillStyle(0x475569, 1);
       midG.fillRect(sx + 39, midFloorY - 9, 3, 9);
     }
 
-    // Докупаемая мебель 2: Архивная картотека с выдвижными ящиками и папками ГОСТов
     if (hasArchiveDesk) {
       const ax = w - 108;
       midG.fillStyle(0x334155, 1);
       midG.fillRoundedRect(ax - 22, midFloorY - 34, 44, 34, 4);
       midG.lineStyle(1.5, 0x0f172a, 0.9);
       midG.strokeRoundedRect(ax - 22, midFloorY - 34, 44, 34, 4);
-      // Три выдвижных ящика с ручками
-      [ -28, -18, -8 ].forEach((dy) => {
+      [-28, -18, -8].forEach((dy) => {
         midG.fillStyle(0x475569, 1);
         midG.fillRect(ax - 17, midFloorY + dy, 34, 7);
         midG.fillStyle(0xfacc15, 1);
@@ -560,7 +617,6 @@ export class MenuScene extends Phaser.Scene {
       });
     }
 
-    // Статичный робот-манипулятор в стиле Железного человека на центральном острове
     if (hasRoboArm) {
       const armX = midX + 26;
       const armY = midFloorY - 24;
@@ -578,6 +634,21 @@ export class MenuScene extends Phaser.Scene {
       aG.fillCircle(14, -40, 4);
       armPivot.add(aG);
 
+      const armHit = this.add.zone(0, -20, 42, 48).setInteractive({ useHandCursor: true });
+      armHit.on('pointerdown', () => {
+        if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+        AudioManager.playLatchSnap();
+        this.particles.emitParticleAt(armX + 12, armY - 42, 12);
+        this.showSpeechBubble(armPivot, 'МАНИПУЛЯТОР: ЛАЗЕРНЫЙ ЗАХВАТ ⚡', 0xef4444);
+        this.tweens.add({
+          targets: armPivot,
+          angle: -26,
+          duration: 180,
+          yoyo: true
+        });
+      });
+      armPivot.add(armHit);
+
       this.tweens.add({
         targets: armPivot,
         angle: 18,
@@ -588,7 +659,6 @@ export class MenuScene extends Phaser.Scene {
       });
     }
 
-    // --- 3. ПЕРЕДНИЙ ГЛАВНЫЙ ВЕРСТАК (С контурами и деталями) ---
     const eqG = this.add.graphics().setDepth(6);
 
     const sawX = 52;
@@ -674,42 +744,56 @@ export class MenuScene extends Phaser.Scene {
       eqG.fillRect(cmX - 4, frontBenchY - 11, 8, 9);
     }
 
-    const benchZone = this.add.zone(w / 2, frontBenchY - 34, w - 40, 72)
-      .setInteractive({ useHandCursor: true })
-      .setDepth(8);
-    benchZone.on('pointerdown', (ptr) => {
-      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
-      AudioManager.playCorePickup();
-      this.particles.emitParticleAt(ptr.x, frontBenchY - 22, 10);
-    });
+    // Точки интереса по всей площади цеха (в глубине, в центре и у передних станков)
+    const waypoints = [
+      { x: 94, y: frontBenchY - 6 },
+      { x: w / 2 - 20, y: frontBenchY - 6 },
+      { x: w - 92, y: frontBenchY - 6 },
+      { x: 118, y: 304 },
+      { x: w / 2 + 12, y: 312 },
+      { x: w - 96, y: 304 },
+      { x: 135, y: 356 },
+      { x: w - 128, y: 356 }
+    ];
 
-    // --- 4. ПЕРСОНАЖИ И ПОДВИЖНЫЕ РОБОТЫ ---
-    const walkY = frontBenchY - 4;
     const skin = SKIN_PALETTES[Storage.getActiveSkin()] || SKIN_PALETTES.default;
-    this.spawnLabWorker(w / 2 - 48, walkY, skin, 'engineer');
+    this.spawnLabWorker(waypoints[0], waypoints, skin, 'engineer', 0);
 
-    if (assistantLvl > 0) {
-      const internPalette = { coat: 0x38bdf8, pants: 0x1e293b, helmet: 0xfef3c7 };
-      this.spawnLabWorker(w / 2 + 54, walkY, internPalette, 'intern');
+    // За каждые 2 уровня прокачки штата (Ур. 1, Ур. 3, Ур. 5) добавляется новый сотрудник
+    const extraStaffCount = assistantLvl > 0 ? Math.min(3, Math.floor((assistantLvl + 1) / 2)) : 0;
+    const internPalettes = [
+      { coat: 0x38bdf8, pants: 0x1e293b, helmet: 0xfef3c7 },
+      { coat: 0x34d399, pants: 0x1e293b, helmet: 0xffffff },
+      { coat: 0xa78bfa, pants: 0x1e293b, helmet: 0xfacc15 }
+    ];
+
+    for (let i = 0; i < extraStaffCount; i++) {
+      const startWp = waypoints[(i * 2 + 2) % waypoints.length];
+      this.spawnLabWorker(startWp, waypoints, internPalettes[i % internPalettes.length], 'intern', i + 1);
     }
 
     if (hasRoboHumanoid) {
       const androidPalette = { coat: 0x94a3b8, pants: 0x0f172a, helmet: 0x38bdf8 };
-      this.spawnLabWorker(w / 2 + 12, midFloorY + 12, androidPalette, 'android');
+      this.spawnLabWorker(waypoints[4], waypoints, androidPalette, 'android', 9);
     }
 
     if (hasRoboRover) {
-      this.spawnMobileRobot(130, midFloorY + 16, 'rover');
+      this.spawnMobileRobot(waypoints[3], waypoints, 'rover');
     }
 
     if (hasRoboDog) {
-      this.spawnMobileRobot(w - 130, walkY, 'dog');
+      this.spawnMobileRobot(waypoints[7], waypoints, 'dog');
     }
   }
 
-  spawnLabWorker(startX, walkY, palette, role) {
-    const { width } = this.scale;
-    const worker = this.add.container(startX, walkY).setDepth(5);
+  pickNextWaypoint(waypoints, currentX, currentY) {
+    const candidates = waypoints.filter((wp) => Phaser.Math.Distance.Between(currentX, currentY, wp.x, wp.y) > 45);
+    if (!candidates.length) return waypoints[0];
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
+  spawnLabWorker(startPos, waypoints, palette, role, seedIdx) {
+    const worker = this.add.container(startPos.x, startPos.y).setDepth(5);
 
     const g = this.add.graphics();
     g.fillStyle(palette.pants, 1);
@@ -731,35 +815,45 @@ export class MenuScene extends Phaser.Scene {
       g.fillPath();
     }
 
-    if (role === 'intern') {
+    if (role === 'intern' && seedIdx % 2 === 1) {
       g.fillStyle(0x92400e, 1);
       g.fillRoundedRect(8, -38, 16, 13, 3);
     }
 
     worker.add(g);
 
-    const minX = 86;
-    const maxX = width - 86;
+    const firstTarget = this.pickNextWaypoint(waypoints, startPos.x, startPos.y);
     const actor = {
       sprite: worker,
-      baseY: walkY,
-      dir: role === 'intern' ? -1 : 1,
-      speed: role === 'intern' ? 28 : role === 'android' ? 25 : 22,
-      minX,
-      maxX,
-      pauseTimer: role === 'intern' ? 0.6 : 1.4,
+      role,
+      waypoints,
+      targetX: firstTarget.x,
+      targetY: firstTarget.y,
+      speed: role === 'intern' ? 32 : role === 'android' ? 28 : 24,
+      pauseTimer: 0.4 + seedIdx * 0.35,
       bobPhase: Math.random() * Math.PI * 2,
-      bobAmp: 3
+      bobAmp: 2.5
     };
 
-    const hitZone = this.add.zone(0, -34, 34, 68).setInteractive({ useHandCursor: true });
+    const hitZone = this.add.zone(0, -34, 38, 72).setInteractive({ useHandCursor: true });
     hitZone.on('pointerdown', () => {
       if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
       AudioManager.playClick();
-      this.particles.emitParticleAt(worker.x, worker.y - 45, 6);
+      this.particles.emitParticleAt(worker.x, worker.y - 45, 7);
+
+      if (role === 'android') {
+        this.showSpeechBubble(worker, 'АТЛАНТ-X: СКАНИРОВАНИЕ ПОРОДЫ 99.8%', 0x38bdf8);
+      } else if (role === 'intern') {
+        const line = INTERN_LINES[Math.floor(Math.random() * INTERN_LINES.length)];
+        this.showSpeechBubble(worker, line, 0x34d399);
+      } else {
+        const line = ENGINEER_LINES[Math.floor(Math.random() * ENGINEER_LINES.length)];
+        this.showSpeechBubble(worker, line, 0xfacc15);
+      }
+
       this.tweens.add({
         targets: worker,
-        y: walkY - 12,
+        y: worker.y - 10,
         duration: 110,
         yoyo: true
       });
@@ -769,9 +863,8 @@ export class MenuScene extends Phaser.Scene {
     this.staffActors.push(actor);
   }
 
-  spawnMobileRobot(startX, walkY, type) {
-    const { width } = this.scale;
-    const bot = this.add.container(startX, walkY).setDepth(5);
+  spawnMobileRobot(startPos, waypoints, type) {
+    const bot = this.add.container(startPos.x, startPos.y).setDepth(5);
     const g = this.add.graphics();
 
     if (type === 'rover') {
@@ -798,29 +891,41 @@ export class MenuScene extends Phaser.Scene {
 
     bot.add(g);
 
+    const firstTarget = this.pickNextWaypoint(waypoints, startPos.x, startPos.y);
     const actor = {
       sprite: bot,
-      baseY: walkY,
-      dir: type === 'rover' ? 1 : -1,
-      speed: type === 'rover' ? 34 : 42,
-      minX: 84,
-      maxX: width - 84,
-      pauseTimer: 0.4,
+      role: type,
+      waypoints,
+      targetX: firstTarget.x,
+      targetY: firstTarget.y,
+      speed: type === 'rover' ? 38 : 46,
+      pauseTimer: 0.3,
       bobPhase: 0,
-      bobAmp: type === 'rover' ? 1 : 3.5
+      bobAmp: type === 'rover' ? 0.8 : 3.2
     };
 
-    const hitZone = this.add.zone(0, -16, 36, 32).setInteractive({ useHandCursor: true });
+    const hitZone = this.add.zone(0, -16, 40, 36).setInteractive({ useHandCursor: true });
     hitZone.on('pointerdown', () => {
       if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
       AudioManager.playLatchSnap();
-      this.particles.emitParticleAt(bot.x, bot.y - 20, 6);
-      this.tweens.add({
-        targets: bot,
-        y: walkY - 14,
-        duration: 120,
-        yoyo: true
-      });
+      this.particles.emitParticleAt(bot.x, bot.y - 20, 10);
+
+      if (type === 'dog') {
+        this.showSpeechBubble(bot, 'ГАВ-СКАН! КЕРН ОБНАРУЖЕН 🐕📡', 0xfacc15);
+        this.tweens.add({
+          targets: bot,
+          y: bot.y - 22,
+          angle: 360,
+          duration: 380,
+          ease: 'Back.easeOut',
+          onComplete: () => { bot.angle = 0; }
+        });
+      } else {
+        this.showSpeechBubble(bot, 'РОБО-КУРЬЕР: ТУРБО-ДОСТАВКА ⚡', 0x38bdf8);
+        actor.pauseTimer = 0;
+        actor.speed = 95;
+        this.time.delayedCall(1200, () => { actor.speed = 38; });
+      }
     });
     bot.add(hitZone);
 
@@ -1177,26 +1282,36 @@ export class MenuScene extends Phaser.Scene {
     const dt = delta / 1000;
 
     for (const actor of this.staffActors) {
+      if (actor.sprite.activeBubble) {
+        actor.sprite.activeBubble.setPosition(actor.sprite.x, actor.sprite.y - 74);
+      }
+
       if (actor.pauseTimer > 0) {
         actor.pauseTimer -= dt;
         continue;
       }
-      actor.sprite.x += actor.dir * actor.speed * dt;
-      actor.sprite.scaleX = actor.dir >= 0 ? 1 : -1;
-      actor.bobPhase += dt * 11;
-      actor.sprite.y = actor.baseY - Math.abs(Math.sin(actor.bobPhase)) * (actor.bobAmp || 3);
 
-      if (actor.sprite.x >= actor.maxX) {
-        actor.sprite.x = actor.maxX;
-        actor.dir = -1;
-        actor.pauseTimer = 0.8 + Math.random() * 1.4;
-      } else if (actor.sprite.x <= actor.minX) {
-        actor.sprite.x = actor.minX;
-        actor.dir = 1;
-        actor.pauseTimer = 0.8 + Math.random() * 1.4;
-      } else if (Math.random() < 0.004) {
-        actor.pauseTimer = 0.7 + Math.random() * 1.2;
+      const dx = actor.targetX - actor.sprite.x;
+      const dy = actor.targetY - actor.sprite.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist < 4) {
+        // Остановились у станка/точки интереса — немного «поработали» и выбрали следующую точку
+        if (Math.random() < 0.35) {
+          this.particles.emitParticleAt(actor.sprite.x, actor.sprite.y - 26, 3);
+        }
+        const nextWp = this.pickNextWaypoint(actor.waypoints, actor.sprite.x, actor.sprite.y);
+        actor.targetX = nextWp.x;
+        actor.targetY = nextWp.y;
+        actor.pauseTimer = 0.8 + Math.random() * 1.5;
+        continue;
       }
+
+      const step = Math.min(dist, actor.speed * dt);
+      actor.sprite.x += (dx / dist) * step;
+      actor.sprite.y += (dy / dist) * step;
+      actor.sprite.scaleX = dx >= 0 ? 1 : -1;
+      actor.sprite.setDepth(4 + Math.round((actor.sprite.y - 280) / 20));
     }
 
     if (!this.eqBars.length) return;
