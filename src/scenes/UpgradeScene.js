@@ -1,6 +1,7 @@
 import { Storage } from '../utils/Storage.js';
 import { AudioManager, MUSIC_PACK_CATALOG } from '../utils/AudioManager.js';
 import { PlatformSDK } from '../utils/PlatformSDK.js';
+import { generateContract } from '../data/contracts.js';
 import {
   TOOL_UPGRADES,
   PERK_UPGRADES,
@@ -15,6 +16,8 @@ export class UpgradeScene extends Phaser.Scene {
   constructor() {
     super('UpgradeScene');
     this.activeTab = 'tests';
+    this.scrollOffset = 0;
+    this.maxScroll = 0;
   }
 
   create() {
@@ -24,7 +27,7 @@ export class UpgradeScene extends Phaser.Scene {
     bg.fillStyle(0x1c1917, 1);
     bg.fillRect(0, 0, width, height);
 
-    const header = this.add.graphics();
+    const header = this.add.graphics().setDepth(20);
     header.fillStyle(0x141210, 1);
     header.fillRect(0, 0, width, 58);
 
@@ -35,7 +38,7 @@ export class UpgradeScene extends Phaser.Scene {
       color: '#fde68a',
       backgroundColor: '#292524',
       padding: { x: 10, y: 6 }
-    }).setInteractive({ useHandCursor: true });
+    }).setDepth(21).setInteractive({ useHandCursor: true });
 
     backBtn.on('pointerdown', () => {
       AudioManager.playClick();
@@ -47,48 +50,97 @@ export class UpgradeScene extends Phaser.Scene {
       fontSize: '15px',
       fontWeight: '700',
       color: '#facc15'
-    }).setOrigin(1, 0);
+    }).setOrigin(1, 0).setDepth(21);
 
-    this.listContainer = this.add.container(0, 0);
+    this.topFixedContainer = this.add.container(0, 0).setDepth(15);
+    this.listContainer = this.add.container(0, 0).setDepth(5);
+
+    const maskShape = this.make.graphics();
+    maskShape.fillStyle(0xffffff);
+    maskShape.fillRect(0, 224, width, height - 224);
+    this.listContainer.setMask(maskShape.createGeometryMask());
+
+    this.setupScrollInput();
     this.refreshUI();
   }
 
+  setupScrollInput() {
+    let dragStartY = 0;
+    let startOffset = 0;
+    let isDragging = false;
+
+    this.input.on('pointerdown', (ptr) => {
+      if (ptr.y >= 224) {
+        isDragging = true;
+        dragStartY = ptr.y;
+        startOffset = this.scrollOffset;
+      }
+    });
+
+    this.input.on('pointermove', (ptr) => {
+      if (!isDragging || this.maxScroll <= 0) return;
+      const dy = ptr.y - dragStartY;
+      this.scrollOffset = Phaser.Math.Clamp(startOffset + dy, -this.maxScroll, 0);
+      this.listContainer.y = this.scrollOffset;
+    });
+
+    this.input.on('pointerup', () => {
+      isDragging = false;
+    });
+
+    this.input.on('wheel', (_ptr, _objs, _dx, dy) => {
+      if (this.maxScroll <= 0) return;
+      this.scrollOffset = Phaser.Math.Clamp(this.scrollOffset - dy * 0.5, -this.maxScroll, 0);
+      this.listContainer.y = this.scrollOffset;
+    });
+  }
+
   refreshUI() {
+    this.topFixedContainer.removeAll(true);
     this.listContainer.removeAll(true);
-    const { width } = this.scale;
+    this.scrollOffset = 0;
+    this.listContainer.y = 0;
+
+    const { width, height } = this.scale;
     const money = Storage.getMoney();
     const rep = Storage.getReputation();
     const labLvl = Storage.getLabLevel();
 
     this.balanceTxt.setText(`💰 ${money} ₽  ★ ${rep}`);
 
+    const topBg = this.add.graphics();
+    topBg.fillStyle(0x1c1917, 1);
+    topBg.fillRect(0, 58, width, 166);
+    this.topFixedContainer.add(topBg);
+
+    // 1. Карточка расширения лаборатории
     const nextLab = LAB_UPGRADES.find((l) => l.level === labLvl + 1);
     const labCard = this.add.graphics();
     labCard.fillStyle(0x292524, 1);
-    labCard.fillRoundedRect(18, 64, width - 36, 80, 12);
+    labCard.fillRoundedRect(18, 62, width - 36, 62, 10);
     labCard.lineStyle(2, 0x38bdf8, 0.85);
-    labCard.strokeRoundedRect(18, 64, width - 36, 80, 12);
-    this.listContainer.add(labCard);
+    labCard.strokeRoundedRect(18, 62, width - 36, 62, 10);
+    this.topFixedContainer.add(labCard);
 
     if (nextLab) {
       const canBuyLab = money >= nextLab.cost && rep >= nextLab.reqRep;
-      const t1 = this.add.text(30, 72, `ЛАБОРАТОРИЯ → Ур. ${nextLab.level}: ${nextLab.name}`, {
+      const t1 = this.add.text(28, 70, `ЛАБОРАТОРИЯ → Ур. ${nextLab.level}: ${nextLab.name}`, {
         fontFamily: '"Rubik", sans-serif',
-        fontSize: '13px',
+        fontSize: '12px',
         fontWeight: '700',
         color: '#38bdf8'
       });
       const buyLabBtn = this.add.text(
-        width - 30,
-        120,
-        `РАСШИРИТЬ: ${nextLab.cost} ₽ (нужно ★${nextLab.reqRep})`,
+        width - 28,
+        104,
+        `РАСШИРИТЬ: ${nextLab.cost} ₽ (★${nextLab.reqRep})`,
         {
           fontFamily: '"JetBrains Mono", monospace',
-          fontSize: '11px',
+          fontSize: '10px',
           fontWeight: '700',
           color: canBuyLab ? '#0f172a' : '#a8a29e',
           backgroundColor: canBuyLab ? '#38bdf8' : '#44403c',
-          padding: { x: 10, y: 6 }
+          padding: { x: 9, y: 5 }
         }
       ).setOrigin(1, 0.5).setInteractive({ useHandCursor: canBuyLab });
 
@@ -101,18 +153,57 @@ export class UpgradeScene extends Phaser.Scene {
           }
         });
       }
-      this.listContainer.add([t1, buyLabBtn]);
+      this.topFixedContainer.add([t1, buyLabBtn]);
     } else {
-      const maxTxt = this.add.text(width / 2, 104, '🏆 МАКСИМАЛЬНЫЙ УРОВЕНЬ ЛАБОРАТОРИИ (Ур. 5)', {
+      const maxTxt = this.add.text(width / 2, 93, '🏆 МАКСИМАЛЬНЫЙ УРОВЕНЬ ЛАБОРАТОРИИ (Ур. 5)', {
         fontFamily: '"Rubik", sans-serif',
-        fontSize: '13px',
+        fontSize: '12px',
         fontWeight: '700',
         color: '#facc15'
       }).setOrigin(0.5);
-      this.listContainer.add(maxTxt);
+      this.topFixedContainer.add(maxTxt);
     }
 
-    const tabY = 162;
+    // 2. Рекламный блок «Срочный тендер» с редким шансом на декор или аудиопак
+    const adBanner = this.add.graphics();
+    adBanner.fillStyle(0x1e293b, 1);
+    adBanner.fillRoundedRect(18, 130, width - 36, 46, 10);
+    adBanner.lineStyle(1.5, 0xfacc15, 0.85);
+    adBanner.strokeRoundedRect(18, 130, width - 36, 46, 10);
+
+    const adTitle = this.add.text(28, 144, '🎬 СРОЧНЫЙ ТЕНДЕР (×2.5 ОПЛАТА)', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '11px',
+      fontWeight: '700',
+      color: '#fef08a'
+    }).setOrigin(0, 0.5);
+
+    const adSub = this.add.text(28, 162, 'Редкий шанс выбить декор или муз-пак!', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '9px',
+      color: '#94a3b8'
+    }).setOrigin(0, 0.5);
+
+    const adActionBtn = this.add.text(width - 28, 153, 'СМОТРЕТЬ 🎬', {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '10px',
+      fontWeight: '700',
+      color: '#0f172a',
+      backgroundColor: '#facc15',
+      padding: { x: 10, y: 6 }
+    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+
+    adActionBtn.on('pointerdown', () => {
+      adActionBtn.disableInteractive();
+      PlatformSDK.showRewarded(() => {
+        this.handleTenderAdReward();
+      });
+    });
+
+    this.topFixedContainer.add([adBanner, adTitle, adSub, adActionBtn]);
+
+    // 3. Вкладки магазина
+    const tabY = 198;
     const gap = 4;
     const tabW = (width - 36 - gap * 4) / 5;
 
@@ -137,7 +228,7 @@ export class UpgradeScene extends Phaser.Scene {
           this.refreshUI();
         }
       });
-      this.listContainer.add(btn);
+      this.topFixedContainer.add(btn);
     };
 
     makeTab(0, '🧪 СТЕНДЫ', 'tests');
@@ -146,9 +237,12 @@ export class UpgradeScene extends Phaser.Scene {
     makeTab(3, '🎨 ДЕКОР', 'decor');
     makeTab(4, '📻 МУЗЫКА', 'music');
 
+    const startY = 230;
+    let totalContentH = 0;
+
     if (this.activeTab === 'tests') {
       TEST_UPGRADES.forEach((item, idx) => {
-        const y = 186 + idx * 96;
+        const y = startY + idx * 94;
         const unlocked = Storage.isTestUnlocked(item.key);
         const labOk = labLvl >= item.reqLab;
         const canBuy = !unlocked && labOk && money >= item.cost;
@@ -171,14 +265,15 @@ export class UpgradeScene extends Phaser.Scene {
               this.refreshUI();
             }
           },
-          88,
+          86,
           btnText,
           item.key
         );
       });
+      totalContentH = TEST_UPGRADES.length * 94;
     } else if (this.activeTab === 'tools') {
       TOOL_UPGRADES.forEach((tool, idx) => {
-        const y = 186 + idx * 84;
+        const y = startY + idx * 82;
         const lvl = Storage.getUpgradeLevel(tool.key);
         const isMax = lvl >= tool.maxLevel;
         const cost = getToolCost(tool, lvl);
@@ -201,13 +296,14 @@ export class UpgradeScene extends Phaser.Scene {
               this.refreshUI();
             }
           },
-          77,
+          75,
           btnLabel
         );
       });
+      totalContentH = TOOL_UPGRADES.length * 82;
     } else if (this.activeTab === 'perks') {
       PERK_UPGRADES.forEach((perk, idx) => {
-        const y = 186 + idx * 112;
+        const y = startY + idx * 106;
         const lvl = Storage.getPerkLevel(perk.key);
         const isMax = lvl >= perk.maxLevel;
         const reqLab = perk.reqLab || 1;
@@ -226,11 +322,12 @@ export class UpgradeScene extends Phaser.Scene {
             AudioManager.playStamp();
             this.refreshUI();
           }
-        }, 102, customBtn);
+        }, 98, customBtn);
       });
+      totalContentH = PERK_UPGRADES.length * 106;
     } else if (this.activeTab === 'decor') {
       DECOR_ITEMS.forEach((item, idx) => {
-        const y = 186 + idx * 54;
+        const y = startY + idx * 54;
         const owned = Storage.hasDecor(item.key);
         const isEquippedSkin = item.isSkin && Storage.getActiveSkin() === item.skinId;
         const isEquippedTheme = item.isLabTheme && Storage.getActiveLabTheme() === item.themeId;
@@ -276,13 +373,116 @@ export class UpgradeScene extends Phaser.Scene {
           btnLabel
         );
       });
+      totalContentH = DECOR_ITEMS.length * 54 + 24;
     } else if (this.activeTab === 'music') {
       MUSIC_PACK_CATALOG.forEach((pack, idx) => {
-        const y = 186 + idx * 98;
+        const y = startY + idx * 96;
         const unlocked = Storage.isMusicPackUnlocked(pack.id);
         this.renderMusicPackCard(y, pack, unlocked, money);
       });
+      totalContentH = MUSIC_PACK_CATALOG.length * 96 + 24;
     }
+
+    const visibleH = height - startY;
+    this.maxScroll = Math.max(0, totalContentH - visibleH + 20);
+  }
+
+  handleTenderAdReward() {
+    const roll = Math.random();
+    const lockedPacks = MUSIC_PACK_CATALOG.filter((p) => !Storage.isMusicPackUnlocked(p.id));
+    const lockedDecor = DECOR_ITEMS.filter((d) => !Storage.hasDecor(d.key));
+
+    // 5% ультра-редкий шанс выбить закрытый музыкальный пак
+    if (roll < 0.05 && lockedPacks.length > 0) {
+      const wonPack = lockedPacks[Math.floor(Math.random() * lockedPacks.length)];
+      Storage.unlockMusicPack(wonPack.id);
+      AudioManager.activatePackFirstTrack(wonPack.id);
+      AudioManager.playStamp();
+      this.showAdPrizeModal('🎶 ДЖЕКПОТ! МУЗЫКАЛЬНЫЙ ПАК!', `${wonPack.icon} ${wonPack.name}\n\nСборник разблокирован и добавлен в плеер!`, false);
+      return;
+    }
+
+    // 10% редкий шанс выбить предмет декора/робота
+    if (roll < 0.15 && lockedDecor.length > 0) {
+      const wonDecor = lockedDecor[Math.floor(Math.random() * lockedDecor.length)];
+      Storage.buyDecor(wonDecor.key);
+      if (wonDecor.isSkin) Storage.setActiveSkin(wonDecor.skinId);
+      if (wonDecor.isLabTheme) Storage.setActiveLabTheme(wonDecor.themeId);
+      AudioManager.playStamp();
+      this.showAdPrizeModal('🎁 РЕДКАЯ ПОСТАВКА ДЕКОРА!', `${wonDecor.icon} ${wonDecor.name}\n\nПредмет бесплатно установлен в вашу лабораторию!`, false);
+      return;
+    }
+
+    // 85% Срочный государственный тендер с повышенной оплатой ×2.5
+    const labLvl = Storage.getLabLevel();
+    const completed = Storage.getState().completedContracts || 0;
+    const tender = generateContract(labLvl, completed, true, 2.5);
+    AudioManager.playStamp();
+    this.showAdPrizeModal(
+      '🔥 ПОЛУЧЕН СРОЧНЫЙ ГОСТЕНДЕР!',
+      `${tender.title}\nГонорар: +${tender.reward} ₽ · ★+${tender.repReward}\n\nТендер уже ждёт вас первым на доске заказов!`,
+      true,
+      tender
+    );
+  }
+
+  showAdPrizeModal(titleText, bodyText, goToBoard = false, tender = null) {
+    const { width, height } = this.scale;
+    const modal = this.add.container(0, 0).setDepth(50);
+
+    const blocker = this.add.zone(width / 2, height / 2, width, height).setInteractive();
+    const dim = this.add.graphics();
+    dim.fillStyle(0x090d16, 0.92);
+    dim.fillRect(0, 0, width, height);
+
+    const cardW = 350;
+    const cardH = 260;
+    const cx = width / 2;
+    const cy = height / 2;
+
+    const panel = this.add.graphics();
+    panel.fillStyle(0x1e293b, 1);
+    panel.fillRoundedRect(cx - cardW / 2, cy - cardH / 2, cardW, cardH, 16);
+    panel.lineStyle(3, 0xfacc15, 1);
+    panel.strokeRoundedRect(cx - cardW / 2, cy - cardH / 2, cardW, cardH, 16);
+
+    const t1 = this.add.text(cx, cy - 88, titleText, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '15px',
+      fontWeight: '700',
+      color: '#facc15',
+      align: 'center'
+    }).setOrigin(0.5);
+
+    const t2 = this.add.text(cx, cy - 12, bodyText, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '12px',
+      color: '#f8fafc',
+      align: 'center',
+      lineSpacing: 5,
+      wordWrap: { width: cardW - 40 }
+    }).setOrigin(0.5);
+
+    const okBtn = this.add.text(cx, cy + 84, goToBoard ? 'ПЕРЕЙТИ К ТЕНДЕРУ →' : 'ОТЛИЧНО!', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '13px',
+      fontWeight: '700',
+      color: '#0f172a',
+      backgroundColor: '#facc15',
+      padding: { x: 18, y: 10 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    okBtn.on('pointerdown', () => {
+      AudioManager.playClick();
+      modal.destroy();
+      if (goToBoard && tender) {
+        this.scene.start('ContractsScene', { priorityTender: tender });
+      } else {
+        this.refreshUI();
+      }
+    });
+
+    modal.add([blocker, dim, panel, t1, t2, okBtn]);
   }
 
   renderCompactDecorCard(y, titleStr, descStr, owned, canClick, onClick, btnLabel) {
@@ -325,7 +525,7 @@ export class UpgradeScene extends Phaser.Scene {
 
   renderMusicPackCard(y, pack, unlocked, money) {
     const { width } = this.scale;
-    const cardH = 90;
+    const cardH = 88;
     const isAdPack = Boolean(pack.reqAds);
     const isEnabled = Storage.isMusicPackEnabled(pack.id);
 
