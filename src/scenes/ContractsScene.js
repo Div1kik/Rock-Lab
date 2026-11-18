@@ -1,11 +1,21 @@
 import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
-import { generateContractBoard, TEST_CATALOG } from '../data/contracts.js';
+import {
+  generateContractBoard,
+  TEST_CATALOG,
+  MEGA_PROJECTS,
+  generateMegaStageContract
+} from '../data/contracts.js';
 
 export class ContractsScene extends Phaser.Scene {
   constructor() {
     super('ContractsScene');
     this.contracts = [];
+    this.mode = 'regular'; // 'regular' | 'mega'
+  }
+
+  init(data) {
+    this.mode = data?.mode === 'mega' ? 'mega' : 'regular';
   }
 
   create() {
@@ -42,12 +52,41 @@ export class ContractsScene extends Phaser.Scene {
       color: '#38bdf8'
     }).setOrigin(1, 0);
 
-    this.add.text(width / 2, 86, 'ДОСКА ТЕХНИЧЕСКИХ ЗАДАНИЙ', {
+    // Переключатель режимов: Обычные заказы / Стройки века (Мега-проекты)
+    const tabW = (width - 44) / 2;
+    this.regTabBtn = this.add.text(18 + tabW / 2, 92, '📋 ТЕКУЩИЕ ЗАКАЗЫ', {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '18px',
+      fontSize: '12px',
       fontWeight: '700',
-      color: '#fef3c7'
-    }).setOrigin(0.5);
+      fixedWidth: tabW,
+      align: 'center',
+      padding: { x: 4, y: 9 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    this.megaTabBtn = this.add.text(width - 18 - tabW / 2, 92, '🏗️ СТРОЙКИ ВЕКА', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '12px',
+      fontWeight: '700',
+      fixedWidth: tabW,
+      align: 'center',
+      padding: { x: 4, y: 9 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    this.regTabBtn.on('pointerdown', () => {
+      if (this.mode !== 'regular') {
+        AudioManager.playClick();
+        this.mode = 'regular';
+        this.refreshBoard();
+      }
+    });
+
+    this.megaTabBtn.on('pointerdown', () => {
+      if (this.mode !== 'mega') {
+        AudioManager.playClick();
+        this.mode = 'mega';
+        this.refreshBoard();
+      }
+    });
 
     this.cardsContainer = this.add.container(0, 0);
     this.contracts = generateContractBoard(labLvl, completed, 3);
@@ -57,9 +96,7 @@ export class ContractsScene extends Phaser.Scene {
       this.contracts[0] = pendingTender;
     }
 
-    this.renderCards();
-
-    const refreshBtn = this.add.text(width / 2, height - 42, '🔄 ОБНОВИТЬ ЗАКАЗЫ (БЕСПЛАТНО)', {
+    this.refreshBtn = this.add.text(width / 2, height - 38, '🔄 ОБНОВИТЬ ЗАКАЗЫ (БЕСПЛАТНО)', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '13px',
       fontWeight: '700',
@@ -68,11 +105,144 @@ export class ContractsScene extends Phaser.Scene {
       padding: { x: 18, y: 10 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-    refreshBtn.on('pointerdown', () => {
+    this.refreshBtn.on('pointerdown', () => {
       AudioManager.playClick();
       Storage.clearPendingTender();
       this.contracts = generateContractBoard(labLvl, completed, 3);
+      this.refreshBoard();
+    });
+
+    this.refreshBoard();
+  }
+
+  refreshBoard() {
+    const isMega = this.mode === 'mega';
+
+    this.regTabBtn.setColor(!isMega ? '#1c1917' : '#e2e8f0');
+    this.regTabBtn.setBackgroundColor(!isMega ? '#facc15' : '#292524');
+
+    this.megaTabBtn.setColor(isMega ? '#0f172a' : '#fef08a');
+    this.megaTabBtn.setBackgroundColor(isMega ? '#38bdf8' : '#1e293b');
+
+    this.refreshBtn.setVisible(!isMega);
+
+    if (isMega) {
+      this.renderMegaProjects();
+    } else {
       this.renderCards();
+    }
+  }
+
+  renderMegaProjects() {
+    this.cardsContainer.removeAll(true);
+    const { width } = this.scale;
+    const labLvl = Storage.getLabLevel();
+    const staffLvl = Storage.getPerkLevel('assistant');
+
+    MEGA_PROJECTS.forEach((proj, idx) => {
+      const y = 122 + idx * 158;
+      const cardW = width - 36;
+      const cardH = 148;
+      const x = 18;
+
+      const curStageIdx = Storage.getMegaStage(proj.id);
+      const totalStages = proj.stages.length;
+      const isDone = Storage.isMegaCompleted(proj.id) || curStageIdx >= totalStages;
+      const labOk = labLvl >= proj.reqLab;
+      const staffOk = staffLvl >= proj.reqStaff;
+      const canStart = !isDone && labOk && staffOk;
+
+      const card = this.add.graphics();
+      card.fillStyle(isDone ? 0x14532d : 0x1e293b, 1);
+      card.fillRoundedRect(x, y, cardW, cardH, 12);
+      card.lineStyle(2, isDone ? 0x4ade80 : canStart ? 0x38bdf8 : 0x475569, 1);
+      card.strokeRoundedRect(x, y, cardW, cardH, 12);
+
+      const title = this.add.text(x + 14, y + 14, `${proj.icon} ${proj.title}`, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '14px',
+        fontWeight: '700',
+        color: '#fef3c7'
+      });
+
+      const rewardTxt = this.add.text(x + cardW - 14, y + 14, `🏆 +${proj.finalBonus} ₽`, {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '12px',
+        fontWeight: '700',
+        color: '#facc15'
+      }).setOrigin(1, 0);
+
+      const stageObj = proj.stages[Math.min(curStageIdx, totalStages - 1)];
+      const subLine = isDone
+        ? `✅ ОБЪЕКТ СДАН В ЭКСПЛУАТАЦИЮ (${totalStages}/${totalStages} этапов)`
+        : `${stageObj.name} · Норма ≥ ${stageObj.reqMpa} МПа`;
+
+      const subTxt = this.add.text(x + 14, y + 36, subLine, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
+        fontWeight: '600',
+        color: isDone ? '#4ade80' : '#7dd3fc'
+      });
+
+      // Шкала прогресса этапов стройки века
+      const segGap = 6;
+      const segW = (cardW - 28 - segGap * (totalStages - 1)) / totalStages;
+      for (let s = 0; s < totalStages; s++) {
+        const sx = x + 14 + s * (segW + segGap);
+        const completedSeg = s < curStageIdx || isDone;
+        const activeSeg = s === curStageIdx && !isDone;
+        card.fillStyle(completedSeg ? 0x22c55e : activeSeg ? 0xfacc15 : 0x334155, 1);
+        card.fillRoundedRect(sx, y + 58, segW, 10, 4);
+      }
+
+      const testsStr = isDone
+        ? proj.desc
+        : `Стенды этапа: ${stageObj.tests.map((k) => TEST_CATALOG[k]?.short || k).join(' + ')}`;
+
+      const infoTxt = this.add.text(x + 14, y + 76, testsStr, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '10px',
+        color: '#cbd5e1',
+        wordWrap: { width: cardW - 28 }
+      });
+
+      let btnText = `НАЧАТЬ ЭТАП ${curStageIdx + 1}/${totalStages} (+${proj.stageReward} ₽)`;
+      if (isDone) btnText = '🏆 МЕГА-ПРОЕКТ ЗАВЕРШЁН';
+      else if (!labOk) btnText = `НУЖНА ЛАБА Ур. ${proj.reqLab}`;
+      else if (!staffOk) btnText = `НУЖЕН ШТАТ Ур. ${proj.reqStaff}`;
+
+      const btnW = cardW - 28;
+      const btnH = 32;
+      const btnX = x + 14;
+      const btnY = y + cardH - btnH - 10;
+
+      const btnBg = this.add.graphics();
+      btnBg.fillStyle(isDone ? 0x15803d : canStart ? 0xd97706 : 0x334155, 1);
+      btnBg.fillRoundedRect(btnX, btnY, btnW, btnH, 8);
+
+      const btnLabel = this.add.text(btnX + btnW / 2, btnY + btnH / 2, btnText, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '12px',
+        fontWeight: '700',
+        color: canStart || isDone ? '#ffffff' : '#94a3b8'
+      }).setOrigin(0.5);
+
+      this.cardsContainer.add([card, title, rewardTxt, subTxt, infoTxt, btnBg, btnLabel]);
+
+      if (canStart) {
+        const hitZone = this.add.zone(btnX + btnW / 2, btnY + btnH / 2, btnW, btnH)
+          .setInteractive({ useHandCursor: true });
+
+        hitZone.on('pointerdown', () => {
+          const contract = generateMegaStageContract(proj.id, curStageIdx);
+          if (!contract) return;
+          AudioManager.playStamp();
+          Storage.setActiveContract(contract);
+          this.scene.start('UnpackScene', { contract });
+        });
+
+        this.cardsContainer.add(hitZone);
+      }
     });
   }
 
@@ -81,9 +251,9 @@ export class ContractsScene extends Phaser.Scene {
     const { width } = this.scale;
 
     this.contracts.forEach((cnt, idx) => {
-      const y = 114 + idx * 204;
+      const y = 122 + idx * 198;
       const cardW = width - 36;
-      const cardH = 190;
+      const cardH = 186;
       const x = 18;
 
       const cardBg = this.add.graphics();
