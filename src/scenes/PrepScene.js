@@ -618,9 +618,6 @@ export class PrepScene extends Phaser.Scene {
     };
   }
 
-  // =========================================================================
-  // ФАЗА 2: ЗАМЕР ГАБАРИТОВ ШТАНГЕНЦИРКУЛЕМ (Ручной + переключатель 1-Клик)
-  // =========================================================================
   startMeasurePhase(spec) {
     const { width, height } = this.scale;
     this.stageContainer.removeAll(true);
@@ -761,6 +758,7 @@ export class PrepScene extends Phaser.Scene {
     let step = 'height_axis';
     let gap = 1.0;
     let holding = false;
+    let animatingAuto = false;
     let measuredH = spec.targetH;
     let measuredD = spec.targetD;
 
@@ -775,7 +773,6 @@ export class PrepScene extends Phaser.Scene {
 
     updateActionButtonLabel();
 
-    // Переключатель режима замера (если куплен авто-привод штангена)
     if (hasAutoModule) {
       const modeSwitchBtn = this.add.text(width / 2, 168, '', {
         fontFamily: '"JetBrains Mono", monospace',
@@ -797,7 +794,7 @@ export class PrepScene extends Phaser.Scene {
       syncModeSwitchVisual();
 
       modeSwitchBtn.on('pointerdown', () => {
-        if (step === 'done') return;
+        if (step === 'done' || animatingAuto) return;
         holding = false;
         Storage.toggleCaliperAutoMode();
         AudioManager.playLatchSnap();
@@ -811,26 +808,33 @@ export class PrepScene extends Phaser.Scene {
 
     const baseJawSpeed = Math.max(0.38, 0.65 - (calLvl - 1) * 0.055);
 
-    const completeCurrentAxis = (errorOffset) => {
+    const finishAxisMeasurement = (errorOffset) => {
       AudioManager.playLatchSnap();
       const stepAcc = Math.max(35, Math.round(100 - Math.abs(errorOffset) * 220));
       this.prepScores.push(stepAcc);
 
       if (step === 'height_axis') {
-        hSlider.x = cx + coreW / 2 + errorOffset * hMaxTravel;
         measuredH = (spec.targetH + errorOffset * 25).toFixed(1);
-        resultSummary.setText(`✓ Высота H: ${measuredH} мм (норма ${spec.targetH} мм)`);
-        step = 'diameter_axis';
-        gap = 1.0;
-        hCaliperGroup.setVisible(false);
-        vCaliperGroup.setVisible(true);
-        lcdText.setText(`ДИАМЕТР D: ${(spec.targetD + 20).toFixed(1)} мм (норма ${spec.targetD})`);
-        lcdText.setColor('#7dd3fc');
-        updateActionButtonLabel();
+        lcdText.setText(`ВЫСОТА H: ${measuredH} мм (норма ${spec.targetH})`);
+        lcdText.setColor('#4ade80');
+        resultSummary.setText(`✓ Высота H: ${measuredH} мм — Зафиксировано!`);
+
+        this.time.delayedCall(380, () => {
+          if (step !== 'height_axis') return;
+          step = 'diameter_axis';
+          gap = 1.0;
+          animatingAuto = false;
+          hCaliperGroup.setVisible(false);
+          vCaliperGroup.setVisible(true);
+          lcdText.setText(`ДИАМЕТР D: ${(spec.targetD + 20).toFixed(1)} мм (норма ${spec.targetD})`);
+          lcdText.setColor('#7dd3fc');
+          resultSummary.setText(`✓ Высота H: ${measuredH} мм | Замерь диаметр D`);
+          updateActionButtonLabel();
+        });
       } else if (step === 'diameter_axis') {
-        vSlider.y = cy + coreH / 2 + errorOffset * vMaxTravel;
         measuredD = (spec.targetD + errorOffset * 20).toFixed(1);
         step = 'done';
+        animatingAuto = false;
         lcdText.setText(`ДИАМЕТР D: ${measuredD} мм (норма ${spec.targetD})`);
         lcdText.setColor('#4ade80');
         resultSummary.setText(`✓ H = ${measuredH} мм  |  D = ${measuredD} мм — Готово!`);
@@ -843,28 +847,52 @@ export class PrepScene extends Phaser.Scene {
       }
     };
 
+    const runAutoSnap = () => {
+      if (animatingAuto || step === 'done') return;
+      animatingAuto = true;
+      const tinyJitter = (Math.random() - 0.5) * 0.014;
+
+      if (step === 'height_axis') {
+        const targetX = cx + coreW / 2 + tinyJitter * hMaxTravel;
+        this.tweens.add({
+          targets: hSlider,
+          x: targetX,
+          duration: 210,
+          ease: 'Cubic.easeOut',
+          onComplete: () => finishAxisMeasurement(tinyJitter)
+        });
+      } else if (step === 'diameter_axis') {
+        const targetY = cy + coreH / 2 + tinyJitter * vMaxTravel;
+        this.tweens.add({
+          targets: vSlider,
+          y: targetY,
+          duration: 210,
+          ease: 'Cubic.easeOut',
+          onComplete: () => finishAxisMeasurement(tinyJitter)
+        });
+      }
+    };
+
     btn.zone.on('pointerdown', () => {
-      if (step === 'done') return;
+      if (step === 'done' || animatingAuto) return;
       if (Storage.isCaliperAutoMode()) {
-        // Авто-замер в один тап с высокой точностью
-        const tinyJitter = (Math.random() - 0.5) * 0.016;
-        completeCurrentAxis(tinyJitter);
+        runAutoSnap();
       } else {
         holding = true;
       }
     });
 
     const releaseJaw = () => {
-      if (!holding || step === 'done') return;
+      if (!holding || step === 'done' || animatingAuto) return;
       holding = false;
-      completeCurrentAxis(gap);
+      finishAxisMeasurement(gap);
     };
 
     btn.zone.on('pointerup', releaseJaw);
     btn.zone.on('pointerout', releaseJaw);
 
     this.currentUpdate = (dt) => {
-      if (!holding || step === 'done') return;
+      if (!holding || step === 'done' || animatingAuto) return;
 
       const clampedProgress = Math.max(0, Math.min(1, gap));
       const accelCurve = 0.55 + (1 - clampedProgress) * 1.15;
