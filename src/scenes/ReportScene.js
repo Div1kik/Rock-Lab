@@ -177,7 +177,6 @@ export class ReportScene extends Phaser.Scene {
     const stampHex = approvedByPlayer ? '#15803d' : '#b91c1c';
     const stampWord = approvedByPlayer ? 'ОДОБРЕНО' : 'ЗАБРАКОВАНО';
 
-    // Оттиск гербовой печати на листе протокола
     const inkContainer = this.add.container(stampX, stampY).setAngle(-14).setAlpha(0).setScale(1.6).setDepth(14);
     const inkG = this.add.graphics();
     inkG.lineStyle(4, stampColor, 0.9);
@@ -201,7 +200,6 @@ export class ReportScene extends Phaser.Scene {
 
     inkContainer.add([inkG, inkTxt, inkSub]);
 
-    // Деревянный штемпель с рукояткой, бьющий по бумаге сверху
     const stamper = this.add.container(stampX, stampY - 120).setDepth(16);
     const stG = this.add.graphics();
     stG.fillStyle(0x78350f, 1);
@@ -310,6 +308,18 @@ export class ReportScene extends Phaser.Scene {
     this.showAnimatedCutsceneModal(outcomeType, moneyDelta, repDelta);
   }
 
+  getSiteType() {
+    if (this.contract.siteType) return this.contract.siteType;
+    const t = (this.contract.title || '').toLowerCase();
+    if (t.includes('мост') || t.includes('виадук')) return 'bridge';
+    if (t.includes('тоннел') || t.includes('метро')) return 'tunnel';
+    if (t.includes('лэп') || t.includes('опора')) return 'powerline';
+    if (t.includes('гэс') || t.includes('плотин')) return 'dam';
+    if (t.includes('карьер')) return 'quarry';
+    if (t.includes('коттедж')) return 'cottage';
+    return 'highrise';
+  }
+
   showAnimatedCutsceneModal(outcomeType, moneyDelta, repDelta) {
     const { width, height } = this.scale;
     const modalReadyAt = performance.now() + 300;
@@ -341,8 +351,18 @@ export class ReportScene extends Phaser.Scene {
 
     this.renderCutsceneArtwork(outcomeType, sceneX, sceneY, sceneW, sceneH, groundY);
 
+    const siteTitles = {
+      bridge: 'МОСТОВОЙ ПЕРЕХОД УСПЕШНО СДАН!',
+      tunnel: 'ПРОХОДКА ТОННЕЛЯ ЗАВЕРШЕНА!',
+      powerline: 'ОПОРА ЛЭП СМОНТИРОВАНА В СРОК!',
+      dam: 'ПЛОТИНА ГЭС ВЫДЕРЖАЛА НАПОР!',
+      quarry: 'БОРТ КАРЬЕРА УКРЕПЛЁН И ЗАПУЩЕН!',
+      cottage: 'ФУНДАМЕНТЫ ПОСЁЛКА ЗАЛОЖЕНЫ!',
+      highrise: 'ВЫСОТНЫЙ КАРКАС ЗАПУЩЕН В РАБОТУ!'
+    };
+
     const titles = {
-      success: 'СТРОЙКА ЗАПУЩЕНА УСПЕШНО!',
+      success: siteTitles[this.getSiteType()] || 'СТРОЙКА ЗАПУЩЕНА УСПЕШНО!',
       saved_lives: 'ОБЪЕКТ СПАСЁН ОТ ОБВАЛА!',
       collapse: 'ПРОИЗОШЁЛ ОБВАЛ ГРУНТА!',
       false_alarm: 'ЛОЖНАЯ ТРЕВОГА ЗАКАЗЧИКА',
@@ -351,7 +371,7 @@ export class ReportScene extends Phaser.Scene {
     };
 
     const descriptions = {
-      success: `Основание выдержало нагрузку.\nРеальная прочность породы: ${this.contract.trueStrengthMpa} МПа.`,
+      success: `Основание объекта «${this.contract.title}» выдержало нагрузку.\nРеальная прочность породы: ${this.contract.trueStrengthMpa} МПа.`,
       saved_lives: `Ты вовремя выявил слабый грунт (${this.contract.trueStrengthMpa} МПа при норме ${this.contract.reqMpa} МПа). Смонтирована анкерная крепь!`,
       collapse: `Приборы ошиблись из-за погрешности! Реальная прочность была всего ${this.contract.trueStrengthMpa} МПа при норме ${this.contract.reqMpa} МПа.`,
       false_alarm: `Грунт на самом деле выдержал бы (${this.contract.trueStrengthMpa} МПа). Независимая экспертиза оспорила отказ.`,
@@ -361,7 +381,7 @@ export class ReportScene extends Phaser.Scene {
 
     this.add.text(width / 2, boxY + 256, titles[outcomeType], {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '17px',
+      fontSize: '16px',
       fontWeight: '700',
       color: isBad ? '#f87171' : '#4ade80',
       align: 'center'
@@ -434,16 +454,15 @@ export class ReportScene extends Phaser.Scene {
     const { width } = this.scale;
     const isBad = outcomeType === 'collapse' || outcomeType === 'audit_fail';
     const isAudit = outcomeType === 'audit_pass' || outcomeType === 'audit_fail';
+    const siteType = this.getSiteType();
 
     const bg = this.add.graphics().setDepth(22);
 
-    // 1. Небо с градиентом-полосой горизонта, солнцем/луной и облаками
     if (isAudit) {
       bg.fillStyle(0x172554, 1);
       bg.fillRoundedRect(sx, sy, sw, sh, 10);
       bg.fillStyle(0x1e3a8a, 1);
       bg.fillRect(sx, sy + 72, sw, groundY - (sy + 72));
-      // Сетка метрологического стенда на фоне
       bg.lineStyle(1, 0x38bdf8, 0.18);
       for (let gx = sx + 20; gx < sx + sw; gx += 28) bg.lineBetween(gx, sy + 12, gx, groundY);
       for (let gy = sy + 20; gy < groundY; gy += 28) bg.lineBetween(sx + 10, gy, sx + sw - 10, gy);
@@ -452,7 +471,6 @@ export class ReportScene extends Phaser.Scene {
       bg.fillRoundedRect(sx, sy, sw, sh, 10);
       bg.fillStyle(0x5c191e, 1);
       bg.fillRect(sx, sy + 82, sw, groundY - (sy + 82));
-      // Тревожное багровое солнце
       bg.fillStyle(0xef4444, 0.35);
       bg.fillCircle(sx + 56, sy + 44, 24);
     } else {
@@ -460,7 +478,6 @@ export class ReportScene extends Phaser.Scene {
       bg.fillRoundedRect(sx, sy, sw, sh, 10);
       bg.fillStyle(0x0ea5e9, 0.65);
       bg.fillRect(sx, sy + 76, sw, groundY - (sy + 76));
-      // Яркое солнце и лёгкие облака
       bg.fillStyle(0xfef08a, 0.9);
       bg.fillCircle(sx + 48, sy + 38, 16);
       bg.fillStyle(0xf8fafc, 0.75);
@@ -468,24 +485,20 @@ export class ReportScene extends Phaser.Scene {
       bg.fillRoundedRect(sx + 210, sy + 36, 68, 14, 7);
     }
 
-    // 2. Объёмные горные хребты со снежными/светлыми гранями
     if (!isAudit) {
       const mDark = isBad ? 0x3f1d24 : 0x334155;
       const mLight = isBad ? 0x6b2c35 : 0x64748b;
-      // Левая гора (тень + освещённый склон)
       bg.fillStyle(mDark, 1);
       bg.fillTriangle(sx + 8, groundY, sx + 88, sy + 64, sx + 168, groundY);
       bg.fillStyle(mLight, 1);
       bg.fillTriangle(sx + 88, sy + 64, sx + 124, groundY, sx + 168, groundY);
 
-      // Правая гора
       bg.fillStyle(mDark, 1);
       bg.fillTriangle(sx + 148, groundY, sx + 242, sy + 52, sx + sw - 8, groundY);
       bg.fillStyle(mLight, 1);
       bg.fillTriangle(sx + 242, sy + 52, sx + 286, groundY, sx + sw - 8, groundY);
     }
 
-    // 3. Слой горной породы в разрезе внизу
     const rockH = sy + sh - groundY;
     this.add.tileSprite(width / 2, groundY + rockH / 2, sw, rockH, 'rock_tex')
       .setTint(this.contract.rock.color)
@@ -504,56 +517,206 @@ export class ReportScene extends Phaser.Scene {
       emitting: false
     }).setDepth(35);
 
-    // СЮЖЕТ 1: УСПЕШНАЯ СТРОЙКА (Высотный каркас с панорамными окнами + башенный кран)
     if (outcomeType === 'success') {
-      const craneG = this.add.graphics().setDepth(23);
-      const mastX = sx + sw - 46;
-      craneG.fillStyle(0x475569, 1);
-      craneG.fillRect(mastX - 14, groundY - 8, 28, 8);
-      craneG.lineStyle(3, 0xfacc15, 1);
-      craneG.strokeRect(mastX - 6, sy + 20, 12, groundY - (sy + 28));
-      craneG.fillStyle(0xfacc15, 1);
-      craneG.fillRect(sx + 34, sy + 26, sw - 58, 6);
-      craneG.lineStyle(1.5, 0xfef08a, 0.9);
-      craneG.lineBetween(mastX, sy + 14, sx + 48, sy + 26);
+      // 1. МОСТ (Река внизу + быки моста + опускающийся пролёт с вантами)
+      if (siteType === 'bridge') {
+        const riverG = this.add.graphics().setDepth(23);
+        riverG.fillStyle(0x0284c9, 0.9);
+        riverG.fillRect(sx + 56, groundY - 2, sw - 112, 18);
+        // Быки моста
+        riverG.fillStyle(0x94a3b8, 1);
+        riverG.fillRect(sx + 88, groundY - 46, 20, 48);
+        riverG.fillRect(sx + sw - 108, groundY - 46, 20, 48);
+        // Пилоны
+        riverG.fillStyle(0xfacc15, 1);
+        riverG.fillRect(sx + 94, groundY - 88, 8, 42);
+        riverG.fillRect(sx + sw - 102, groundY - 88, 8, 42);
 
-      for (let floor = 0; floor < 3; floor++) {
-        const fy = groundY - 22 - floor * 28;
-        const unit = this.add.container(width / 2 - 22, sy + 42).setDepth(24);
-        const uG = this.add.graphics();
-        uG.fillStyle(0xf8fafc, 1);
-        uG.fillRoundedRect(-64, -13, 128, 26, 3);
-        uG.lineStyle(2, 0x334155, 1);
-        uG.strokeRoundedRect(-64, -13, 128, 26, 3);
-        uG.fillStyle(0x0284c9, 1);
-        for (let wx = -50; wx <= 34; wx += 28) {
-          uG.fillRect(wx, -6, 16, 12);
-        }
-        unit.add(uG);
+        const span = this.add.container(width / 2, sy + 36).setDepth(24);
+        const sG = this.add.graphics();
+        sG.fillStyle(0xe2e8f0, 1);
+        sG.fillRoundedRect(-124, -8, 248, 14, 3);
+        sG.fillStyle(0x334155, 1);
+        sG.fillRect(-124, -12, 248, 4);
+        span.add(sG);
 
         this.tweens.add({
-          targets: unit,
-          y: fy,
-          delay: floor * 220,
-          duration: 420,
-          ease: 'Back.easeOut',
-          onComplete: () => dustParticles.emitParticleAt(width / 2 - 22, fy + 12, 10)
+          targets: span,
+          y: groundY - 48,
+          duration: 620,
+          ease: 'Bounce.easeOut',
+          onComplete: () => {
+            dustParticles.emitParticleAt(sx + 98, groundY - 46, 10);
+            dustParticles.emitParticleAt(sx + sw - 98, groundY - 46, 10);
+          }
         });
       }
-    }
-    // СЮЖЕТ 2: ОБЪЕКТ СПАСЁН ОТ ОБВАЛА (Укрепление горного уступа анкерами и геосеткой)
-    else if (outcomeType === 'saved_lives') {
+      // 2. ТОННЕЛЬ МЕТРО (Подземный свод и проходческий щит в толще породы)
+      else if (siteType === 'tunnel') {
+        const tunG = this.add.graphics().setDepth(23);
+        const tunY = groundY + 26;
+        tunG.fillStyle(0x0f172a, 1);
+        tunG.fillRoundedRect(sx + 24, tunY - 18, sw - 110, 36, 16);
+        tunG.lineStyle(3, 0x94a3b8, 1);
+        tunG.strokeRoundedRect(sx + 24, tunY - 18, sw - 110, 36, 16);
+
+        const shield = this.add.container(sx + 76, tunY).setDepth(24);
+        const shG = this.add.graphics();
+        shG.fillStyle(0xfacc15, 1);
+        shG.fillRoundedRect(-24, -15, 44, 30, 5);
+        shG.fillStyle(0xef4444, 1);
+        shG.fillRect(18, -14, 7, 28);
+        shield.add(shG);
+
+        this.tweens.add({
+          targets: shield,
+          x: sx + sw - 96,
+          duration: 950,
+          ease: 'Cubic.easeOut',
+          onUpdate: () => {
+            if (Math.random() < 0.25) dustParticles.emitParticleAt(shield.x + 22, tunY, 3);
+          }
+        });
+      }
+      // 3. ОПОРА ЛЭП (Сборка ажурной мачты и натяжение проводов)
+      else if (siteType === 'powerline') {
+        const mast = this.add.container(width / 2, sy + 28).setDepth(24);
+        const mG = this.add.graphics();
+        mG.lineStyle(3, 0xe2e8f0, 1);
+        mG.lineBetween(-22, 46, -8, -46);
+        mG.lineBetween(22, 46, 8, -46);
+        mG.lineBetween(-34, -28, 34, -28);
+        mG.lineBetween(-28, -8, 28, -8);
+        mG.lineBetween(-16, 18, 16, 18);
+        mG.fillStyle(0x38bdf8, 1);
+        mG.fillCircle(-34, -24, 4);
+        mG.fillCircle(34, -24, 4);
+        mast.add(mG);
+
+        this.tweens.add({
+          targets: mast,
+          y: groundY - 46,
+          duration: 560,
+          ease: 'Back.easeOut',
+          onComplete: () => dustParticles.emitParticleAt(width / 2, groundY, 14)
+        });
+      }
+      // 4. ПЛОТИНА ГЭС (Массивная бетонная стенка и водный каскад)
+      else if (siteType === 'dam') {
+        const damG = this.add.graphics().setDepth(23);
+        damG.fillStyle(0xcbd5e1, 1);
+        damG.beginPath();
+        damG.moveTo(width / 2 - 42, groundY);
+        damG.lineTo(width / 2 - 22, groundY - 94);
+        damG.lineTo(width / 2 + 12, groundY - 94);
+        damG.lineTo(width / 2 + 54, groundY);
+        damG.closePath();
+        damG.fillPath();
+
+        // Водохранилище слева
+        damG.fillStyle(0x0284c9, 0.85);
+        damG.fillRect(sx + 10, groundY - 82, width / 2 - sx - 32, 82);
+
+        const waterFlow = this.add.rectangle(width / 2 + 34, groundY - 42, 18, 78, 0x7dd3fc, 0.8).setDepth(24);
+        this.tweens.add({
+          targets: waterFlow,
+          alpha: 0.35,
+          duration: 380,
+          yoyo: true,
+          repeat: -1
+        });
+      }
+      // 5. АЛМАЗНЫЙ КАРЬЕР (Уступы борта и карьерный самосвал)
+      else if (siteType === 'quarry') {
+        const qG = this.add.graphics().setDepth(23);
+        qG.fillStyle(0x64748b, 1);
+        qG.fillRect(sx + 20, groundY - 72, 95, 24);
+        qG.fillRect(sx + 20, groundY - 48, 145, 24);
+        qG.fillRect(sx + 20, groundY - 24, 195, 24);
+
+        const truck = this.add.container(sx + sw - 60, groundY - 16).setDepth(24);
+        const tG = this.add.graphics();
+        tG.fillStyle(0xfacc15, 1);
+        tG.fillRoundedRect(-24, -14, 48, 22, 4);
+        tG.fillStyle(0x0f172a, 1);
+        tG.fillCircle(-14, 10, 7);
+        tG.fillCircle(14, 10, 7);
+        truck.add(tG);
+
+        this.tweens.add({
+          targets: truck,
+          x: width / 2 + 56,
+          duration: 720,
+          ease: 'Cubic.easeOut'
+        });
+      }
+      // 6. КОТТЕДЖНЫЙ ПОСЁЛОК (Сборка загородного дома с крышей)
+      else if (siteType === 'cottage') {
+        const house = this.add.container(width / 2, sy + 40).setDepth(24);
+        const hG = this.add.graphics();
+        hG.fillStyle(0xfef3c7, 1);
+        hG.fillRoundedRect(-54, -22, 108, 44, 4);
+        hG.fillStyle(0xb91c1c, 1);
+        hG.fillTriangle(-64, -22, 0, -56, 64, -22);
+        hG.fillStyle(0x0284c9, 1);
+        hG.fillRect(-34, -10, 22, 18);
+        hG.fillRect(12, -10, 22, 18);
+        house.add(hG);
+
+        this.tweens.add({
+          targets: house,
+          y: groundY - 22,
+          duration: 540,
+          ease: 'Bounce.easeOut',
+          onComplete: () => dustParticles.emitParticleAt(width / 2, groundY, 14)
+        });
+      }
+      // 7. ВЫСОТНЫЙ ЖК (Башенный кран и этажи с окнами)
+      else {
+        const craneG = this.add.graphics().setDepth(23);
+        const mastX = sx + sw - 46;
+        craneG.fillStyle(0x475569, 1);
+        craneG.fillRect(mastX - 14, groundY - 8, 28, 8);
+        craneG.lineStyle(3, 0xfacc15, 1);
+        craneG.strokeRect(mastX - 6, sy + 20, 12, groundY - (sy + 28));
+        craneG.fillStyle(0xfacc15, 1);
+        craneG.fillRect(sx + 34, sy + 26, sw - 58, 6);
+        craneG.lineStyle(1.5, 0xfef08a, 0.9);
+        craneG.lineBetween(mastX, sy + 14, sx + 48, sy + 26);
+
+        for (let floor = 0; floor < 3; floor++) {
+          const fy = groundY - 22 - floor * 28;
+          const unit = this.add.container(width / 2 - 22, sy + 42).setDepth(24);
+          const uG = this.add.graphics();
+          uG.fillStyle(0xf8fafc, 1);
+          uG.fillRoundedRect(-64, -13, 128, 26, 3);
+          uG.lineStyle(2, 0x334155, 1);
+          uG.strokeRoundedRect(-64, -13, 128, 26, 3);
+          uG.fillStyle(0x0284c9, 1);
+          for (let wx = -50; wx <= 34; wx += 28) {
+            uG.fillRect(wx, -6, 16, 12);
+          }
+          unit.add(uG);
+
+          this.tweens.add({
+            targets: unit,
+            y: fy,
+            delay: floor * 220,
+            duration: 420,
+            ease: 'Back.easeOut',
+            onComplete: () => dustParticles.emitParticleAt(width / 2 - 22, fy + 12, 10)
+          });
+        }
+      }
+    } else if (outcomeType === 'saved_lives') {
       const slopeG = this.add.graphics().setDepth(23);
-      // Каменный уступ справа, который мог обрушиться
       slopeG.fillStyle(0x475569, 1);
       slopeG.fillTriangle(width / 2 - 10, groundY, width / 2 + 125, sy + 56, width / 2 + 145, groundY);
-      // Подпорная бетонная стенка и стальная геосетка
       slopeG.fillStyle(0x0284c9, 1);
       slopeG.fillRoundedRect(width / 2 - 26, groundY - 76, 22, 76, 4);
       slopeG.lineStyle(2, 0x38bdf8, 1);
       slopeG.strokeRoundedRect(width / 2 - 26, groundY - 76, 22, 76, 4);
 
-      // Стальные анкерные тяги, уходящие в породу
       const anchors = this.add.container(0, 0).setDepth(24).setAlpha(0);
       const aG = this.add.graphics();
       aG.lineStyle(3, 0xfacc15, 1);
@@ -564,7 +727,6 @@ export class ReportScene extends Phaser.Scene {
       });
       anchors.add(aG);
 
-      // Буровая машина слева
       const rig = this.add.container(sx + 54, groundY - 18).setDepth(24);
       const rG = this.add.graphics();
       rG.fillStyle(0xf59e0b, 1);
@@ -585,9 +747,7 @@ export class ReportScene extends Phaser.Scene {
           dustParticles.emitParticleAt(width / 2 - 22, groundY - 40, 14);
         }
       });
-    }
-    // СЮЖЕТ 3: ОБВАЛ В КАРЬЕРЕ (Разрушение борта, падение валунов и вышки)
-    else if (outcomeType === 'collapse') {
+    } else if (outcomeType === 'collapse') {
       const b1 = this.add.polygon(width / 2 - 42, groundY - 42, [0, -24, 28, -10, 22, 22, -24, 18], 0x64748b)
         .setStrokeStyle(2, 0x1e293b)
         .setDepth(24);
@@ -628,9 +788,7 @@ export class ReportScene extends Phaser.Scene {
         duration: 560,
         ease: 'Cubic.easeIn'
       });
-    }
-    // СЮЖЕТ 4: ЛОЖНАЯ ТРЕВОГА (Выездная лаборатория независимой экспертизы)
-    else if (outcomeType === 'false_alarm') {
+    } else if (outcomeType === 'false_alarm') {
       const van = this.add.container(sx + 54, groundY - 22).setDepth(24);
       const vG = this.add.graphics();
       vG.fillStyle(0xf8fafc, 1);
@@ -652,9 +810,7 @@ export class ReportScene extends Phaser.Scene {
         duration: 760,
         ease: 'Cubic.easeOut'
       });
-    }
-    // СЮЖЕТ 5: УСПЕШНЫЙ АУДИТ РОСТЕХНАДЗОРА (Эталонный стенд + лазерная калибровка + щит)
-    else if (outcomeType === 'audit_pass') {
+    } else if (outcomeType === 'audit_pass') {
       const standG = this.add.graphics().setDepth(23);
       standG.fillStyle(0x334155, 1);
       standG.fillRoundedRect(width / 2 - 58, groundY - 96, 116, 96, 8);
@@ -671,15 +827,12 @@ export class ReportScene extends Phaser.Scene {
         yoyo: true,
         repeat: -1
       });
-    }
-    // СЮЖЕТ 6: ПРОВАЛ АУДИТА РОСТЕХНАДЗОРА (Опломбировка стенда и красная лента)
-    else {
+    } else {
       const standG = this.add.graphics().setDepth(23);
       standG.fillStyle(0x334155, 1);
       standG.fillRoundedRect(width / 2 - 58, groundY - 96, 116, 96, 8);
       standG.lineStyle(3, 0xef4444, 1);
       standG.strokeRoundedRect(width / 2 - 58, groundY - 96, 116, 96, 8);
-      // Красный крест предписания поверх стенда
       standG.lineStyle(5, 0xef4444, 0.95);
       standG.lineBetween(width / 2 - 44, groundY - 82, width / 2 + 44, groundY - 14);
       standG.lineBetween(width / 2 + 44, groundY - 82, width / 2 - 44, groundY - 14);
