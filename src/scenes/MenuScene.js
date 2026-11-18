@@ -149,11 +149,9 @@ export class MenuScene extends Phaser.Scene {
     const backWallY = 266;
     const frontBenchY = h * 0.545;
 
-    // 1. Задняя стена
     g.fillStyle(tier.wall, 1);
     g.fillRect(0, 64, w, backWallY - 64);
 
-    // Архитектурная текстура стены в зависимости от темы или уровня
     if (activeTheme === 'loft' || (activeTheme === 'default' && labLvl === 1)) {
       g.lineStyle(1, 0x000000, 0.22);
       for (let by = 80; by < backWallY; by += 18) {
@@ -171,13 +169,11 @@ export class MenuScene extends Phaser.Scene {
       g.lineBetween(0, 165, w, 165);
     }
 
-    // 2. Углублённый пол цеха в перспективе (между задней стеной и передним верстаком)
     g.fillStyle(tier.floor, 1);
     g.fillRect(0, backWallY, w, frontBenchY - backWallY);
     g.fillStyle(0x0f172a, 0.65);
     g.fillRect(0, backWallY, w, 6);
 
-    // Перспективные швы напольных плит
     g.lineStyle(1.5, 0x000000, 0.25);
     const center = w / 2;
     for (let i = -4; i <= 4; i++) {
@@ -185,17 +181,14 @@ export class MenuScene extends Phaser.Scene {
     }
     g.lineBetween(0, (backWallY + frontBenchY) / 2, w, (backWallY + frontBenchY) / 2);
 
-    // Световой конус сверху
     g.fillStyle(hasNeon ? 0x38bdf8 : 0xfef3c7, 0.06 + decorLvl * 0.02);
     g.fillTriangle(w / 2, 66, 20, frontBenchY, w - 20, frontBenchY);
 
-    // Потолочная балка + неон
     g.fillStyle(0x27272a, 1);
     g.fillRect(0, 66, w, 9);
     g.fillStyle(hasNeon ? 0x38bdf8 : tier.accent, hasNeon ? 0.9 : 0.35 + decorLvl * 0.08);
     g.fillRect(0, 75, w, 4);
 
-    // Окно/табло или панорама на задней стене
     if (labLvl >= 5) {
       g.fillStyle(0x0284c9, 0.45);
       g.fillRoundedRect(w / 2 - 122, 138, 244, 78, 8);
@@ -232,7 +225,6 @@ export class MenuScene extends Phaser.Scene {
       }
     }
 
-    // Витрина редких минералов (стоит на полу у левой стены)
     const foundGems = Storage.getGems();
     if (showcaseLvl > 0) {
       const shelfX = 14;
@@ -335,7 +327,6 @@ export class MenuScene extends Phaser.Scene {
       });
     }
 
-    // Кулер и растения теперь стоят на полу цеха (уровень backWallY + 28)
     const floorLineY = backWallY + 28;
     if (hasCooler) {
       const cx = w - 34;
@@ -359,7 +350,6 @@ export class MenuScene extends Phaser.Scene {
       g.fillCircle(px + 8, floorLineY - 22, 8);
     }
 
-    // Сертификат аккредитации на задней стене
     g.fillStyle(0xfef3c7, 0.92);
     g.fillRect(w - 64, 146, 46, 56);
     g.lineStyle(2, 0x78350f, 1);
@@ -373,7 +363,6 @@ export class MenuScene extends Phaser.Scene {
       g.fillCircle(w - 41, 189, 6);
     }
 
-    // Передний длинный лабораторный верстак
     g.fillStyle(tier.table, 1);
     g.fillRect(0, frontBenchY, w, h - frontBenchY);
     g.fillStyle(0x18181b, 1);
@@ -382,11 +371,9 @@ export class MenuScene extends Phaser.Scene {
     g.fillRect(0, frontBenchY, w, 3);
   }
 
-  // =========================================================================
-  // ДВУХЪЯРУСНАЯ МИНИ-ЛАБОРАТОРИЯ СО ВСЕМИ КУПЛЕННЫМИ СТЕНДАМИ
-  // =========================================================================
   createLiveMiniLab(w, h, tier, labLvl) {
     const backFloorY = 286;
+    const midFloorY = 336;
     const frontBenchY = h * 0.545;
 
     const pressLvl = Storage.getUpgradeLevel('press');
@@ -404,10 +391,16 @@ export class MenuScene extends Phaser.Scene {
     const coffeeLvl = Storage.getPerkLevel('coffee');
     const assistantLvl = Storage.getPerkLevel('assistant');
 
-    // --- ЗАДНИЙ ЯРУС (В глубине зала) ---
+    const hasLoungeSofa = Storage.hasDecor('lounge_sofa');
+    const hasArchiveDesk = Storage.hasDecor('archive_desk');
+    const hasRoboArm = Storage.hasDecor('robo_arm');
+    const hasRoboRover = Storage.hasDecor('robo_rover');
+    const hasRoboDog = Storage.hasDecor('robo_dog');
+    const hasRoboHumanoid = Storage.hasDecor('robo_humanoid');
+
+    // --- 1. ЗАДНИЙ ЯРУС ---
     const backG = this.add.graphics().setDepth(4);
 
-    // 1. Сушильный шкаф и весы (water_sat)
     if (hasWater) {
       const wx = 112;
       backG.fillStyle(0x475569, 1);
@@ -418,7 +411,6 @@ export class MenuScene extends Phaser.Scene {
       backG.fillRect(wx - 12, backFloorY - 16, 24, 4);
     }
 
-    // 2. Криокамера морозостойкости F200 (frost_test)
     if (hasFrost) {
       const fx = 166;
       backG.fillStyle(0x1e3a8a, 1);
@@ -429,7 +421,6 @@ export class MenuScene extends Phaser.Scene {
       backG.fillRect(fx - 12, backFloorY - 40, 24, 18);
     }
 
-    // 3. Стеллаж с кернами в центре заднего плана (со 2-го ур. лабы)
     if (labLvl >= 2) {
       const rx = w / 2 + 18;
       backG.fillStyle(0x3f3f46, 1);
@@ -443,7 +434,6 @@ export class MenuScene extends Phaser.Scene {
       backG.fillRect(rx + 4, backFloorY - 26, 14, 10);
     }
 
-    // 4. Крио-термобокс на тумбе (cryobox)
     if (hasCryoBox) {
       const cbx = w - 122;
       backG.fillStyle(0x0284c9, 1);
@@ -452,10 +442,93 @@ export class MenuScene extends Phaser.Scene {
       backG.fillRect(cbx - 16, backFloorY - 26, 32, 5);
     }
 
-    // --- ПЕРЕДНИЙ ГЛАВНЫЙ ВЕРСТАК (Все рабочие станки и стенды) ---
+    // --- 2. ЦЕНТРАЛЬНАЯ ЗОНА (Стандартная мебель по уровню лабы + докупаемая мебель + стенд робо-руки) ---
+    const midG = this.add.graphics().setDepth(4);
+    const midX = w / 2;
+
+    // Стандартная мебель в центре зала (эволюционирует от Ур. 1 к Ур. 5)
+    if (labLvl === 1) {
+      // Ур. 1: простой рабочий столик с чертежами
+      midG.fillStyle(0x78350f, 1);
+      midG.fillRoundedRect(midX - 32, midFloorY - 20, 64, 20, 3);
+      midG.fillStyle(0xfef3c7, 0.9);
+      midG.fillRect(midX - 18, midFloorY - 23, 24, 4);
+    } else if (labLvl <= 3) {
+      // Ур. 2-3: инженерный стол с монитором и креслом
+      midG.fillStyle(0x334155, 1);
+      midG.fillRoundedRect(midX - 42, midFloorY - 22, 84, 22, 4);
+      midG.fillStyle(0x0f172a, 1);
+      midG.fillRect(midX - 16, midFloorY - 40, 32, 18);
+      midG.fillStyle(0x38bdf8, 0.8);
+      midG.fillRect(midX - 13, midFloorY - 37, 26, 12);
+    } else {
+      // Ур. 4-5: центральный диспетчерский остров с голограммой керна
+      midG.fillStyle(0x1e293b, 1);
+      midG.fillRoundedRect(midX - 54, midFloorY - 24, 108, 24, 6);
+      midG.lineStyle(1.5, tier.accent, 0.85);
+      midG.strokeRoundedRect(midX - 54, midFloorY - 24, 108, 24, 6);
+      // Голограмма керна над центральным островом
+      const holo = this.add.rectangle(midX - 18, midFloorY - 40, 14, 22, 0x38bdf8, 0.55).setDepth(5);
+      this.tweens.add({
+        targets: holo,
+        y: midFloorY - 46,
+        alpha: 0.85,
+        duration: 1100,
+        yoyo: true,
+        repeat: -1
+      });
+    }
+
+    // Докупаемая мебель 1: Диванчик и столик отчётов слева от центра
+    if (hasLoungeSofa) {
+      const sx = 112;
+      midG.fillStyle(0xb45309, 1);
+      midG.fillRoundedRect(sx - 26, midFloorY - 22, 52, 22, 5);
+      midG.fillStyle(0xd97706, 1);
+      midG.fillRoundedRect(sx - 24, midFloorY - 14, 48, 10, 3);
+    }
+
+    // Докупаемая мебель 2: Архивная тумба ГОСТов справа от центра
+    if (hasArchiveDesk) {
+      const ax = w - 114;
+      midG.fillStyle(0x475569, 1);
+      midG.fillRoundedRect(ax - 22, midFloorY - 32, 44, 32, 4);
+      midG.fillStyle(0xfacc15, 0.85);
+      midG.fillRect(ax - 15, midFloorY - 25, 30, 4);
+      midG.fillRect(ax - 15, midFloorY - 15, 30, 4);
+    }
+
+    // Статичный робот-манипулятор в стиле Железного человека на центральном острове
+    if (hasRoboArm) {
+      const armX = midX + 24;
+      const armY = midFloorY - 24;
+      midG.fillStyle(0x64748b, 1);
+      midG.fillRoundedRect(armX - 12, armY - 6, 24, 6, 2);
+
+      const armPivot = this.add.container(armX, armY - 6).setDepth(5);
+      const aG = this.add.graphics();
+      aG.lineStyle(5, 0xdc2626, 1);
+      aG.lineBetween(0, 0, -10, -24);
+      aG.lineBetween(-10, -24, 14, -40);
+      aG.fillStyle(0xfacc15, 1);
+      aG.fillCircle(-10, -24, 4);
+      aG.fillStyle(0x38bdf8, 1);
+      aG.fillCircle(14, -40, 4);
+      armPivot.add(aG);
+
+      this.tweens.add({
+        targets: armPivot,
+        angle: 18,
+        duration: 1400,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      });
+    }
+
+    // --- 3. ПЕРЕДНИЙ ГЛАВНЫЙ ВЕРСТАК ---
     const eqG = this.add.graphics().setDepth(6);
 
-    // 5. Отрезной станок (saw)
     const sawX = 52;
     eqG.fillStyle(0x334155, 1);
     eqG.fillRoundedRect(sawX - 20, frontBenchY - 20, 40, 20, 4);
@@ -464,14 +537,12 @@ export class MenuScene extends Phaser.Scene {
     eqG.fillStyle(0xcbd5e1, 1);
     eqG.fillCircle(sawX, frontBenchY - 20, 9);
 
-    // 6. Торцешлифовальный станок (grinder)
     const grX = 102;
     eqG.fillStyle(0x1e293b, 1);
     eqG.fillRoundedRect(grX - 16, frontBenchY - 18, 32, 18, 3);
     eqG.fillStyle(grinderLvl >= 2 ? 0x38bdf8 : 0x94a3b8, 1);
     eqG.fillEllipse(grX, frontBenchY - 20, 28, 8);
 
-    // 7. Гидроклин-колун (shear_crack)
     if (hasSplit) {
       const spX = 148;
       eqG.fillStyle(0x475569, 1);
@@ -480,7 +551,6 @@ export class MenuScene extends Phaser.Scene {
       eqG.fillTriangle(spX - 7, frontBenchY - 26, spX + 7, frontBenchY - 26, spX, frontBenchY - 12);
     }
 
-    // 8. Главный гидропресс по центру (press)
     const pressX = w / 2;
     const pressColors = [0xd97706, 0xca8a04, 0x059669, 0x0284c9, 0x4f46e5, 0xfacc15];
     const pCol = pressColors[Math.min(pressColors.length - 1, pressLvl - 1)];
@@ -493,7 +563,6 @@ export class MenuScene extends Phaser.Scene {
     eqG.fillStyle(0xd6d3d1, 1);
     eqG.fillRect(pressX - 10, frontBenchY - 26, 20, 26);
 
-    // 9. Сдвиговый прибор (shear_load)
     if (hasShearLoad) {
       const shX = pressX + 62;
       eqG.fillStyle(0x334155, 1);
@@ -502,7 +571,6 @@ export class MenuScene extends Phaser.Scene {
       eqG.fillRect(shX - 12, frontBenchY - 36, 24, 8);
     }
 
-    // 10. Ультразвуковой дефектоскоп УЗК (ultrasonic)
     if (hasUltrasonic) {
       const ux = pressX + 110;
       eqG.fillStyle(0x0f172a, 1);
@@ -514,7 +582,6 @@ export class MenuScene extends Phaser.Scene {
       eqG.lineBetween(ux + 4, frontBenchY - 10, ux + 11, frontBenchY - 20);
     }
 
-    // 11. Трёхосный стабилометр (triaxial)
     if (hasTriaxial) {
       const tx = w - 84;
       eqG.fillStyle(0x1e293b, 1);
@@ -523,7 +590,6 @@ export class MenuScene extends Phaser.Scene {
       eqG.fillRect(tx - 10, frontBenchY - 46, 20, 34);
     }
 
-    // 12. Кофемашина на правом краю (coffee)
     if (coffeeLvl > 0) {
       const cmX = w - 38;
       eqG.fillStyle(0x1f2937, 1);
@@ -543,18 +609,31 @@ export class MenuScene extends Phaser.Scene {
       this.particles.emitParticleAt(ptr.x, frontBenchY - 22, 10);
     });
 
-    // Персонажи ходят по углублённому проходу между задним и передним рядом
+    // --- 4. ПЕРСОНАЖИ И ПОДВИЖНЫЕ РОБОТЫ ---
     const walkY = frontBenchY - 4;
     const skin = SKIN_PALETTES[Storage.getActiveSkin()] || SKIN_PALETTES.default;
-    this.spawnLabWorker(w / 2 - 48, walkY, skin, false);
+    this.spawnLabWorker(w / 2 - 48, walkY, skin, 'engineer');
 
     if (assistantLvl > 0) {
       const internPalette = { coat: 0x38bdf8, pants: 0x1e293b, helmet: 0xfef3c7 };
-      this.spawnLabWorker(w / 2 + 54, walkY, internPalette, true);
+      this.spawnLabWorker(w / 2 + 54, walkY, internPalette, 'intern');
+    }
+
+    if (hasRoboHumanoid) {
+      const androidPalette = { coat: 0x94a3b8, pants: 0x0f172a, helmet: 0x38bdf8 };
+      this.spawnLabWorker(w / 2 + 12, midFloorY + 12, androidPalette, 'android');
+    }
+
+    if (hasRoboRover) {
+      this.spawnMobileRobot(130, midFloorY + 16, 'rover');
+    }
+
+    if (hasRoboDog) {
+      this.spawnMobileRobot(w - 130, walkY, 'dog');
     }
   }
 
-  spawnLabWorker(startX, walkY, palette, isIntern) {
+  spawnLabWorker(startX, walkY, palette, role) {
     const { width } = this.scale;
     const worker = this.add.container(startX, walkY).setDepth(5);
 
@@ -564,13 +643,22 @@ export class MenuScene extends Phaser.Scene {
     g.fillRect(2, -22, 5, 22);
     g.fillStyle(palette.coat, 1);
     g.fillRoundedRect(-10, -48, 20, 28, 5);
-    g.fillStyle(0xfde68a, 1);
-    g.fillCircle(0, -56, 8);
-    g.fillStyle(palette.helmet, 1);
-    g.slice(0, -58, 9, Phaser.Math.DegToRad(180), Phaser.Math.DegToRad(360), false);
-    g.fillPath();
 
-    if (isIntern) {
+    if (role === 'android') {
+      // Металлическая голова андроида с неоновым визором
+      g.fillStyle(0xcbd5e1, 1);
+      g.fillRoundedRect(-8, -64, 16, 15, 4);
+      g.fillStyle(0x38bdf8, 1);
+      g.fillRect(-5, -59, 10, 4);
+    } else {
+      g.fillStyle(0xfde68a, 1);
+      g.fillCircle(0, -56, 8);
+      g.fillStyle(palette.helmet, 1);
+      g.slice(0, -58, 9, Phaser.Math.DegToRad(180), Phaser.Math.DegToRad(360), false);
+      g.fillPath();
+    }
+
+    if (role === 'intern') {
       g.fillStyle(0x92400e, 1);
       g.fillRoundedRect(8, -38, 16, 13, 3);
     }
@@ -582,12 +670,13 @@ export class MenuScene extends Phaser.Scene {
     const actor = {
       sprite: worker,
       baseY: walkY,
-      dir: isIntern ? -1 : 1,
-      speed: isIntern ? 28 : 22,
+      dir: role === 'intern' ? -1 : 1,
+      speed: role === 'intern' ? 28 : role === 'android' ? 25 : 22,
       minX,
       maxX,
-      pauseTimer: isIntern ? 0.6 : 1.4,
-      bobPhase: Math.random() * Math.PI * 2
+      pauseTimer: role === 'intern' ? 0.6 : 1.4,
+      bobPhase: Math.random() * Math.PI * 2,
+      bobAmp: 3
     };
 
     const hitZone = this.add.zone(0, -34, 34, 68).setInteractive({ useHandCursor: true });
@@ -603,6 +692,62 @@ export class MenuScene extends Phaser.Scene {
       });
     });
     worker.add(hitZone);
+
+    this.staffActors.push(actor);
+  }
+
+  spawnMobileRobot(startX, walkY, type) {
+    const { width } = this.scale;
+    const bot = this.add.container(startX, walkY).setDepth(5);
+    const g = this.add.graphics();
+
+    if (type === 'rover') {
+      // Колёсный робот-доставщик с жёлтым маячком и лотком
+      g.fillStyle(0xf8fafc, 1);
+      g.fillRoundedRect(-16, -22, 32, 16, 5);
+      g.fillStyle(0xf59e0b, 1);
+      g.fillCircle(0, -25, 4);
+      g.fillStyle(0x0f172a, 1);
+      g.fillCircle(-10, -4, 5);
+      g.fillCircle(10, -4, 5);
+    } else {
+      // Четвероногая робособака Spot-Geo
+      g.fillStyle(0xfacc15, 1);
+      g.fillRoundedRect(-14, -22, 28, 10, 4);
+      g.fillStyle(0x1e293b, 1);
+      g.fillRect(-11, -12, 4, 12);
+      g.fillRect(7, -12, 4, 12);
+      g.fillStyle(0x38bdf8, 1);
+      g.fillRect(10, -25, 7, 5);
+    }
+
+    bot.add(g);
+
+    const actor = {
+      sprite: bot,
+      baseY: walkY,
+      dir: type === 'rover' ? 1 : -1,
+      speed: type === 'rover' ? 34 : 42,
+      minX: 84,
+      maxX: width - 84,
+      pauseTimer: 0.4,
+      bobPhase: 0,
+      bobAmp: type === 'rover' ? 1 : 3.5
+    };
+
+    const hitZone = this.add.zone(0, -16, 36, 32).setInteractive({ useHandCursor: true });
+    hitZone.on('pointerdown', () => {
+      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+      AudioManager.playLatchSnap();
+      this.particles.emitParticleAt(bot.x, bot.y - 20, 6);
+      this.tweens.add({
+        targets: bot,
+        y: walkY - 14,
+        duration: 120,
+        yoyo: true
+      });
+    });
+    bot.add(hitZone);
 
     this.staffActors.push(actor);
   }
@@ -964,7 +1109,7 @@ export class MenuScene extends Phaser.Scene {
       actor.sprite.x += actor.dir * actor.speed * dt;
       actor.sprite.scaleX = actor.dir >= 0 ? 1 : -1;
       actor.bobPhase += dt * 11;
-      actor.sprite.y = actor.baseY - Math.abs(Math.sin(actor.bobPhase)) * 3;
+      actor.sprite.y = actor.baseY - Math.abs(Math.sin(actor.bobPhase)) * (actor.bobAmp || 3);
 
       if (actor.sprite.x >= actor.maxX) {
         actor.sprite.x = actor.maxX;
