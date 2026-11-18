@@ -3,11 +3,18 @@ import { AudioManager } from '../utils/AudioManager.js';
 import { RARE_INCLUSIONS } from '../data/contracts.js';
 
 const LAB_TIERS = {
-  1: { name: 'Гаражная геолаборатория', wall: 0x262320, table: 0x57504a, accent: 0xeab308 },
-  2: { name: 'Участковый пост контроля', wall: 0x23272e, table: 0x4b5563, accent: 0xf59e0b },
-  3: { name: 'Инженерный центр грунтов', wall: 0x1e2631, table: 0x475569, accent: 0x38bdf8 },
-  4: { name: 'Институт механики скал', wall: 0x1b2432, table: 0x3f4c5e, accent: 0x34d399 },
-  5: { name: 'Геотех-комплекс «Атлант»', wall: 0x17202e, table: 0x374151, accent: 0xfacc15 }
+  1: { name: 'Гаражная геолаборатория', wall: 0x292524, floor: 0x3f3a36, table: 0x57504a, accent: 0xeab308 },
+  2: { name: 'Участковый пост контроля', wall: 0x242933, floor: 0x333a47, table: 0x4b5563, accent: 0xf59e0b },
+  3: { name: 'Инженерный центр грунтов', wall: 0x1e293b, floor: 0x2c3a4f, table: 0x475569, accent: 0x38bdf8 },
+  4: { name: 'Институт механики скал', wall: 0x172536, floor: 0x22354a, table: 0x3f4c5e, accent: 0x34d399 },
+  5: { name: 'Геотех-комплекс «Атлант»', wall: 0x141d2e, floor: 0x1e2c42, table: 0x374151, accent: 0xfacc15 }
+};
+
+const LAB_THEMES = {
+  loft: { wall: 0x3b1f16, floor: 0x291d18, table: 0x5c3424, accent: 0xf97316 },
+  arctic: { wall: 0x0c2d48, floor: 0x164263, table: 0x1e6091, accent: 0x7dd3fc },
+  cyber: { wall: 0x091e26, floor: 0x0f2f38, table: 0x134e4a, accent: 0x2dd4bf },
+  gold: { wall: 0x1c1917, floor: 0x292524, table: 0x451a03, accent: 0xfacc15 }
 };
 
 const SKIN_PALETTES = {
@@ -30,7 +37,9 @@ export class MenuScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
     const labLvl = Storage.getLabLevel();
-    const tier = LAB_TIERS[labLvl] || LAB_TIERS[1];
+    const baseTier = LAB_TIERS[labLvl] || LAB_TIERS[1];
+    const customTheme = LAB_THEMES[Storage.getActiveLabTheme()];
+    const tier = customTheme ? { ...baseTier, ...customTheme } : baseTier;
 
     this.showcaseModalOpen = false;
     this.staffActors = [];
@@ -46,9 +55,9 @@ export class MenuScene extends Phaser.Scene {
     this.drawLabRoom(width, height, tier, labLvl);
     this.createTopBar(width, tier);
 
-    this.add.text(width / 2, 92, 'ROCK LAB', {
+    this.add.text(width / 2, 90, 'ROCK LAB', {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '34px',
+      fontSize: '32px',
       fontWeight: '700',
       color: '#fef3c7',
       stroke: '#1c1917',
@@ -60,7 +69,7 @@ export class MenuScene extends Phaser.Scene {
       ? `Ур. ${labLvl} · ${tier.name} · 🛡️ Аккредитация (+15% ×${auditLeft})`
       : `Ур. ${labLvl} · ${tier.name}`;
 
-    this.add.text(width / 2, 126, subLabel, {
+    this.add.text(width / 2, 122, subLabel, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '11px',
       fontWeight: '600',
@@ -135,93 +144,115 @@ export class MenuScene extends Phaser.Scene {
     const hasGeoMap = Storage.hasDecor('geomap');
     const hasCooler = Storage.hasDecor('cooler');
     const hasPlants = Storage.hasDecor('plants');
+    const activeTheme = Storage.getActiveLabTheme();
 
+    const backWallY = 266;
+    const frontBenchY = h * 0.545;
+
+    // 1. Задняя стена
     g.fillStyle(tier.wall, 1);
-    g.fillRect(0, 0, w, h);
+    g.fillRect(0, 64, w, backWallY - 64);
 
-    // Световой конус или неоновая подсветка потолка
+    // Архитектурная текстура стены в зависимости от темы или уровня
+    if (activeTheme === 'loft' || (activeTheme === 'default' && labLvl === 1)) {
+      g.lineStyle(1, 0x000000, 0.22);
+      for (let by = 80; by < backWallY; by += 18) {
+        g.lineBetween(0, by, w, by);
+        const shift = (by / 18) % 2 === 0 ? 0 : 20;
+        for (let bx = shift; bx < w; bx += 40) {
+          g.lineBetween(bx, by, bx, by + 18);
+        }
+      }
+    } else {
+      g.lineStyle(1.5, 0x000000, 0.16);
+      for (let x = 0; x < w; x += 48) {
+        g.lineBetween(x, 64, x, backWallY);
+      }
+      g.lineBetween(0, 165, w, 165);
+    }
+
+    // 2. Углублённый пол цеха в перспективе (между задней стеной и передним верстаком)
+    g.fillStyle(tier.floor, 1);
+    g.fillRect(0, backWallY, w, frontBenchY - backWallY);
+    g.fillStyle(0x0f172a, 0.65);
+    g.fillRect(0, backWallY, w, 6);
+
+    // Перспективные швы напольных плит
+    g.lineStyle(1.5, 0x000000, 0.25);
+    const center = w / 2;
+    for (let i = -4; i <= 4; i++) {
+      g.lineBetween(center + i * 44, backWallY, center + i * 64, frontBenchY);
+    }
+    g.lineBetween(0, (backWallY + frontBenchY) / 2, w, (backWallY + frontBenchY) / 2);
+
+    // Световой конус сверху
     g.fillStyle(hasNeon ? 0x38bdf8 : 0xfef3c7, 0.06 + decorLvl * 0.02);
-    g.fillTriangle(w / 2, 64, 30, h * 0.56, w - 30, h * 0.56);
-
-    g.lineStyle(1.5, 0x000000, 0.18);
-    for (let x = 0; x < w; x += 40) {
-      g.moveTo(x, 64);
-      g.lineTo(x, h * 0.56);
-    }
-    for (let y = 64; y < h * 0.56; y += 40) {
-      g.moveTo(0, y);
-      g.lineTo(w, y);
-    }
-    g.strokePath();
+    g.fillTriangle(w / 2, 66, 20, frontBenchY, w - 20, frontBenchY);
 
     // Потолочная балка + неон
-    g.fillStyle(0x3f3f46, 1);
+    g.fillStyle(0x27272a, 1);
     g.fillRect(0, 66, w, 9);
-    g.fillStyle(hasNeon ? 0x38bdf8 : tier.accent, hasNeon ? 0.85 : 0.25 + decorLvl * 0.06);
+    g.fillStyle(hasNeon ? 0x38bdf8 : tier.accent, hasNeon ? 0.9 : 0.35 + decorLvl * 0.08);
     g.fillRect(0, 75, w, 4);
 
-    // Окно/табло в глубине цеха (или карта месторождений)
+    // Окно/табло или панорама на задней стене
     if (labLvl >= 5) {
-      g.fillStyle(0x0284c9, 0.42);
-      g.fillRoundedRect(w / 2 - 140, 148, 280, 96, 10);
+      g.fillStyle(0x0284c9, 0.45);
+      g.fillRoundedRect(w / 2 - 122, 138, 244, 78, 8);
       g.lineStyle(3, 0x94a3b8, 1);
-      g.strokeRoundedRect(w / 2 - 140, 148, 280, 96, 10);
-      g.fillStyle(0x334155, 0.9);
-      g.fillTriangle(w / 2 - 130, 242, w / 2 - 55, 174, w / 2 + 20, 242);
-      g.fillTriangle(w / 2 - 15, 242, w / 2 + 70, 168, w / 2 + 132, 242);
+      g.strokeRoundedRect(w / 2 - 122, 138, 244, 78, 8);
+      g.fillStyle(0x334155, 0.92);
+      g.fillTriangle(w / 2 - 114, 214, w / 2 - 48, 158, w / 2 + 16, 214);
+      g.fillTriangle(w / 2 - 12, 214, w / 2 + 62, 152, w / 2 + 116, 214);
     } else {
       g.fillStyle(0x14161b, 1);
-      g.fillRoundedRect(w / 2 - 115, 150, 230, 88, 8);
+      g.fillRoundedRect(w / 2 - 104, 140, 208, 74, 8);
       g.lineStyle(2.5, 0x4b5563, 1);
-      g.strokeRoundedRect(w / 2 - 115, 150, 230, 88, 8);
-
+      g.strokeRoundedRect(w / 2 - 104, 140, 208, 74, 8);
       g.fillStyle(0x0ea5e9, 0.12);
-      g.fillRect(w / 2 - 108, 157, 216, 74);
+      g.fillRect(w / 2 - 98, 146, 196, 62);
 
       if (hasGeoMap) {
-        // Континентальные контуры и маячки месторождений на карте
-        g.fillStyle(0x15803d, 0.55);
-        g.fillRoundedRect(w / 2 - 92, 168, 64, 34, 8);
-        g.fillRoundedRect(w / 2 - 10, 164, 96, 44, 10);
+        g.fillStyle(0x15803d, 0.65);
+        g.fillRoundedRect(w / 2 - 82, 154, 56, 30, 6);
+        g.fillRoundedRect(w / 2 - 8, 152, 84, 38, 8);
         g.fillStyle(0xfacc15, 1);
-        g.fillCircle(w / 2 - 64, 182, 4);
-        g.fillCircle(w / 2 + 22, 178, 4);
-        g.fillCircle(w / 2 + 58, 192, 4);
+        g.fillCircle(w / 2 - 58, 168, 4);
+        g.fillCircle(w / 2 + 18, 164, 4);
+        g.fillCircle(w / 2 + 52, 176, 4);
       } else {
-        g.lineStyle(1, 0x334155, 0.6);
-        g.lineBetween(w / 2 - 100, 194, w / 2 + 100, 194);
-        g.lineStyle(2.5, tier.accent, 0.9);
+        g.lineStyle(2, tier.accent, 0.9);
         g.beginPath();
-        g.moveTo(w / 2 - 92, 220);
-        g.lineTo(w / 2 - 42, 200);
-        g.lineTo(w / 2 + 8, 174);
-        g.lineTo(w / 2 + 48, 168);
-        g.lineTo(w / 2 + 84, 216);
+        g.moveTo(w / 2 - 84, 198);
+        g.lineTo(w / 2 - 38, 182);
+        g.lineTo(w / 2 + 6, 160);
+        g.lineTo(w / 2 + 44, 154);
+        g.lineTo(w / 2 + 78, 194);
         g.strokePath();
       }
     }
 
-    // Витрина редких минералов (появляется после покупки со 2-го ур. лабы)
+    // Витрина редких минералов (стоит на полу у левой стены)
     const foundGems = Storage.getGems();
     if (showcaseLvl > 0) {
-      const shelfX = 16;
-      const shelfY = 156;
-      const shelfW = 62;
-      const shelfH = 148;
+      const shelfX = 14;
+      const shelfY = 148;
+      const shelfW = 58;
+      const shelfH = 144;
 
-      g.fillStyle(0x18181b, 0.95);
+      g.fillStyle(0x18181b, 0.96);
       g.fillRoundedRect(shelfX, shelfY, shelfW, shelfH, 6);
       g.lineStyle(2, tier.accent, 0.85);
       g.strokeRoundedRect(shelfX, shelfY, shelfW, shelfH, 6);
 
       const displayed = Storage.getDisplayedGems();
       for (let i = 0; i < 4; i++) {
-        const sy = shelfY + 22 + i * 32;
+        const sy = shelfY + 20 + i * 31;
         g.fillStyle(0x3f3f46, 1);
-        g.fillRect(shelfX + 7, sy + 13, 48, 4);
+        g.fillRect(shelfX + 7, sy + 13, 44, 4);
 
         if (displayed[i]) {
-          const gx = shelfX + 31;
+          const gx = shelfX + 29;
           const gy = sy + 4;
           g.fillStyle(displayed[i].color, 1);
           g.beginPath();
@@ -235,7 +266,7 @@ export class MenuScene extends Phaser.Scene {
           g.strokePath();
         } else {
           g.fillStyle(0x27272a, 1);
-          g.fillCircle(shelfX + 31, sy + 4, 3);
+          g.fillCircle(shelfX + 29, sy + 4, 3);
         }
       }
 
@@ -274,28 +305,28 @@ export class MenuScene extends Phaser.Scene {
         });
       });
     } else if (foundGems.length > 0) {
-      const boxX = 16;
-      const boxY = 254;
+      const boxX = 14;
+      const boxY = 246;
       g.fillStyle(0x292524, 0.95);
-      g.fillRoundedRect(boxX, boxY, 62, 50, 6);
+      g.fillRoundedRect(boxX, boxY, 58, 48, 6);
       g.lineStyle(1.5, 0x78716c, 0.8);
-      g.strokeRoundedRect(boxX, boxY, 62, 50, 6);
+      g.strokeRoundedRect(boxX, boxY, 58, 48, 6);
 
-      this.add.text(boxX + 31, boxY + 16, '📦 СКЛАД', {
+      this.add.text(boxX + 29, boxY + 15, '📦 СКЛАД', {
         fontFamily: '"JetBrains Mono", monospace',
         fontSize: '9px',
         fontWeight: '700',
         color: '#fde68a'
       }).setOrigin(0.5);
 
-      this.add.text(boxX + 31, boxY + 34, `💎 ${foundGems.length} шт.`, {
+      this.add.text(boxX + 29, boxY + 32, `💎 ${foundGems.length} шт.`, {
         fontFamily: '"JetBrains Mono", monospace',
         fontSize: '10px',
         fontWeight: '700',
         color: '#38bdf8'
       }).setOrigin(0.5);
 
-      const boxZone = this.add.zone(boxX + 31, boxY + 25, 68, 56).setInteractive({ useHandCursor: true });
+      const boxZone = this.add.zone(boxX + 29, boxY + 24, 64, 54).setInteractive({ useHandCursor: true });
       boxZone.on('pointerdown', () => {
         if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
         this.showcaseModalOpen = true;
@@ -304,157 +335,241 @@ export class MenuScene extends Phaser.Scene {
       });
     }
 
-    // Кулер с водой (декор)
+    // Кулер и растения теперь стоят на полу цеха (уровень backWallY + 28)
+    const floorLineY = backWallY + 28;
     if (hasCooler) {
-      const cx = w - 42;
-      const cy = 278;
+      const cx = w - 34;
       g.fillStyle(0xe2e8f0, 1);
-      g.fillRoundedRect(cx - 14, cy - 16, 28, 44, 4);
+      g.fillRoundedRect(cx - 13, floorLineY - 40, 26, 40, 4);
       g.fillStyle(0x38bdf8, 0.85);
-      g.fillRoundedRect(cx - 11, cy - 42, 22, 26, 6);
+      g.fillRoundedRect(cx - 10, floorLineY - 64, 20, 24, 5);
       g.fillStyle(0x0284c9, 1);
-      g.fillRect(cx - 6, cy - 6, 4, 6);
+      g.fillRect(cx - 5, floorLineY - 26, 4, 5);
       g.fillStyle(0xef4444, 1);
-      g.fillRect(cx + 2, cy - 6, 4, 6);
+      g.fillRect(cx + 2, floorLineY - 26, 4, 5);
     }
 
-    // Живые растения в горшках (декор)
     if (hasPlants) {
-      const px = hasCooler ? w - 78 : w - 44;
-      const py = 294;
+      const px = hasCooler ? w - 68 : w - 36;
       g.fillStyle(0xb45309, 1);
-      g.fillRect(px - 10, py - 4, 20, 16);
+      g.fillRect(px - 10, floorLineY - 16, 20, 16);
       g.fillStyle(0x22c55e, 1);
-      g.fillCircle(px, py - 14, 11);
-      g.fillCircle(px - 8, py - 10, 8);
-      g.fillCircle(px + 8, py - 10, 8);
+      g.fillCircle(px, floorLineY - 26, 11);
+      g.fillCircle(px - 8, floorLineY - 22, 8);
+      g.fillCircle(px + 8, floorLineY - 22, 8);
     }
 
-    // Сертификат аккредитации на правой стене
-    g.fillStyle(0xfef3c7, 0.9);
-    g.fillRect(w - 72, 164, 52, 62);
+    // Сертификат аккредитации на задней стене
+    g.fillStyle(0xfef3c7, 0.92);
+    g.fillRect(w - 64, 146, 46, 56);
     g.lineStyle(2, 0x78350f, 1);
-    g.strokeRect(w - 72, 164, 52, 62);
+    g.strokeRect(w - 64, 146, 46, 56);
     g.fillStyle(0x78350f, 0.75);
-    g.fillRect(w - 64, 174, 36, 4);
-    g.fillRect(w - 64, 184, 28, 4);
-    g.fillRect(w - 64, 194, 32, 4);
+    g.fillRect(w - 57, 155, 32, 4);
+    g.fillRect(w - 57, 164, 24, 4);
+    g.fillRect(w - 57, 173, 28, 4);
+    if (labLvl >= 3) {
+      g.fillStyle(0xd97706, 1);
+      g.fillCircle(w - 41, 189, 6);
+    }
 
-    // Пол и длинный лабораторный верстак
+    // Передний длинный лабораторный верстак
     g.fillStyle(tier.table, 1);
-    g.fillRect(0, h * 0.54, w, h * 0.46);
-    g.fillStyle(0x27272a, 1);
-    g.fillRect(0, h * 0.54, w, 12);
+    g.fillRect(0, frontBenchY, w, h - frontBenchY);
+    g.fillStyle(0x18181b, 1);
+    g.fillRect(0, frontBenchY, w, 11);
     g.fillStyle(0x71717a, 1);
-    g.fillRect(0, h * 0.54, w, 3);
+    g.fillRect(0, frontBenchY, w, 3);
   }
 
   // =========================================================================
-  // ЖИВАЯ МИНИ-ЛАБОРАТОРИЯ СО СТЕНДАМИ И ХОДЯЩИМИ ПЕРСОНАЖАМИ
+  // ДВУХЪЯРУСНАЯ МИНИ-ЛАБОРАТОРИЯ СО ВСЕМИ КУПЛЕННЫМИ СТЕНДАМИ
   // =========================================================================
   createLiveMiniLab(w, h, tier, labLvl) {
-    const benchY = h * 0.54;
+    const backFloorY = 286;
+    const frontBenchY = h * 0.545;
+
     const pressLvl = Storage.getUpgradeLevel('press');
     const sawLvl = Storage.getUpgradeLevel('saw');
+    const grinderLvl = Storage.getUpgradeLevel('grinder');
+
+    const hasSplit = Storage.isTestUnlocked('shear_crack');
     const hasWater = Storage.isTestUnlocked('water_sat');
     const hasUltrasonic = Storage.isTestUnlocked('ultrasonic');
+    const hasFrost = Storage.isTestUnlocked('frost_test');
+    const hasShearLoad = Storage.isTestUnlocked('shear_load');
     const hasTriaxial = Storage.isTestUnlocked('triaxial');
+
+    const hasCryoBox = Storage.getPerkLevel('cryobox') > 0;
     const coffeeLvl = Storage.getPerkLevel('coffee');
     const assistantLvl = Storage.getPerkLevel('assistant');
 
+    // --- ЗАДНИЙ ЯРУС (В глубине зала) ---
+    const backG = this.add.graphics().setDepth(4);
+
+    // 1. Сушильный шкаф и весы (water_sat)
+    if (hasWater) {
+      const wx = 112;
+      backG.fillStyle(0x475569, 1);
+      backG.fillRoundedRect(wx - 20, backFloorY - 46, 40, 46, 4);
+      backG.fillStyle(0xf97316, 0.85);
+      backG.fillRect(wx - 13, backFloorY - 38, 26, 16);
+      backG.fillStyle(0x94a3b8, 1);
+      backG.fillRect(wx - 12, backFloorY - 16, 24, 4);
+    }
+
+    // 2. Криокамера морозостойкости F200 (frost_test)
+    if (hasFrost) {
+      const fx = 166;
+      backG.fillStyle(0x1e3a8a, 1);
+      backG.fillRoundedRect(fx - 20, backFloorY - 50, 40, 50, 5);
+      backG.lineStyle(1.5, 0x38bdf8, 1);
+      backG.strokeRoundedRect(fx - 20, backFloorY - 50, 40, 50, 5);
+      backG.fillStyle(0xbae6fd, 0.8);
+      backG.fillRect(fx - 12, backFloorY - 40, 24, 18);
+    }
+
+    // 3. Стеллаж с кернами в центре заднего плана (со 2-го ур. лабы)
+    if (labLvl >= 2) {
+      const rx = w / 2 + 18;
+      backG.fillStyle(0x3f3f46, 1);
+      backG.fillRect(rx - 26, backFloorY - 48, 4, 48);
+      backG.fillRect(rx + 22, backFloorY - 48, 4, 48);
+      backG.fillRect(rx - 26, backFloorY - 34, 52, 3);
+      backG.fillRect(rx - 26, backFloorY - 16, 52, 3);
+      backG.fillStyle(0x92400e, 1);
+      backG.fillRect(rx - 18, backFloorY - 44, 16, 10);
+      backG.fillStyle(0xd6d3d1, 1);
+      backG.fillRect(rx + 4, backFloorY - 26, 14, 10);
+    }
+
+    // 4. Крио-термобокс на тумбе (cryobox)
+    if (hasCryoBox) {
+      const cbx = w - 122;
+      backG.fillStyle(0x0284c9, 1);
+      backG.fillRoundedRect(cbx - 16, backFloorY - 24, 32, 24, 4);
+      backG.fillStyle(0xe0f2fe, 1);
+      backG.fillRect(cbx - 16, backFloorY - 26, 32, 5);
+    }
+
+    // --- ПЕРЕДНИЙ ГЛАВНЫЙ ВЕРСТАК (Все рабочие станки и стенды) ---
     const eqG = this.add.graphics().setDepth(6);
 
-    // 1. Отрезной станок (слева на верстаке)
-    const sawX = 112;
+    // 5. Отрезной станок (saw)
+    const sawX = 52;
     eqG.fillStyle(0x334155, 1);
-    eqG.fillRoundedRect(sawX - 24, benchY - 24, 48, 24, 4);
+    eqG.fillRoundedRect(sawX - 20, frontBenchY - 20, 40, 20, 4);
     eqG.fillStyle(sawLvl >= 3 ? 0x10b981 : 0xd97706, 1);
-    eqG.fillRoundedRect(sawX - 18, benchY - 42, 36, 18, 4);
+    eqG.fillRoundedRect(sawX - 15, frontBenchY - 36, 30, 16, 4);
     eqG.fillStyle(0xcbd5e1, 1);
-    eqG.fillCircle(sawX, benchY - 24, 11);
+    eqG.fillCircle(sawX, frontBenchY - 20, 9);
 
-    // 2. Главный гидропресс по центру (меняется от уровня press)
+    // 6. Торцешлифовальный станок (grinder)
+    const grX = 102;
+    eqG.fillStyle(0x1e293b, 1);
+    eqG.fillRoundedRect(grX - 16, frontBenchY - 18, 32, 18, 3);
+    eqG.fillStyle(grinderLvl >= 2 ? 0x38bdf8 : 0x94a3b8, 1);
+    eqG.fillEllipse(grX, frontBenchY - 20, 28, 8);
+
+    // 7. Гидроклин-колун (shear_crack)
+    if (hasSplit) {
+      const spX = 148;
+      eqG.fillStyle(0x475569, 1);
+      eqG.fillRect(spX - 12, frontBenchY - 38, 24, 38);
+      eqG.fillStyle(0xf59e0b, 1);
+      eqG.fillTriangle(spX - 7, frontBenchY - 26, spX + 7, frontBenchY - 26, spX, frontBenchY - 12);
+    }
+
+    // 8. Главный гидропресс по центру (press)
     const pressX = w / 2;
     const pressColors = [0xd97706, 0xca8a04, 0x059669, 0x0284c9, 0x4f46e5, 0xfacc15];
     const pCol = pressColors[Math.min(pressColors.length - 1, pressLvl - 1)];
     eqG.fillStyle(0x3f3f46, 1);
-    eqG.fillRect(pressX - 30, benchY - 66, 8, 66);
-    eqG.fillRect(pressX + 22, benchY - 66, 8, 66);
+    eqG.fillRect(pressX - 26, frontBenchY - 62, 7, 62);
+    eqG.fillRect(pressX + 19, frontBenchY - 62, 7, 62);
     eqG.fillStyle(pCol, 1);
-    eqG.fillRoundedRect(pressX - 36, benchY - 76, 72, 14, 4);
-    eqG.fillRect(pressX - 10, benchY - 62, 20, 14);
-    // Образец керна внутри пресса
+    eqG.fillRoundedRect(pressX - 32, frontBenchY - 72, 64, 13, 4);
+    eqG.fillRect(pressX - 9, frontBenchY - 59, 18, 12);
     eqG.fillStyle(0xd6d3d1, 1);
-    eqG.fillRect(pressX - 11, benchY - 28, 22, 28);
+    eqG.fillRect(pressX - 10, frontBenchY - 26, 20, 26);
 
-    // 3. Дополнительные купленные стенды справа на верстаке
+    // 9. Сдвиговый прибор (shear_load)
+    if (hasShearLoad) {
+      const shX = pressX + 62;
+      eqG.fillStyle(0x334155, 1);
+      eqG.fillRoundedRect(shX - 18, frontBenchY - 28, 36, 28, 4);
+      eqG.fillStyle(0x0284c9, 1);
+      eqG.fillRect(shX - 12, frontBenchY - 36, 24, 8);
+    }
+
+    // 10. Ультразвуковой дефектоскоп УЗК (ultrasonic)
+    if (hasUltrasonic) {
+      const ux = pressX + 110;
+      eqG.fillStyle(0x0f172a, 1);
+      eqG.fillRoundedRect(ux - 16, frontBenchY - 34, 32, 34, 4);
+      eqG.lineStyle(1.5, 0x4ade80, 1);
+      eqG.strokeRoundedRect(ux - 16, frontBenchY - 34, 32, 34, 4);
+      eqG.lineBetween(ux - 11, frontBenchY - 18, ux - 4, frontBenchY - 26);
+      eqG.lineBetween(ux - 4, frontBenchY - 26, ux + 4, frontBenchY - 10);
+      eqG.lineBetween(ux + 4, frontBenchY - 10, ux + 11, frontBenchY - 20);
+    }
+
+    // 11. Трёхосный стабилометр (triaxial)
     if (hasTriaxial) {
-      // Стабилометр (колба с давлением)
-      const tx = w - 132;
+      const tx = w - 84;
       eqG.fillStyle(0x1e293b, 1);
-      eqG.fillRoundedRect(tx - 16, benchY - 56, 32, 56, 5);
-      eqG.fillStyle(0x38bdf8, 0.45);
-      eqG.fillRect(tx - 11, benchY - 48, 22, 36);
-    } else if (hasUltrasonic || hasWater) {
-      // Сушильный шкаф / УЗК блок
-      const ux = w - 132;
-      eqG.fillStyle(0x475569, 1);
-      eqG.fillRoundedRect(ux - 18, benchY - 44, 36, 44, 5);
-      eqG.fillStyle(0x0ea5e9, 0.8);
-      eqG.fillRect(ux - 11, benchY - 36, 22, 14);
+      eqG.fillRoundedRect(tx - 15, frontBenchY - 54, 30, 54, 5);
+      eqG.fillStyle(0x38bdf8, 0.5);
+      eqG.fillRect(tx - 10, frontBenchY - 46, 20, 34);
     }
 
-    // 4. Кофемашина на правом краю верстака
+    // 12. Кофемашина на правом краю (coffee)
     if (coffeeLvl > 0) {
-      const cmX = w - 76;
+      const cmX = w - 38;
       eqG.fillStyle(0x1f2937, 1);
-      eqG.fillRoundedRect(cmX - 16, benchY - 34, 32, 34, 5);
+      eqG.fillRoundedRect(cmX - 15, frontBenchY - 32, 30, 32, 5);
       eqG.fillStyle(0xdc2626, 1);
-      eqG.fillRect(cmX - 13, benchY - 30, 26, 9);
+      eqG.fillRect(cmX - 12, frontBenchY - 28, 24, 8);
       eqG.fillStyle(0xfef3c7, 1);
-      eqG.fillRect(cmX - 4, benchY - 12, 8, 10);
+      eqG.fillRect(cmX - 4, frontBenchY - 11, 8, 9);
     }
 
-    // Интерактивная зона по центру верстака (клик запускает тест-искры)
-    const benchZone = this.add.zone(w / 2, benchY - 36, w - 120, 76)
+    const benchZone = this.add.zone(w / 2, frontBenchY - 34, w - 40, 72)
       .setInteractive({ useHandCursor: true })
       .setDepth(8);
     benchZone.on('pointerdown', (ptr) => {
       if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
       AudioManager.playCorePickup();
-      this.particles.emitParticleAt(ptr.x, benchY - 24, 10);
+      this.particles.emitParticleAt(ptr.x, frontBenchY - 22, 10);
     });
 
-    // 5. Живые персонажи, которые ходят по цеху вдоль верстака
+    // Персонажи ходят по углублённому проходу между задним и передним рядом
+    const walkY = frontBenchY - 4;
     const skin = SKIN_PALETTES[Storage.getActiveSkin()] || SKIN_PALETTES.default;
-    this.spawnLabWorker(w / 2 - 48, benchY, skin, false);
+    this.spawnLabWorker(w / 2 - 48, walkY, skin, false);
 
     if (assistantLvl > 0) {
       const internPalette = { coat: 0x38bdf8, pants: 0x1e293b, helmet: 0xfef3c7 };
-      this.spawnLabWorker(w / 2 + 54, benchY, internPalette, true);
+      this.spawnLabWorker(w / 2 + 54, walkY, internPalette, true);
     }
   }
 
-  spawnLabWorker(startX, benchY, palette, isIntern) {
+  spawnLabWorker(startX, walkY, palette, isIntern) {
     const { width } = this.scale;
-    const worker = this.add.container(startX, benchY - 2).setDepth(7);
+    const worker = this.add.container(startX, walkY).setDepth(5);
 
     const g = this.add.graphics();
-    // Ноги
     g.fillStyle(palette.pants, 1);
     g.fillRect(-7, -22, 5, 22);
     g.fillRect(2, -22, 5, 22);
-    // Халат / комбинезон
     g.fillStyle(palette.coat, 1);
     g.fillRoundedRect(-10, -48, 20, 28, 5);
-    // Голова и каска
     g.fillStyle(0xfde68a, 1);
     g.fillCircle(0, -56, 8);
     g.fillStyle(palette.helmet, 1);
     g.slice(0, -58, 9, Phaser.Math.DegToRad(180), Phaser.Math.DegToRad(360), false);
     g.fillPath();
 
-    // Если стажёр — держит в руках ящик с кернами
     if (isIntern) {
       g.fillStyle(0x92400e, 1);
       g.fillRoundedRect(8, -38, 16, 13, 3);
@@ -462,10 +577,11 @@ export class MenuScene extends Phaser.Scene {
 
     worker.add(g);
 
-    const minX = 96;
-    const maxX = width - 96;
+    const minX = 86;
+    const maxX = width - 86;
     const actor = {
       sprite: worker,
+      baseY: walkY,
       dir: isIntern ? -1 : 1,
       speed: isIntern ? 28 : 22,
       minX,
@@ -481,7 +597,7 @@ export class MenuScene extends Phaser.Scene {
       this.particles.emitParticleAt(worker.x, worker.y - 45, 6);
       this.tweens.add({
         targets: worker,
-        y: benchY - 12,
+        y: walkY - 12,
         duration: 110,
         yoyo: true
       });
@@ -840,7 +956,6 @@ export class MenuScene extends Phaser.Scene {
   update(time, delta) {
     const dt = delta / 1000;
 
-    // Анимация ходьбы персонажей по лаборатории
     for (const actor of this.staffActors) {
       if (actor.pauseTimer > 0) {
         actor.pauseTimer -= dt;
@@ -849,7 +964,7 @@ export class MenuScene extends Phaser.Scene {
       actor.sprite.x += actor.dir * actor.speed * dt;
       actor.sprite.scaleX = actor.dir >= 0 ? 1 : -1;
       actor.bobPhase += dt * 11;
-      actor.sprite.y = this.scale.height * 0.54 - 2 - Math.abs(Math.sin(actor.bobPhase)) * 3;
+      actor.sprite.y = actor.baseY - Math.abs(Math.sin(actor.bobPhase)) * 3;
 
       if (actor.sprite.x >= actor.maxX) {
         actor.sprite.x = actor.maxX;
