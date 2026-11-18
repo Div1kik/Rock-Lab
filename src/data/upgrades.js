@@ -32,6 +32,15 @@ export const TOOL_UPGRADES = [
     maxLevel: 6
   },
   {
+    key: 'caliper_auto',
+    name: 'Авто-привод штангена (1-Клик)',
+    desc: 'Добавляет переключатель замера H и D в один клик (можно вернуть ручной)',
+    baseCost: 2400,
+    costMult: 1,
+    maxLevel: 1,
+    isSingleModule: true
+  },
+  {
     key: 'press',
     name: 'Сервоклапан гидропресса',
     desc: 'Замедляет стрелку и расширяет зелёную зону на стендах',
@@ -85,11 +94,11 @@ export const PERK_UPGRADES = [
   },
   {
     key: 'assistant',
-    name: 'Стажёр-лаборант',
-    desc: 'Ходит по цеху и автоматически выкручивает 1 болт в ящике (до 3)',
-    baseCost: 420,
-    costMult: 2.0,
-    maxLevel: 3
+    name: 'Штат лаборантов (Стажёры)',
+    desc: 'Крутят болты в ящиках (до 3) + каждые 2 уровня новый сотрудник в цехе!',
+    baseCost: 850,
+    costMult: 2.05,
+    maxLevel: 6
   },
   {
     key: 'decor',
@@ -276,9 +285,10 @@ export const TEST_UPGRADES = [
   {
     key: 'triaxial',
     name: 'Трёхосная камера (Стабилометр)',
-    desc: 'Всесторонний обжим жидкостью под давлением для ГЭС и метро',
-    cost: 1150,
-    reqLab: 3
+    desc: 'Сложный обжим под давлением (требует минимум 1 стажёра в штате)',
+    cost: 3200,
+    reqLab: 3,
+    reqStaff: 1
   }
 ];
 
@@ -291,6 +301,7 @@ export const LAB_UPGRADES = [
 ];
 
 export function getToolCost(item, currentLevel) {
+  if (item.isSingleModule) return item.baseCost;
   return Math.round(item.baseCost * Math.pow(item.costMult, Math.max(0, currentLevel - 1)));
 }
 
