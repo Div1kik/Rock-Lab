@@ -19,6 +19,12 @@ export class TestScene extends Phaser.Scene {
     this.isFrozenRock = this.contract?.rock?.trait === 'frozen';
     this.coreTempC = -12.0;
     this.thawPenalty = 0;
+
+    // На 6-м уровне штата старший лаборант автоматически выполняет 1 испытание из заказа (если их >= 2)
+    this.autoTestIdx =
+      Storage.getPerkLevel('assistant') >= 6 && this.testsQueue.length >= 2
+        ? Math.floor(Math.random() * this.testsQueue.length)
+        : -1;
   }
 
   createRockBlock(x, y, w, h) {
@@ -96,6 +102,39 @@ export class TestScene extends Phaser.Scene {
 
     this.stepTxt.setText(`ЭТАП 3 · СТЕНД ${this.currentTestIdx + 1} ИЗ ${this.testsQueue.length}`);
     this.titleTxt.setText(meta.name.toUpperCase());
+
+    // Автоматическое выполнение одного из испытаний старшим лаборантом (Ур. 6)
+    if (this.currentTestIdx === this.autoTestIdx) {
+      this.autoTestIdx = -1;
+      AudioManager.playLatchSnap();
+      this.scores.push(96);
+
+      const { width, height } = this.scale;
+      const autoBanner = this.add.text(
+        width / 2,
+        height * 0.46,
+        `👷 СТАРШИЙ ЛАБОРАНТ ВЫПОЛНИЛ СТЕНД!\n«${meta.name}»\n\nЗамер зафиксирован с точностью 96%`,
+        {
+          fontFamily: '"Rubik", sans-serif',
+          fontSize: '16px',
+          fontWeight: '700',
+          color: '#4ade80',
+          backgroundColor: '#0f172af2',
+          padding: { x: 20, y: 16 },
+          align: 'center',
+          wordWrap: { width: width - 64 },
+          lineSpacing: 5
+        }
+      ).setOrigin(0.5).setDepth(60);
+
+      this.stageContainer.add(autoBanner);
+
+      this.time.delayedCall(1250, () => {
+        this.currentTestIdx += 1;
+        this.startNextTest();
+      });
+      return;
+    }
 
     if (testKey === 'uniaxial') {
       this.buildUniaxialTest();
