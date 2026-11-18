@@ -215,11 +215,11 @@ export class UnpackScene extends Phaser.Scene {
 
     if (this.boxMode === 'screws') {
       const assistantLvl = Storage.getPerkLevel('assistant');
-      const autoBolts = Math.min(3, assistantLvl);
+      const autoBolts = Math.min(3, Math.ceil(assistantLvl / 2));
 
       this.hintTxt.setText(
         autoBolts > 0
-          ? `👷 Стажёр скрутил ${autoBolts} болт(а)! Докрути оставшиеся шуруповёртом`
+          ? `👷 Бригада стажёров скрутила ${autoBolts} болт(а)! Докрути остальные`
           : 'Зажми по очереди 4 болта шуруповёртом'
       );
 
@@ -248,7 +248,6 @@ export class UnpackScene extends Phaser.Scene {
         this.lidContainer.add(bolt);
         this.bolts.push(bolt);
 
-        // Стажёр-лаборант автоматически выкручивает первые N болтов
         if (idx < autoBolts) {
           bolt.done = true;
           this.unscrewedCount += 1;
@@ -274,7 +273,7 @@ export class UnpackScene extends Phaser.Scene {
     } else {
       const assistantLvl = Storage.getPerkLevel('assistant');
       if (assistantLvl > 0) {
-        this.pryProgress = Math.min(0.6, assistantLvl * 0.2);
+        this.pryProgress = Math.min(0.65, 0.25 + assistantLvl * 0.08);
         this.lidContainer.x = -this.pryProgress * 18;
         this.lidContainer.angle = -this.pryProgress * 4;
       }
@@ -454,7 +453,8 @@ export class UnpackScene extends Phaser.Scene {
       return;
     }
 
-    if (Math.random() < 0.22) {
+    // Редкий шанс находки (9% за партию), чтобы минералы реально ценились
+    if (Math.random() < 0.09) {
       const foundGem = rollWeightedInclusion();
       Storage.addGem(foundGem);
       this.showRareGemModal(foundGem);
@@ -471,8 +471,15 @@ export class UnpackScene extends Phaser.Scene {
     const { width, height } = this.scale;
     AudioManager.playStamp();
 
-    const overlay = this.add.graphics().setDepth(60);
-    overlay.fillStyle(0x0b101b, 0.93);
+    // Блокируем сквозные клики по экрану и добавляем паузу перед активацией кнопки
+    this.add.zone(width / 2, height / 2, width, height)
+      .setInteractive()
+      .setDepth(59);
+
+    const modalGroup = this.add.container(0, 0).setDepth(60).setAlpha(0);
+
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x0b101b, 0.94);
     overlay.fillRect(0, 0, width, height);
 
     const cardW = 352;
@@ -480,29 +487,29 @@ export class UnpackScene extends Phaser.Scene {
     const cardX = width / 2 - cardW / 2;
     const cardY = height / 2 - cardH / 2;
 
-    const card = this.add.graphics().setDepth(61);
+    const card = this.add.graphics();
     card.fillStyle(0x1e293b, 1);
     card.fillRoundedRect(cardX, cardY, cardW, cardH, 16);
     card.lineStyle(3, gem.color, 1);
     card.strokeRoundedRect(cardX, cardY, cardW, cardH, 16);
 
-    this.add.text(width / 2, cardY + 32, '✨ НАХОДКА В КЕРНЕ!', {
+    const tHeader = this.add.text(width / 2, cardY + 32, '✨ НАХОДКА В КЕРНЕ!', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '15px',
       fontWeight: '700',
       color: '#facc15'
-    }).setOrigin(0.5).setDepth(62);
+    }).setOrigin(0.5);
 
-    this.add.text(width / 2, cardY + 62, `Редкость: ${gem.rarity.toUpperCase()}`, {
+    const tRarity = this.add.text(width / 2, cardY + 62, `Редкость: ${gem.rarity.toUpperCase()}`, {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '11px',
       fontWeight: '700',
       color: '#38bdf8',
       backgroundColor: '#0f172a',
       padding: { x: 10, y: 4 }
-    }).setOrigin(0.5).setDepth(62);
+    }).setOrigin(0.5);
 
-    this.add.text(width / 2, cardY + 118, `${gem.icon} ${gem.name}`, {
+    const tName = this.add.text(width / 2, cardY + 118, `${gem.icon} ${gem.name}`, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '17px',
       fontWeight: '700',
@@ -510,34 +517,50 @@ export class UnpackScene extends Phaser.Scene {
       align: 'center',
       lineSpacing: 6,
       wordWrap: { width: cardW - 36 }
-    }).setOrigin(0.5).setDepth(62);
+    }).setOrigin(0.5);
 
     const hasShowcase = Storage.getPerkLevel('showcase') > 0;
     const storageHint = hasShowcase
       ? 'Образец отправлен на склад.\nВыбери его в окне витрины, чтобы выставить на полку!'
       : 'Образец сохранён на складе лаборатории.\nКупи витрину в Магазине (со 2-го ур. лабы), чтобы выставить его!';
 
-    this.add.text(width / 2, cardY + 196, storageHint, {
+    const tDesc = this.add.text(width / 2, cardY + 196, storageHint, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '12px',
       color: '#cbd5e1',
       align: 'center',
       lineSpacing: 5,
       wordWrap: { width: cardW - 36 }
-    }).setOrigin(0.5).setDepth(62);
+    }).setOrigin(0.5);
 
-    const btn = this.add.text(width / 2, cardY + cardH - 36, 'ПРОДОЛЖИТЬ ПОДГОТОВКУ →', {
+    const btn = this.add.text(width / 2, cardY + cardH - 36, 'ПОДОЖДИТЕ...', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '13px',
       fontWeight: '700',
-      color: '#0f172a',
-      backgroundColor: '#facc15',
+      color: '#94a3b8',
+      backgroundColor: '#334155',
       padding: { x: 18, y: 11 }
-    }).setOrigin(0.5).setDepth(62).setInteractive({ useHandCursor: true });
+    }).setOrigin(0.5);
 
-    btn.on('pointerdown', () => {
-      AudioManager.playClick();
-      this.scene.start('PrepScene', { contract: this.contract });
+    modalGroup.add([overlay, card, tHeader, tRarity, tName, tDesc, btn]);
+
+    this.tweens.add({
+      targets: modalGroup,
+      alpha: 1,
+      duration: 220
+    });
+
+    this.time.delayedCall(850, () => {
+      if (!btn.active) return;
+      btn.setText('ПРОДОЛЖИТЬ ПОДГОТОВКУ →');
+      btn.setColor('#0f172a');
+      btn.setBackgroundColor('#facc15');
+      btn.setInteractive({ useHandCursor: true });
+
+      btn.on('pointerdown', () => {
+        AudioManager.playClick();
+        this.scene.start('PrepScene', { contract: this.contract });
+      });
     });
   }
 }
