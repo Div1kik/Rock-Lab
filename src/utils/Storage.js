@@ -23,6 +23,7 @@ const DEFAULT_STATE = {
     cryobox: 0
   },
   decorOwned: [],
+  decorDisabled: [],
   activeSkin: 'default',
   activeLabTheme: 'default',
   wear: {
@@ -83,6 +84,7 @@ class StorageManager {
           ...(parsed.perks || {})
         },
         decorOwned: Array.isArray(parsed.decorOwned) ? parsed.decorOwned : [],
+        decorDisabled: Array.isArray(parsed.decorDisabled) ? parsed.decorDisabled : [],
         activeSkin: parsed.activeSkin || 'default',
         activeLabTheme: parsed.activeLabTheme || 'default',
         wear: {
@@ -168,12 +170,35 @@ class StorageManager {
     return Array.isArray(this.state.decorOwned) && this.state.decorOwned.includes(key);
   }
 
+  isDecorActive(key) {
+    if (!this.hasDecor(key)) return false;
+    return !Array.isArray(this.state.decorDisabled) || !this.state.decorDisabled.includes(key);
+  }
+
+  toggleDecorActive(key) {
+    if (!this.hasDecor(key)) return false;
+    if (!Array.isArray(this.state.decorDisabled)) this.state.decorDisabled = [];
+    const idx = this.state.decorDisabled.indexOf(key);
+    if (idx >= 0) {
+      this.state.decorDisabled.splice(idx, 1);
+      this.save();
+      return true;
+    } else {
+      this.state.decorDisabled.push(key);
+      this.save();
+      return false;
+    }
+  }
+
   buyDecor(key) {
     if (!Array.isArray(this.state.decorOwned)) this.state.decorOwned = [];
     if (!this.state.decorOwned.includes(key)) {
       this.state.decorOwned.push(key);
-      this.save();
     }
+    if (Array.isArray(this.state.decorDisabled)) {
+      this.state.decorDisabled = this.state.decorDisabled.filter((k) => k !== key);
+    }
+    this.save();
   }
 
   getActiveSkin() {
