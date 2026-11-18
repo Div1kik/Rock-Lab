@@ -8,10 +8,6 @@ export class ContractsScene extends Phaser.Scene {
     this.contracts = [];
   }
 
-  init(data) {
-    this.priorityTender = data?.priorityTender || null;
-  }
-
   create() {
     const { width, height } = this.scale;
     const labLvl = Storage.getLabLevel();
@@ -55,9 +51,12 @@ export class ContractsScene extends Phaser.Scene {
 
     this.cardsContainer = this.add.container(0, 0);
     this.contracts = generateContractBoard(labLvl, completed, 3);
-    if (this.priorityTender) {
-      this.contracts[0] = this.priorityTender;
+
+    const pendingTender = Storage.getPendingTender();
+    if (pendingTender) {
+      this.contracts[0] = pendingTender;
     }
+
     this.renderCards();
 
     const refreshBtn = this.add.text(width / 2, height - 42, '🔄 ОБНОВИТЬ ЗАКАЗЫ (БЕСПЛАТНО)', {
@@ -71,6 +70,7 @@ export class ContractsScene extends Phaser.Scene {
 
     refreshBtn.on('pointerdown', () => {
       AudioManager.playClick();
+      Storage.clearPendingTender();
       this.contracts = generateContractBoard(labLvl, completed, 3);
       this.renderCards();
     });
@@ -174,6 +174,9 @@ export class ContractsScene extends Phaser.Scene {
 
       hitZone.on('pointerdown', () => {
         AudioManager.playStamp();
+        if (cnt.isTender) {
+          Storage.clearPendingTender();
+        }
         Storage.setActiveContract(cnt);
         this.scene.start('UnpackScene', { contract: cnt });
       });
