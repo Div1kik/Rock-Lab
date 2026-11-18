@@ -11,10 +11,12 @@ const DEFAULT_STATE = {
     saw: 1,
     grinder: 1,
     caliper: 1,
+    caliper_auto: 0,
     press: 1,
     sensors: 1,
     loader: 1
   },
+  caliperAutoMode: true,
   perks: {
     coffee: 0,
     showcase: 0,
@@ -62,6 +64,10 @@ class StorageManager {
       if (!mergedUpgrades.grinder || mergedUpgrades.grinder < 1) {
         mergedUpgrades.grinder = 1;
       }
+      if (typeof parsed.upgrades?.caliper_auto !== 'number') {
+        mergedUpgrades.caliper_auto = 0;
+      }
+
       const foundGems = Array.isArray(parsed.foundGems) ? parsed.foundGems : [];
       const displayedGems = Array.isArray(parsed.displayedGems)
         ? parsed.displayedGems.filter((id) => foundGems.some((g) => g.id === id)).slice(0, 4)
@@ -79,6 +85,7 @@ class StorageManager {
         ...structuredClone(DEFAULT_STATE),
         ...parsed,
         upgrades: mergedUpgrades,
+        caliperAutoMode: parsed.caliperAutoMode !== false,
         perks: {
           ...DEFAULT_STATE.perks,
           ...(parsed.perks || {})
@@ -145,14 +152,34 @@ class StorageManager {
   }
 
   getUpgradeLevel(key) {
+    if (key === 'caliper_auto') {
+      return this.state.upgrades?.caliper_auto || 0;
+    }
     return Math.max(1, this.state.upgrades?.[key] || 1);
   }
 
   upgradeTool(key) {
     if (!(key in this.state.upgrades)) return 1;
     this.state.upgrades[key] = this.getUpgradeLevel(key) + 1;
+    if (key === 'caliper_auto') {
+      this.state.caliperAutoMode = true;
+    }
     this.save();
     return this.state.upgrades[key];
+  }
+
+  hasCaliperAuto() {
+    return this.getUpgradeLevel('caliper_auto') >= 1;
+  }
+
+  isCaliperAutoMode() {
+    return this.hasCaliperAuto() && this.state.caliperAutoMode !== false;
+  }
+
+  toggleCaliperAutoMode() {
+    this.state.caliperAutoMode = !this.isCaliperAutoMode();
+    this.save();
+    return this.state.caliperAutoMode;
   }
 
   getPerkLevel(key) {
