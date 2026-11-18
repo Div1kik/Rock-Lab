@@ -230,32 +230,36 @@ export class UpgradeScene extends Phaser.Scene {
       });
     } else if (this.activeTab === 'decor') {
       DECOR_ITEMS.forEach((item, idx) => {
-        const y = 186 + idx * 84;
+        const y = 186 + idx * 54;
         const owned = Storage.hasDecor(item.key);
         const isEquippedSkin = item.isSkin && Storage.getActiveSkin() === item.skinId;
+        const isEquippedTheme = item.isLabTheme && Storage.getActiveLabTheme() === item.themeId;
         const canBuy = !owned && money >= item.cost;
+        const canEquip = owned && ((item.isSkin && !isEquippedSkin) || (item.isLabTheme && !isEquippedTheme));
 
-        let btnLabel = `КУПИТЬ · ${item.cost} ₽`;
+        let btnLabel = `${item.cost} ₽`;
         if (owned) {
           if (item.isSkin) {
             btnLabel = isEquippedSkin ? '👕 НАДЕТО' : 'ОДЕТЬ';
+          } else if (item.isLabTheme) {
+            btnLabel = isEquippedTheme ? '🏛️ АКТИВНО' : 'ПРИМЕНИТЬ';
           } else {
-            btnLabel = '✅ УСТАНОВЛЕНО';
+            btnLabel = '✅ В ЦЕХУ';
           }
         }
 
-        this.renderItemCard(
+        this.renderCompactDecorCard(
           y,
           `${item.icon} ${item.name}`,
           item.desc,
           owned,
-          item.cost,
-          canBuy || (owned && item.isSkin && !isEquippedSkin),
+          canBuy || canEquip,
           () => {
             if (!owned) {
               if (Storage.spendMoney(item.cost)) {
                 Storage.buyDecor(item.key);
                 if (item.isSkin) Storage.setActiveSkin(item.skinId);
+                if (item.isLabTheme) Storage.setActiveLabTheme(item.themeId);
                 AudioManager.playStamp();
                 this.refreshUI();
               }
@@ -263,9 +267,12 @@ export class UpgradeScene extends Phaser.Scene {
               Storage.setActiveSkin(item.skinId);
               AudioManager.playLatchSnap();
               this.refreshUI();
+            } else if (item.isLabTheme) {
+              Storage.setActiveLabTheme(item.themeId);
+              AudioManager.playLatchSnap();
+              this.refreshUI();
             }
           },
-          77,
           btnLabel
         );
       });
@@ -276,6 +283,44 @@ export class UpgradeScene extends Phaser.Scene {
         this.renderMusicPackCard(y, pack, unlocked, money);
       });
     }
+  }
+
+  renderCompactDecorCard(y, titleStr, descStr, owned, canClick, onClick, btnLabel) {
+    const { width } = this.scale;
+    const cardH = 48;
+    const card = this.add.graphics();
+    card.fillStyle(0x292524, 1);
+    card.fillRoundedRect(18, y, width - 36, cardH, 8);
+    card.lineStyle(1.5, owned ? 0x22c55e : 0x57534e, 0.9);
+    card.strokeRoundedRect(18, y, width - 36, cardH, 8);
+
+    const title = this.add.text(28, y + 14, titleStr, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '11px',
+      fontWeight: '700',
+      color: '#fef3c7'
+    }).setOrigin(0, 0.5);
+
+    const desc = this.add.text(28, y + 32, descStr, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '9px',
+      color: '#a8a29e'
+    }).setOrigin(0, 0.5);
+
+    const btn = this.add.text(width - 28, y + cardH / 2, btnLabel, {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '10px',
+      fontWeight: '700',
+      color: canClick ? '#ffffff' : owned ? '#4ade80' : '#a8a29e',
+      backgroundColor: canClick ? '#d97706' : '#44403c',
+      padding: { x: 9, y: 5 }
+    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: canClick });
+
+    if (canClick) {
+      btn.on('pointerdown', onClick);
+    }
+
+    this.listContainer.add([card, title, desc, btn]);
   }
 
   renderMusicPackCard(y, pack, unlocked, money) {
