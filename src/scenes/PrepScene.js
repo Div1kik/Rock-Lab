@@ -618,10 +618,14 @@ export class PrepScene extends Phaser.Scene {
     };
   }
 
+  // =========================================================================
+  // ФАЗА 2: ЗАМЕР ГАБАРИТОВ ШТАНГЕНЦИРКУЛЕМ (Ручной + переключатель 1-Клик)
+  // =========================================================================
   startMeasurePhase(spec) {
     const { width, height } = this.scale;
     this.stageContainer.removeAll(true);
     const calLvl = Storage.getUpgradeLevel('caliper');
+    const hasAutoModule = Storage.hasCaliperAuto();
     this.titleTxt.setText(`ШТАНГЕНЦИРКУЛЬ [Ур. ${calLvl}]`);
 
     const hint = this.add.text(
@@ -637,7 +641,7 @@ export class PrepScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     const cx = width / 2;
-    const cy = 278;
+    const cy = 288;
 
     const calThemes = [
       { bar: 0x94a3b8, slider: 0x334155, accent: 0x38bdf8 },
@@ -748,11 +752,11 @@ export class PrepScene extends Phaser.Scene {
       color: '#4ade80'
     }).setOrigin(0.5);
 
-    const btn = this.createActionBtn(width / 2, height - 110, 310, 74, 'УДЕРЖИВАТЬ: ЗАМЕР ВЫСОТЫ H (↔)');
+    const btn = this.createActionBtn(width / 2, height - 110, 310, 74, '');
 
-    this.stageContainer.add([
+    const items = [
       hint, core, hCaliperGroup, vCaliperGroup, lcdBg, lcdText, resultSummary, btn.container
-    ]);
+    ];
 
     let step = 'height_axis';
     let gap = 1.0;
@@ -760,23 +764,61 @@ export class PrepScene extends Phaser.Scene {
     let measuredH = spec.targetH;
     let measuredD = spec.targetD;
 
+    const updateActionButtonLabel = () => {
+      const isAuto = Storage.isCaliperAutoMode();
+      if (step === 'height_axis') {
+        btn.setLabel(isAuto ? '⚡ ТАП: АВТО-ЗАМЕР ВЫСОТЫ H (↔)' : 'УДЕРЖИВАТЬ: ЗАМЕР ВЫСОТЫ H (↔)');
+      } else if (step === 'diameter_axis') {
+        btn.setLabel(isAuto ? '⚡ ТАП: АВТО-ЗАМЕР ДИАМЕТРА D (↕)' : 'УДЕРЖИВАТЬ: ЗАМЕР ДИАМЕТРА D (↕)');
+      }
+    };
+
+    updateActionButtonLabel();
+
+    // Переключатель режима замера (если куплен авто-привод штангена)
+    if (hasAutoModule) {
+      const modeSwitchBtn = this.add.text(width / 2, 168, '', {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '11px',
+        fontWeight: '700',
+        padding: { x: 12, y: 6 }
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+      const syncModeSwitchVisual = () => {
+        const isAuto = Storage.isCaliperAutoMode();
+        modeSwitchBtn.setText(
+          isAuto ? 'РЕЖИМ: ⚡ АВТО-КЛИК (тапни для ручного)' : 'РЕЖИМ: 🎛️ РУЧНОЙ (тапни для авто-клика)'
+        );
+        modeSwitchBtn.setColor(isAuto ? '#0f172a' : '#fef3c7');
+        modeSwitchBtn.setBackgroundColor(isAuto ? '#4ade80' : '#334155');
+        updateActionButtonLabel();
+      };
+
+      syncModeSwitchVisual();
+
+      modeSwitchBtn.on('pointerdown', () => {
+        if (step === 'done') return;
+        holding = false;
+        Storage.toggleCaliperAutoMode();
+        AudioManager.playLatchSnap();
+        syncModeSwitchVisual();
+      });
+
+      items.push(modeSwitchBtn);
+    }
+
+    this.stageContainer.add(items);
+
     const baseJawSpeed = Math.max(0.38, 0.65 - (calLvl - 1) * 0.055);
 
-    btn.zone.on('pointerdown', () => {
-      if (step !== 'done') holding = true;
-    });
-
-    const releaseJaw = () => {
-      if (!holding || step === 'done') return;
-      holding = false;
+    const completeCurrentAxis = (errorOffset) => {
       AudioManager.playLatchSnap();
-
-      const error = Math.abs(gap);
-      const stepAcc = Math.max(35, Math.round(100 - error * 220));
+      const stepAcc = Math.max(35, Math.round(100 - Math.abs(errorOffset) * 220));
       this.prepScores.push(stepAcc);
 
       if (step === 'height_axis') {
-        measuredH = (spec.targetH + gap * 25).toFixed(1);
+        hSlider.x = cx + coreW / 2 + errorOffset * hMaxTravel;
+        measuredH = (spec.targetH + errorOffset * 25).toFixed(1);
         resultSummary.setText(`✓ Высота H: ${measuredH} мм (норма ${spec.targetH} мм)`);
         step = 'diameter_axis';
         gap = 1.0;
@@ -784,18 +826,38 @@ export class PrepScene extends Phaser.Scene {
         vCaliperGroup.setVisible(true);
         lcdText.setText(`ДИАМЕТР D: ${(spec.targetD + 20).toFixed(1)} мм (норма ${spec.targetD})`);
         lcdText.setColor('#7dd3fc');
-        btn.setLabel('УДЕРЖИВАТЬ: ЗАМЕР ДИАМЕТРА D (↕)');
+        updateActionButtonLabel();
       } else if (step === 'diameter_axis') {
-        measuredD = (spec.targetD + gap * 20).toFixed(1);
+        vSlider.y = cy + coreH / 2 + errorOffset * vMaxTravel;
+        measuredD = (spec.targetD + errorOffset * 20).toFixed(1);
         step = 'done';
+        lcdText.setText(`ДИАМЕТР D: ${measuredD} мм (норма ${spec.targetD})`);
+        lcdText.setColor('#4ade80');
         resultSummary.setText(`✓ H = ${measuredH} мм  |  D = ${measuredD} мм — Готово!`);
         this.particles.emitParticleAt(cx, cy, 14);
 
-        this.time.delayedCall(800, () => {
+        this.time.delayedCall(650, () => {
           this.currentSpecIdx += 1;
           this.startSpecimenPrep();
         });
       }
+    };
+
+    btn.zone.on('pointerdown', () => {
+      if (step === 'done') return;
+      if (Storage.isCaliperAutoMode()) {
+        // Авто-замер в один тап с высокой точностью
+        const tinyJitter = (Math.random() - 0.5) * 0.016;
+        completeCurrentAxis(tinyJitter);
+      } else {
+        holding = true;
+      }
+    });
+
+    const releaseJaw = () => {
+      if (!holding || step === 'done') return;
+      holding = false;
+      completeCurrentAxis(gap);
     };
 
     btn.zone.on('pointerup', releaseJaw);
@@ -804,7 +866,6 @@ export class PrepScene extends Phaser.Scene {
     this.currentUpdate = (dt) => {
       if (!holding || step === 'done') return;
 
-      // В начале хода (gap ~ 1.0) губки двигаются медленнее, а ближе к образцу (gap -> 0) разгоняются
       const clampedProgress = Math.max(0, Math.min(1, gap));
       const accelCurve = 0.55 + (1 - clampedProgress) * 1.15;
       gap -= baseJawSpeed * accelCurve * dt;
