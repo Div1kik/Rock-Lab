@@ -8,6 +8,10 @@ export class ContractsScene extends Phaser.Scene {
     this.contracts = [];
   }
 
+  init(data) {
+    this.priorityTender = data?.priorityTender || null;
+  }
+
   create() {
     const { width, height } = this.scale;
     const labLvl = Storage.getLabLevel();
@@ -51,6 +55,9 @@ export class ContractsScene extends Phaser.Scene {
 
     this.cardsContainer = this.add.container(0, 0);
     this.contracts = generateContractBoard(labLvl, completed, 3);
+    if (this.priorityTender) {
+      this.contracts[0] = this.priorityTender;
+    }
     this.renderCards();
 
     const refreshBtn = this.add.text(width / 2, height - 42, '🔄 ОБНОВИТЬ ЗАКАЗЫ (БЕСПЛАТНО)', {
@@ -81,12 +88,13 @@ export class ContractsScene extends Phaser.Scene {
 
       const cardBg = this.add.graphics();
       const isAudit = Boolean(cnt.isAudit);
-      const paperColor = isAudit ? 0xdbeafe : cnt.isVip ? 0xfde68a : 0xfef3c7;
-      const borderColor = isAudit ? 0x1d4ed8 : cnt.isVip ? 0xd97706 : 0x78350f;
+      const isTender = Boolean(cnt.isTender);
+      const paperColor = isAudit ? 0xdbeafe : isTender ? 0xfef08a : cnt.isVip ? 0xfde68a : 0xfef3c7;
+      const borderColor = isAudit ? 0x1d4ed8 : isTender ? 0xb91c1c : cnt.isVip ? 0xd97706 : 0x78350f;
 
       cardBg.fillStyle(paperColor, 1);
       cardBg.fillRoundedRect(x, y, cardW, cardH, 10);
-      cardBg.lineStyle(isAudit || cnt.isVip ? 3 : 2, borderColor, 1);
+      cardBg.lineStyle(isAudit || cnt.isVip || isTender ? 3 : 2, borderColor, 1);
       cardBg.strokeRoundedRect(x, y, cardW, cardH, 10);
 
       cardBg.fillStyle(borderColor, 1);
