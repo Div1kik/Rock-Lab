@@ -42,6 +42,8 @@ const DEFAULT_STATE = {
   foundGems: [],
   displayedGems: [],
   siteHistory: [],
+  megaProgress: {},
+  megaCompleted: [],
   soundEnabled: true,
   musicTrack: 0,
   activeContract: null,
@@ -109,6 +111,8 @@ class StorageManager {
         foundGems,
         displayedGems,
         siteHistory: Array.isArray(parsed.siteHistory) ? parsed.siteHistory : [],
+        megaProgress: parsed.megaProgress && typeof parsed.megaProgress === 'object' ? parsed.megaProgress : {},
+        megaCompleted: Array.isArray(parsed.megaCompleted) ? parsed.megaCompleted : [],
         pendingTender: parsed.pendingTender || null
       };
     } catch {
@@ -246,6 +250,35 @@ class StorageManager {
   setActiveLabTheme(themeId) {
     this.state.activeLabTheme = themeId || 'default';
     this.save();
+  }
+
+  getMegaStage(projectId) {
+    return this.state.megaProgress?.[projectId] || 0;
+  }
+
+  isMegaCompleted(projectId) {
+    return Array.isArray(this.state.megaCompleted) && this.state.megaCompleted.includes(projectId);
+  }
+
+  getCompletedMegasCount() {
+    return Array.isArray(this.state.megaCompleted) ? this.state.megaCompleted.length : 0;
+  }
+
+  advanceMegaProject(projectId, totalStages) {
+    if (!this.state.megaProgress) this.state.megaProgress = {};
+    if (!Array.isArray(this.state.megaCompleted)) this.state.megaCompleted = [];
+
+    const nextStage = (this.state.megaProgress[projectId] || 0) + 1;
+    if (nextStage >= totalStages) {
+      this.state.megaProgress[projectId] = totalStages;
+      if (!this.state.megaCompleted.includes(projectId)) {
+        this.state.megaCompleted.push(projectId);
+      }
+    } else {
+      this.state.megaProgress[projectId] = nextStage;
+    }
+    this.save();
+    return this.state.megaProgress[projectId];
   }
 
   getWear(key) {
