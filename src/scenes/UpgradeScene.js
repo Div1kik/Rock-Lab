@@ -430,16 +430,16 @@ export class UpgradeScene extends Phaser.Scene {
     const labLvl = Storage.getLabLevel();
     const completed = Storage.getState().completedContracts || 0;
     const tender = generateContract(labLvl, completed, true, 2.5);
+    Storage.setPendingTender(tender);
     AudioManager.playStamp();
     this.showAdPrizeModal(
       '🔥 ПОЛУЧЕН СРОЧНЫЙ ГОСТЕНДЕР!',
-      `${tender.title}\nГонорар: +${tender.reward} ₽ · ★+${tender.repReward}\n\nТендер уже ждёт вас первым на доске заказов!`,
-      true,
-      tender
+      `${tender.title}\nГонорар: +${tender.reward} ₽ · ★+${tender.repReward}\n\nТендер ждёт вас первым на доске заказов (одноразовый)!`,
+      true
     );
   }
 
-  showAdPrizeModal(titleText, bodyText, goToBoard = false, tender = null) {
+  showAdPrizeModal(titleText, bodyText, goToBoard = false) {
     const { width, height } = this.scale;
     const modal = this.add.container(0, 0).setDepth(50);
 
@@ -488,8 +488,8 @@ export class UpgradeScene extends Phaser.Scene {
     okBtn.on('pointerup', () => {
       AudioManager.playClick();
       modal.destroy();
-      if (goToBoard && tender) {
-        this.scene.start('ContractsScene', { priorityTender: tender });
+      if (goToBoard) {
+        this.scene.start('ContractsScene');
       } else {
         this.refreshUI();
       }
