@@ -31,23 +31,25 @@ export class ReportScene extends Phaser.Scene {
     this.sheetCenterY = sheetY + sheetH / 2;
 
     const isAudit = Boolean(this.contract.isAudit);
+    const isMega = Boolean(this.contract.isMegaProject);
     const sheet = this.add.graphics();
-    sheet.fillStyle(isAudit ? 0xe0f2fe : 0xfef3c7, 1);
+    sheet.fillStyle(isAudit ? 0xe0f2fe : isMega ? 0xfef9c3 : 0xfef3c7, 1);
     sheet.fillRoundedRect(padX, sheetY, sheetW, sheetH, 10);
-    sheet.lineStyle(3, isAudit ? 0x1d4ed8 : 0x78350f, 1);
+    sheet.lineStyle(3, isAudit ? 0x1d4ed8 : isMega ? 0x0284c9 : 0x78350f, 1);
     sheet.strokeRoundedRect(padX, sheetY, sheetW, sheetH, 10);
 
-    this.add.text(
-      width / 2,
-      sheetY + 28,
-      isAudit ? 'ПРОТОКОЛ КОНТРОЛЬНОГО АУДИТА' : 'ПРОТОКОЛ ИСПЫТАНИЙ ГРУНТА',
-      {
-        fontFamily: '"Rubik", sans-serif',
-        fontSize: '17px',
-        fontWeight: '700',
-        color: '#1c1917'
-      }
-    ).setOrigin(0.5);
+    const headerLabel = isAudit
+      ? 'ПРОТОКОЛ КОНТРОЛЬНОГО АУДИТА'
+      : isMega
+        ? 'ГОСПРОТОКОЛ · СТРОЙКА ВЕКА'
+        : 'ПРОТОКОЛ ИСПЫТАНИЙ ГРУНТА';
+
+    this.add.text(width / 2, sheetY + 28, headerLabel, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '16px',
+      fontWeight: '700',
+      color: '#1c1917'
+    }).setOrigin(0.5);
 
     this.add.text(width / 2, sheetY + 52, `Лаборатория ROCK LAB · Заказчик: ${this.contract.company}`, {
       fontFamily: '"Rubik", sans-serif',
@@ -69,27 +71,28 @@ export class ReportScene extends Phaser.Scene {
 
     this.add.text(padX + 20, sheetY + 86, infoLines.join('\n'), {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '13px',
+      fontSize: '12px',
       fontWeight: '600',
       color: '#292524',
-      lineSpacing: 8
+      lineSpacing: 7,
+      wordWrap: { width: sheetW - 40 }
     });
 
     sheet.fillStyle(isAudit ? 0xbae6fd : 0xfde68a, 1);
-    sheet.fillRoundedRect(padX + 18, sheetY + 182, sheetW - 36, 130, 8);
+    sheet.fillRoundedRect(padX + 18, sheetY + 186, sheetW - 36, 126, 8);
     sheet.lineStyle(2, isAudit ? 0x0284c9 : 0xd97706, 0.8);
-    sheet.strokeRoundedRect(padX + 18, sheetY + 182, sheetW - 36, 130, 8);
+    sheet.strokeRoundedRect(padX + 18, sheetY + 186, sheetW - 36, 126, 8);
 
     const errColor = this.errorPct <= 9 ? '#15803d' : this.errorPct <= 18 ? '#b45309' : '#b91c1c';
 
-    this.add.text(width / 2, sheetY + 204, 'ЗАФИКСИРОВАННАЯ ПРОЧНОСТЬ:', {
+    this.add.text(width / 2, sheetY + 206, 'ЗАФИКСИРОВАННАЯ ПРОЧНОСТЬ:', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '12px',
       fontWeight: '700',
       color: '#57534e'
     }).setOrigin(0.5);
 
-    this.add.text(width / 2, sheetY + 238, `${this.measuredMpa} МПа  (±${this.errorPct}%)`, {
+    this.add.text(width / 2, sheetY + 240, `${this.measuredMpa} МПа  (±${this.errorPct}%)`, {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '26px',
       fontWeight: '700',
@@ -98,7 +101,7 @@ export class ReportScene extends Phaser.Scene {
 
     this.add.text(
       width / 2,
-      sheetY + 278,
+      sheetY + 280,
       `Точность работы: ${this.avgAccuracy}% (${this.errorPct > 12 ? 'НУЖНА ПОВЕРКА ПРИБОРОВ!' : 'Поверка в норме'})`,
       {
         fontFamily: '"Rubik", sans-serif',
@@ -242,6 +245,7 @@ export class ReportScene extends Phaser.Scene {
     const actuallySafe = this.contract.isActuallySafe;
     const isCorrectDecision = approvedByPlayer === actuallySafe;
     const isAudit = Boolean(this.contract.isAudit);
+    const isMega = Boolean(this.contract.isMegaProject);
 
     Storage.applyContractWear(this.contract.tests?.length || 1);
 
@@ -293,6 +297,11 @@ export class ReportScene extends Phaser.Scene {
       }
     }
 
+    // Если это этап Мега-проекта и решение верное — продвигаем этап стройки века!
+    if (isMega && isCorrectDecision) {
+      Storage.advanceMegaProject(this.contract.megaProjectId, this.contract.megaTotalStages);
+    }
+
     if (moneyDelta > 0) Storage.addMoney(moneyDelta);
     Storage.addReputation(repDelta);
     Storage.setActiveContract(null);
@@ -305,7 +314,7 @@ export class ReportScene extends Phaser.Scene {
     });
 
     PlatformSDK.onContractFinished();
-    this.showAnimatedCutsceneModal(outcomeType, moneyDelta, repDelta);
+    this.showAnimatedCutsceneModal(outcomeType, moneyDelta, repDelta, isCorrectDecision);
   }
 
   getSiteType() {
@@ -320,9 +329,10 @@ export class ReportScene extends Phaser.Scene {
     return 'highrise';
   }
 
-  showAnimatedCutsceneModal(outcomeType, moneyDelta, repDelta) {
+  showAnimatedCutsceneModal(outcomeType, moneyDelta, repDelta, isCorrectDecision = true) {
     const { width, height } = this.scale;
     const modalReadyAt = performance.now() + 300;
+    const isMega = Boolean(this.contract.isMegaProject);
 
     this.add.zone(width / 2, height / 2, width, height)
       .setInteractive()
@@ -361,9 +371,18 @@ export class ReportScene extends Phaser.Scene {
       highrise: 'ВЫСОТНЫЙ КАРКАС ЗАПУЩЕН В РАБОТУ!'
     };
 
+    let mainTitle = siteTitles[this.getSiteType()] || 'СТРОЙКА ЗАПУЩЕНА УСПЕШНО!';
+    if (isMega && isCorrectDecision) {
+      mainTitle = this.contract.isLastMegaStage
+        ? '🏆 СТРОЙКА ВЕКА ПОЛНОСТЬЮ ЗАВЕРШЕНА!'
+        : `🏗️ ЭТАП ${this.contract.megaStageIndex + 1}/${this.contract.megaTotalStages} СДАН!`;
+    }
+
     const titles = {
-      success: siteTitles[this.getSiteType()] || 'СТРОЙКА ЗАПУЩЕНА УСПЕШНО!',
-      saved_lives: 'ОБЪЕКТ СПАСЁН ОТ ОБВАЛА!',
+      success: mainTitle,
+      saved_lives: isMega && isCorrectDecision
+        ? `🏗️ ЭТАП ${this.contract.megaStageIndex + 1}/${this.contract.megaTotalStages}: БРАК ОТКЛОНЁН!`
+        : 'ОБЪЕКТ СПАСЁН ОТ ОБВАЛА!',
       collapse: 'ПРОИЗОШЁЛ ОБВАЛ ГРУНТА!',
       false_alarm: 'ЛОЖНАЯ ТРЕВОГА ЗАКАЗЧИКА',
       audit_pass: '🛡️ АККРЕДИТАЦИЯ ПОДТВЕРЖДЕНА!',
@@ -381,7 +400,7 @@ export class ReportScene extends Phaser.Scene {
 
     this.add.text(width / 2, boxY + 256, titles[outcomeType], {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '16px',
+      fontSize: '15px',
       fontWeight: '700',
       color: isBad ? '#f87171' : '#4ade80',
       align: 'center'
@@ -430,7 +449,8 @@ export class ReportScene extends Phaser.Scene {
       nextBtnY = boxY + 462;
     }
 
-    const continueBtn = this.add.text(width / 2, nextBtnY, 'ВЕРНУТЬСЯ В ЛАБОРАТОРИЮ →', {
+    const continueLabel = isMega ? 'К СТРОЙКАМ ВЕКА →' : 'ВЕРНУТЬСЯ В ЛАБОРАТОРИЮ →';
+    const continueBtn = this.add.text(width / 2, nextBtnY, continueLabel, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '15px',
       fontWeight: '700',
@@ -445,7 +465,11 @@ export class ReportScene extends Phaser.Scene {
       continueBtn.disableInteractive();
       AudioManager.playClick();
       this.time.delayedCall(140, () => {
-        this.scene.start('MenuScene');
+        if (isMega) {
+          this.scene.start('ContractsScene', { mode: 'mega' });
+        } else {
+          this.scene.start('MenuScene');
+        }
       });
     });
   }
@@ -518,16 +542,13 @@ export class ReportScene extends Phaser.Scene {
     }).setDepth(35);
 
     if (outcomeType === 'success') {
-      // 1. МОСТ (Река внизу + быки моста + опускающийся пролёт с вантами)
       if (siteType === 'bridge') {
         const riverG = this.add.graphics().setDepth(23);
         riverG.fillStyle(0x0284c9, 0.9);
         riverG.fillRect(sx + 56, groundY - 2, sw - 112, 18);
-        // Быки моста
         riverG.fillStyle(0x94a3b8, 1);
         riverG.fillRect(sx + 88, groundY - 46, 20, 48);
         riverG.fillRect(sx + sw - 108, groundY - 46, 20, 48);
-        // Пилоны
         riverG.fillStyle(0xfacc15, 1);
         riverG.fillRect(sx + 94, groundY - 88, 8, 42);
         riverG.fillRect(sx + sw - 102, groundY - 88, 8, 42);
@@ -550,9 +571,7 @@ export class ReportScene extends Phaser.Scene {
             dustParticles.emitParticleAt(sx + sw - 98, groundY - 46, 10);
           }
         });
-      }
-      // 2. ТОННЕЛЬ МЕТРО (Подземный свод и проходческий щит в толще породы)
-      else if (siteType === 'tunnel') {
+      } else if (siteType === 'tunnel') {
         const tunG = this.add.graphics().setDepth(23);
         const tunY = groundY + 26;
         tunG.fillStyle(0x0f172a, 1);
@@ -577,9 +596,7 @@ export class ReportScene extends Phaser.Scene {
             if (Math.random() < 0.25) dustParticles.emitParticleAt(shield.x + 22, tunY, 3);
           }
         });
-      }
-      // 3. ОПОРА ЛЭП (Сборка ажурной мачты и натяжение проводов)
-      else if (siteType === 'powerline') {
+      } else if (siteType === 'powerline') {
         const mast = this.add.container(width / 2, sy + 28).setDepth(24);
         const mG = this.add.graphics();
         mG.lineStyle(3, 0xe2e8f0, 1);
@@ -600,9 +617,7 @@ export class ReportScene extends Phaser.Scene {
           ease: 'Back.easeOut',
           onComplete: () => dustParticles.emitParticleAt(width / 2, groundY, 14)
         });
-      }
-      // 4. ПЛОТИНА ГЭС (Массивная бетонная стенка и водный каскад)
-      else if (siteType === 'dam') {
+      } else if (siteType === 'dam') {
         const damG = this.add.graphics().setDepth(23);
         damG.fillStyle(0xcbd5e1, 1);
         damG.beginPath();
@@ -613,7 +628,6 @@ export class ReportScene extends Phaser.Scene {
         damG.closePath();
         damG.fillPath();
 
-        // Водохранилище слева
         damG.fillStyle(0x0284c9, 0.85);
         damG.fillRect(sx + 10, groundY - 82, width / 2 - sx - 32, 82);
 
@@ -625,9 +639,7 @@ export class ReportScene extends Phaser.Scene {
           yoyo: true,
           repeat: -1
         });
-      }
-      // 5. АЛМАЗНЫЙ КАРЬЕР (Уступы борта и карьерный самосвал)
-      else if (siteType === 'quarry') {
+      } else if (siteType === 'quarry') {
         const qG = this.add.graphics().setDepth(23);
         qG.fillStyle(0x64748b, 1);
         qG.fillRect(sx + 20, groundY - 72, 95, 24);
@@ -649,9 +661,7 @@ export class ReportScene extends Phaser.Scene {
           duration: 720,
           ease: 'Cubic.easeOut'
         });
-      }
-      // 6. КОТТЕДЖНЫЙ ПОСЁЛОК (Сборка загородного дома с крышей)
-      else if (siteType === 'cottage') {
+      } else if (siteType === 'cottage') {
         const house = this.add.container(width / 2, sy + 40).setDepth(24);
         const hG = this.add.graphics();
         hG.fillStyle(0xfef3c7, 1);
@@ -670,9 +680,7 @@ export class ReportScene extends Phaser.Scene {
           ease: 'Bounce.easeOut',
           onComplete: () => dustParticles.emitParticleAt(width / 2, groundY, 14)
         });
-      }
-      // 7. ВЫСОТНЫЙ ЖК (Башенный кран и этажи с окнами)
-      else {
+      } else {
         const craneG = this.add.graphics().setDepth(23);
         const mastX = sx + sw - 46;
         craneG.fillStyle(0x475569, 1);
