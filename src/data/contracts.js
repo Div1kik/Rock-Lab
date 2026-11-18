@@ -111,6 +111,120 @@ export const RARE_INCLUSIONS = [
   { id: 'diamond_kimberlite', name: 'Алмаз в кимберлите', rarity: 'Легендарный', weight: 0.7, value: 1850, color: 0x38bdf8, icon: '✨' }
 ];
 
+export const MEGA_PROJECTS = [
+  {
+    id: 'mega_bridge',
+    title: 'Вантовый мост «Северный Пролив»',
+    company: 'Госкорпорация «Автодор-Север»',
+    siteType: 'bridge',
+    icon: '🌉',
+    reqLab: 3,
+    reqStaff: 1,
+    stageReward: 1600,
+    finalBonus: 12500,
+    finalRep: 35,
+    desc: 'Грандиозный 3-километровый переход через морской пролив на скальных сваях.',
+    stages: [
+      { name: 'Этап 1/3: Береговые устои', reqMpa: 68, rockId: 'granite', tests: ['uniaxial', 'shear_load', 'ultrasonic'], boxes: 2 },
+      { name: 'Этап 2/3: Русловые опоры', reqMpa: 76, rockId: 'basalt', tests: ['uniaxial', 'water_sat', 'shear_cut'], boxes: 2 },
+      { name: 'Этап 3/3: Фундамент главного пилона', reqMpa: 84, rockId: 'granite', tests: ['uniaxial', 'triaxial', 'frost_test'], boxes: 3 }
+    ]
+  },
+  {
+    id: 'mega_metro',
+    title: 'Кольцевое метро «Глубокий Горизонт»',
+    company: 'МУП «Метрострой-Инжиниринг»',
+    siteType: 'tunnel',
+    icon: '🚇',
+    reqLab: 3,
+    reqStaff: 2,
+    stageReward: 2200,
+    finalBonus: 22000,
+    finalRep: 55,
+    desc: 'Проходка глубокого заложения (75 м) под историческим центром и рекой.',
+    stages: [
+      { name: 'Этап 1/4: Наклонный эскалаторный ход', reqMpa: 70, rockId: 'limestone', tests: ['uniaxial', 'shear_crack', 'water_sat'], boxes: 2 },
+      { name: 'Этап 2/4: Перегонный тоннель №1', reqMpa: 78, rockId: 'sandstone', tests: ['uniaxial', 'triaxial', 'ultrasonic'], boxes: 2 },
+      { name: 'Этап 3/4: Свод подземного вестибюля', reqMpa: 85, rockId: 'granite', tests: ['uniaxial', 'shear_load', 'triaxial'], boxes: 3 },
+      { name: 'Этап 4/4: Вентиляционный ствол', reqMpa: 90, rockId: 'basalt', tests: ['uniaxial', 'frost_test', 'triaxial'], boxes: 3 }
+    ]
+  },
+  {
+    id: 'mega_tower',
+    title: 'Небоскрёб «Башня Атлант» (85 этажей)',
+    company: 'ГК «Высота-Девелопмент»',
+    siteType: 'highrise',
+    icon: '🏙️',
+    reqLab: 4,
+    reqStaff: 3,
+    stageReward: 3100,
+    finalBonus: 34000,
+    finalRep: 80,
+    desc: 'Сверхвысотный деловой центр с нагрузкой на плиту свыше 450 000 тонн.',
+    stages: [
+      { name: 'Этап 1/4: Глубокий котлован (-24 м)', reqMpa: 82, rockId: 'granite', tests: ['uniaxial', 'shear_load', 'ultrasonic'], boxes: 2 },
+      { name: 'Этап 2/4: Баретты и свайное поле', reqMpa: 90, rockId: 'basalt', tests: ['uniaxial', 'triaxial', 'shear_cut'], boxes: 3 },
+      { name: 'Этап 3/4: Ядро жёсткости башни', reqMpa: 98, rockId: 'basalt', tests: ['uniaxial', 'triaxial', 'ultrasonic'], boxes: 3 },
+      { name: 'Этап 4/4: Стилобат и подземный паркинг', reqMpa: 88, rockId: 'limestone', tests: ['uniaxial', 'water_sat', 'shear_load'], boxes: 3 }
+    ]
+  },
+  {
+    id: 'mega_dam',
+    title: 'Заполярная ГЭС «Ледяной Щит»',
+    company: 'ПАО «РусГидро-Арктика»',
+    siteType: 'dam',
+    icon: '⚡',
+    reqLab: 5,
+    reqStaff: 4,
+    stageReward: 4200,
+    finalBonus: 52000,
+    finalRep: 120,
+    desc: 'Арочно-гравитационная плотина в зоне вечной мерзлоты и скальных каньонов.',
+    stages: [
+      { name: 'Этап 1/5: Левобережное примыкание', reqMpa: 92, rockId: 'granite', tests: ['uniaxial', 'frost_test', 'triaxial'], boxes: 3 },
+      { name: 'Этап 2/5: Мерзлотная завеса основания', reqMpa: 28, rockId: 'permafrost', tests: ['uniaxial', 'frost_test', 'shear_load'], boxes: 3 },
+      { name: 'Этап 3/5: Водосбросной тракт', reqMpa: 102, rockId: 'basalt', tests: ['uniaxial', 'water_sat', 'ultrasonic'], boxes: 3 },
+      { name: 'Этап 4/5: Подземный машинный зал', reqMpa: 108, rockId: 'basalt', tests: ['uniaxial', 'triaxial', 'shear_crack'], boxes: 3 },
+      { name: 'Этап 5/5: Гребень плотины (Финал)', reqMpa: 112, rockId: 'granite', tests: ['uniaxial', 'triaxial', 'frost_test', 'ultrasonic'], boxes: 3 }
+    ]
+  }
+];
+
+export function generateMegaStageContract(projectId, stageIndex) {
+  const proj = MEGA_PROJECTS.find((p) => p.id === projectId);
+  if (!proj) return null;
+  const stage = proj.stages[stageIndex];
+  if (!stage) return null;
+
+  const rock = ROCK_TYPES.find((r) => r.id === stage.rockId) || ROCK_TYPES[0];
+  const isLastStage = stageIndex === proj.stages.length - 1;
+  const swing = randInt(-14, 22);
+  const trueStrengthMpa = Math.max(12, Math.min(165, stage.reqMpa + swing));
+
+  return {
+    id: `mega_${proj.id}_st${stageIndex}_${Date.now()}`,
+    company: proj.company,
+    title: `${proj.icon} ${proj.title} · ${stage.name}`,
+    siteType: proj.siteType,
+    tier: proj.reqLab,
+    isMegaProject: true,
+    megaProjectId: proj.id,
+    megaStageIndex: stageIndex,
+    megaTotalStages: proj.stages.length,
+    isLastMegaStage: isLastStage,
+    isVip: true,
+    isAudit: false,
+    rock,
+    reqMpa: stage.reqMpa,
+    trueStrengthMpa,
+    isActuallySafe: trueStrengthMpa >= stage.reqMpa,
+    boxesCount: stage.boxes,
+    tests: [...stage.tests],
+    reward: isLastStage ? proj.stageReward + proj.finalBonus : proj.stageReward,
+    repReward: isLastStage ? proj.finalRep : 12
+  };
+}
+
 export function rollWeightedInclusion() {
   const totalWeight = RARE_INCLUSIONS.reduce((sum, item) => sum + item.weight, 0);
   let r = Math.random() * totalWeight;
@@ -198,7 +312,6 @@ export function generateContract(labLevel = 1, completedCount = 0, forceVip = fa
     ['shear_crack', 'water_sat', 'frost_test', 'ultrasonic', 'triaxial', 'shear_load'].includes(t)
   ).length;
 
-  // Заказы со стабилометром (трёхосное сжатие) оплачиваются заметно выше из-за сложности и работы бригады
   const triaxialBonus = selectedTests.includes('triaxial') ? 180 : 0;
 
   const baseReward = Math.round(
