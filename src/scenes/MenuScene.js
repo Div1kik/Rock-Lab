@@ -1,6 +1,7 @@
 import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
 import { RARE_INCLUSIONS, MEGA_PROJECTS } from '../data/contracts.js';
+import { AchievementManager, ACHIEVEMENTS_CATALOG } from '../utils/AchievementManager.js';
 
 const LAB_TIERS = {
   1: { name: 'Гаражная геолаборатория', wall: 0x292524, floor: 0x3f3a36, table: 0x57504a, accent: 0xeab308 },
@@ -156,6 +157,9 @@ export class MenuScene extends Phaser.Scene {
       letterSpacing: 2,
       color: '#a8a29e'
     }).setOrigin(0.5).setAlpha(0.85);
+
+    // Проверяем накопительные достижения при входе в лабораторию
+    AchievementManager.evaluateAll(this);
   }
 
   showSpeechBubble(targetContainer, text, accentColor = 0xfacc15) {
@@ -268,42 +272,119 @@ export class MenuScene extends Phaser.Scene {
     g.fillStyle(hasNeon ? 0x38bdf8 : tier.accent, hasNeon ? 0.9 : 0.35 + decorLvl * 0.08);
     g.fillRect(0, 75, w, 4);
 
+    // Центральное окно / карта (сдвинуто чуть левее, чтобы справа поместился подвесной стенд наград)
+    const winX = w / 2 - 122;
+    const winW = 216;
     if (labLvl >= 5) {
       g.fillStyle(0x0284c9, 0.45);
-      g.fillRoundedRect(w / 2 - 122, 138, 244, 78, 8);
+      g.fillRoundedRect(winX, 138, winW, 78, 8);
       g.lineStyle(3, 0x94a3b8, 1);
-      g.strokeRoundedRect(w / 2 - 122, 138, 244, 78, 8);
+      g.strokeRoundedRect(winX, 138, winW, 78, 8);
       g.fillStyle(0x334155, 0.92);
-      g.fillTriangle(w / 2 - 114, 214, w / 2 - 48, 158, w / 2 + 16, 214);
-      g.fillTriangle(w / 2 - 12, 214, w / 2 + 62, 152, w / 2 + 116, 214);
+      g.fillTriangle(winX + 8, 214, winX + 64, 158, winX + 120, 214);
+      g.fillTriangle(winX + 94, 214, winX + 158, 152, winX + winW - 8, 214);
     } else {
       g.fillStyle(0x14161b, 1);
-      g.fillRoundedRect(w / 2 - 104, 140, 208, 74, 8);
+      g.fillRoundedRect(winX + 12, 140, 192, 74, 8);
       g.lineStyle(2.5, 0x4b5563, 1);
-      g.strokeRoundedRect(w / 2 - 104, 140, 208, 74, 8);
+      g.strokeRoundedRect(winX + 12, 140, 192, 74, 8);
       g.fillStyle(0x0ea5e9, 0.12);
-      g.fillRect(w / 2 - 98, 146, 196, 62);
+      g.fillRect(winX + 18, 146, 180, 62);
 
       if (hasGeoMap) {
         g.fillStyle(0x15803d, 0.65);
-        g.fillRoundedRect(w / 2 - 82, 154, 56, 30, 6);
-        g.fillRoundedRect(w / 2 - 8, 152, 84, 38, 8);
+        g.fillRoundedRect(winX + 28, 154, 52, 30, 6);
+        g.fillRoundedRect(winX + 96, 152, 78, 38, 8);
         g.fillStyle(0xfacc15, 1);
-        g.fillCircle(w / 2 - 58, 168, 4);
-        g.fillCircle(w / 2 + 18, 164, 4);
-        g.fillCircle(w / 2 + 52, 176, 4);
+        g.fillCircle(winX + 52, 168, 4);
+        g.fillCircle(winX + 122, 164, 4);
+        g.fillCircle(winX + 154, 176, 4);
       } else {
         g.lineStyle(2, tier.accent, 0.9);
         g.beginPath();
-        g.moveTo(w / 2 - 84, 198);
-        g.lineTo(w / 2 - 38, 182);
-        g.lineTo(w / 2 + 6, 160);
-        g.lineTo(w / 2 + 44, 154);
-        g.lineTo(w / 2 + 78, 194);
+        g.moveTo(winX + 28, 198);
+        g.lineTo(winX + 70, 182);
+        g.lineTo(winX + 112, 160);
+        g.lineTo(winX + 148, 154);
+        g.lineTo(winX + 180, 194);
         g.strokePath();
       }
     }
 
+    // =========================================================================
+    // ПОДВЕСНОЙ ЗАСТЕКЛЁННЫЙ СТЕНД НАГРАД «СТРОЕК ВЕКА» НА ЗАДНЕЙ СТЕНЕ
+    // =========================================================================
+    const trophyX = w - 134;
+    const trophyY = 140;
+    const trophyW = 62;
+    const trophyH = 76;
+
+    // Кронштейны крепления к стене
+    g.fillStyle(0x475569, 1);
+    g.fillRect(trophyX + 8, trophyY - 4, 6, 4);
+    g.fillRect(trophyX + trophyW - 14, trophyY - 4, 6, 4);
+
+    // Корпус витрины наград и внутренняя полка
+    g.fillStyle(0x0f172a, 0.94);
+    g.fillRoundedRect(trophyX, trophyY, trophyW, trophyH, 6);
+    g.lineStyle(2, 0xfacc15, 0.85);
+    g.strokeRoundedRect(trophyX, trophyY, trophyW, trophyH, 6);
+    g.fillStyle(0x334155, 1);
+    g.fillRect(trophyX + 4, trophyY + 38, trophyW - 8, 3);
+
+    // 4 ячейки под кубки мега-проектов (2 сверху, 2 снизу)
+    const trophySlots = [
+      { id: 'mega_bridge', x: trophyX + 18, y: trophyY + 22 },
+      { id: 'mega_metro', x: trophyX + 44, y: trophyY + 22 },
+      { id: 'mega_tower', x: trophyX + 18, y: trophyY + 58 },
+      { id: 'mega_dam', x: trophyX + 44, y: trophyY + 58 }
+    ];
+
+    trophySlots.forEach((slot) => {
+      const unlocked = Storage.isMegaCompleted(slot.id);
+      if (!unlocked) {
+        g.fillStyle(0x1e293b, 1);
+        g.fillCircle(slot.x, slot.y, 6);
+        return;
+      }
+      // Золотой кубок / макет завершённого мега-проекта
+      g.fillStyle(0xfacc15, 1);
+      g.fillRect(slot.x - 6, slot.y + 8, 12, 3);
+      if (slot.id === 'mega_bridge') {
+        g.fillRect(slot.x - 5, slot.y - 6, 2, 14);
+        g.fillRect(slot.x + 3, slot.y - 6, 2, 14);
+        g.fillRect(slot.x - 8, slot.y + 1, 16, 2);
+      } else if (slot.id === 'mega_metro') {
+        g.fillCircle(slot.x, slot.y + 1, 7);
+        g.fillStyle(0x0f172a, 1);
+        g.fillCircle(slot.x, slot.y + 2, 4);
+      } else if (slot.id === 'mega_tower') {
+        g.fillRect(slot.x - 4, slot.y - 8, 8, 16);
+        g.fillRect(slot.x - 1, slot.y - 13, 2, 5);
+      } else {
+        g.fillTriangle(slot.x - 7, slot.y + 8, slot.x - 2, slot.y - 6, slot.x + 7, slot.y + 8);
+        g.fillStyle(0x38bdf8, 1);
+        g.fillRect(slot.x + 1, slot.y - 2, 4, 10);
+      }
+    });
+
+    // Стеклянная панель с диагональным бликом поверх стенда наград
+    g.fillStyle(0x38bdf8, 0.12);
+    g.fillRoundedRect(trophyX + 2, trophyY + 2, trophyW - 4, trophyH - 4, 4);
+    g.lineStyle(1.5, 0xffffff, 0.35);
+    g.lineBetween(trophyX + 10, trophyY + 8, trophyX + 24, trophyY + 28);
+    g.lineBetween(trophyX + 18, trophyY + 8, trophyX + 28, trophyY + 22);
+
+    const trophyHit = this.add.zone(trophyX + trophyW / 2, trophyY + trophyH / 2, trophyW + 8, trophyH + 8)
+      .setInteractive({ useHandCursor: true });
+    trophyHit.on('pointerdown', () => {
+      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+      this.showcaseModalOpen = true;
+      AudioManager.playClick();
+      this.openAchievementsModal(tier);
+    });
+
+    // Витрина редких минералов слева
     const foundGems = Storage.getGems();
     if (showcaseLvl > 0) {
       const shelfX = 14;
@@ -434,16 +515,16 @@ export class MenuScene extends Phaser.Scene {
     }
 
     g.fillStyle(0xfef3c7, 0.92);
-    g.fillRect(w - 64, 146, 46, 56);
+    g.fillRect(w - 62, 146, 44, 56);
     g.lineStyle(2, 0x78350f, 1);
-    g.strokeRect(w - 64, 146, 46, 56);
+    g.strokeRect(w - 62, 146, 44, 56);
     g.fillStyle(0x78350f, 0.75);
-    g.fillRect(w - 57, 155, 32, 4);
-    g.fillRect(w - 57, 164, 24, 4);
-    g.fillRect(w - 57, 173, 28, 4);
+    g.fillRect(w - 55, 155, 30, 4);
+    g.fillRect(w - 55, 164, 22, 4);
+    g.fillRect(w - 55, 173, 26, 4);
     if (labLvl >= 3) {
       g.fillStyle(0xd97706, 1);
-      g.fillCircle(w - 41, 189, 6);
+      g.fillCircle(w - 40, 189, 6);
     }
 
     g.fillStyle(tier.table, 1);
@@ -452,6 +533,152 @@ export class MenuScene extends Phaser.Scene {
     g.fillRect(0, frontBenchY, w, 11);
     g.fillStyle(0x71717a, 1);
     g.fillRect(0, frontBenchY, w, 3);
+  }
+
+  // =========================================================================
+  // МОДАЛЬНОЕ ОКНО ДОСТИЖЕНИЙ И НАГРАД СТРОЕК ВЕКА
+  // =========================================================================
+  openAchievementsModal(tier) {
+    const { width, height } = this.scale;
+    const modalContainer = this.add.container(0, 0).setDepth(65);
+
+    const blocker = this.add.zone(width / 2, height / 2, width, height).setInteractive();
+    const dimBg = this.add.graphics();
+    dimBg.fillStyle(0x090d16, 0.95);
+    dimBg.fillRect(0, 0, width, height);
+
+    const boxW = 408;
+    const boxH = 680;
+    const boxX = width / 2 - boxW / 2;
+    const boxY = height / 2 - boxH / 2;
+
+    const panel = this.add.graphics();
+    panel.fillStyle(0x181c26, 1);
+    panel.fillRoundedRect(boxX, boxY, boxW, boxH, 16);
+    panel.lineStyle(3, tier.accent, 1);
+    panel.strokeRoundedRect(boxX, boxY, boxW, boxH, 16);
+
+    const unlockedList = Storage.getUnlockedAchievements();
+    const title = this.add.text(
+      width / 2,
+      boxY + 24,
+      `🏆 ДОСТИЖЕНИЯ (${unlockedList.length}/${ACHIEVEMENTS_CATALOG.length})`,
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '16px',
+        fontWeight: '700',
+        color: '#facc15'
+      }
+    ).setOrigin(0.5);
+
+    const megasDone = Storage.getCompletedMegasCount();
+    const sub = this.add.text(
+      width / 2,
+      boxY + 46,
+      `Сдано строек века: ${megasDone}/${MEGA_PROJECTS.length} · Свайпай список вниз/вверх`,
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
+        color: '#94a3b8'
+      }
+    ).setOrigin(0.5);
+
+    modalContainer.add([blocker, dimBg, panel, title, sub]);
+
+    const listStartY = boxY + 66;
+    const listViewH = boxH - 122;
+    const scrollGroup = this.add.container(0, 0);
+    modalContainer.add(scrollGroup);
+
+    const maskG = this.make.graphics();
+    maskG.fillStyle(0xffffff);
+    maskG.fillRect(boxX + 8, listStartY, boxW - 16, listViewH);
+    scrollGroup.setMask(maskG.createGeometryMask());
+
+    const rowH = 66;
+    const rowGap = 8;
+    ACHIEVEMENTS_CATALOG.forEach((ach, idx) => {
+      const isDone = unlockedList.includes(ach.id);
+      const ry = listStartY + idx * (rowH + rowGap);
+
+      const rowG = this.add.graphics();
+      rowG.fillStyle(isDone ? 0x1e293b : 0x11151f, 1);
+      rowG.fillRoundedRect(boxX + 14, ry, boxW - 28, rowH, 10);
+      rowG.lineStyle(1.5, isDone ? 0xfacc15 : 0x334155, isDone ? 0.95 : 0.6);
+      rowG.strokeRoundedRect(boxX + 14, ry, boxW - 28, rowH, 10);
+
+      const iconTxt = this.add.text(boxX + 36, ry + rowH / 2, isDone ? ach.icon : '🔒', {
+        fontSize: '22px'
+      }).setOrigin(0.5).setAlpha(isDone ? 1 : 0.5);
+
+      const nameTxt = this.add.text(boxX + 60, ry + 16, ach.title, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '12px',
+        fontWeight: '700',
+        color: isDone ? '#fef08a' : '#94a3b8'
+      }).setOrigin(0, 0.5);
+
+      const rewardTxt = this.add.text(
+        boxX + boxW - 24,
+        ry + 16,
+        isDone ? '✅ ПОЛУЧЕНО' : `+${ach.rewardMoney}₽ ★${ach.rewardRep}`,
+        {
+          fontFamily: '"JetBrains Mono", monospace',
+          fontSize: '9px',
+          fontWeight: '700',
+          color: isDone ? '#4ade80' : '#38bdf8'
+        }
+      ).setOrigin(1, 0.5);
+
+      const descTxt = this.add.text(boxX + 60, ry + 42, ach.desc, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '10px',
+        color: isDone ? '#e2e8f0' : '#64748b',
+        wordWrap: { width: boxW - 84 }
+      }).setOrigin(0, 0.5);
+
+      scrollGroup.add([rowG, iconTxt, nameTxt, rewardTxt, descTxt]);
+    });
+
+    const totalH = ACHIEVEMENTS_CATALOG.length * (rowH + rowGap);
+    const maxScroll = Math.max(0, totalH - listViewH + 10);
+    let scrollY = 0;
+    let dragStart = 0;
+    let dragStartScroll = 0;
+    let dragging = false;
+
+    const dragZone = this.add.zone(width / 2, listStartY + listViewH / 2, boxW, listViewH)
+      .setInteractive();
+    dragZone.on('pointerdown', (ptr) => {
+      dragging = true;
+      dragStart = ptr.y;
+      dragStartScroll = scrollY;
+    });
+    dragZone.on('pointermove', (ptr) => {
+      if (!dragging || maxScroll <= 0) return;
+      scrollY = Phaser.Math.Clamp(dragStartScroll + (ptr.y - dragStart), -maxScroll, 0);
+      scrollGroup.y = scrollY;
+    });
+    dragZone.on('pointerup', () => { dragging = false; });
+    modalContainer.add(dragZone);
+
+    const closeBtn = this.add.text(width / 2, boxY + boxH - 28, 'ЗАКРЫТЬ', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '13px',
+      fontWeight: '700',
+      color: '#ffffff',
+      backgroundColor: '#d97706',
+      padding: { x: 26, y: 9 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    closeBtn.on('pointerdown', () => {
+      AudioManager.playClick();
+      maskG.destroy();
+      modalContainer.destroy();
+      this.showcaseModalOpen = false;
+    });
+
+    modalContainer.add(closeBtn);
   }
 
   createLiveMiniLab(w, h, tier, labLvl) {
@@ -746,9 +973,6 @@ export class MenuScene extends Phaser.Scene {
       eqG.fillRect(cmX - 4, frontBenchY - 11, 8, 9);
     }
 
-    // =========================================================================
-    // НАВИГАЦИОННЫЙ ГРАФ ПРОХОДОВ (Персонажи и роботы обходят всю мебель!)
-    // =========================================================================
     const topLaneY = 304;
     const botLaneY = frontBenchY - 6;
     const leftCorridorX = 62;
@@ -757,12 +981,10 @@ export class MenuScene extends Phaser.Scene {
     const rightCorridorX = w - 64;
 
     this.navNodes = [
-      // Верхний проход (0..3) — за мебелью центрального ряда
       { id: 0, x: leftCorridorX, y: topLaneY, neighbors: [1, 4] },
       { id: 1, x: midLeftCorridorX, y: topLaneY, neighbors: [0, 2, 5] },
       { id: 2, x: midRightCorridorX, y: topLaneY, neighbors: [1, 3, 6] },
       { id: 3, x: rightCorridorX, y: topLaneY, neighbors: [2, 7] },
-      // Нижний проход вдоль передних станков (4..7) — перед мебелью центрального ряда
       { id: 4, x: leftCorridorX, y: botLaneY, neighbors: [0, 5] },
       { id: 5, x: midLeftCorridorX, y: botLaneY, neighbors: [1, 4, 6] },
       { id: 6, x: midRightCorridorX, y: botLaneY, neighbors: [2, 5, 7] },
@@ -1086,22 +1308,45 @@ export class MenuScene extends Phaser.Scene {
     g.lineStyle(2, tier.accent, 0.65);
     g.lineBetween(0, 64, w, 64);
 
-    this.moneyTxt = this.add.text(20, 20, `💰 ${Storage.getMoney()} ₽`, {
+    this.moneyTxt = this.add.text(18, 20, `💰 ${Storage.getMoney()} ₽`, {
       fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '18px',
+      fontSize: '17px',
       fontWeight: '700',
       color: '#facc15'
     });
 
-    this.add.text(195, 20, `★ ${Storage.getReputation()}`, {
+    this.add.text(178, 20, `★ ${Storage.getReputation()}`, {
       fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '18px',
+      fontSize: '17px',
       fontWeight: '700',
       color: '#38bdf8'
     });
 
-    const soundBtn = this.add.text(w - 22, 18, Storage.isSoundEnabled() ? '🔊' : '🔇', {
-      fontSize: '24px'
+    // Кнопка открытия Достижений в верхней панели
+    const achCount = Storage.getUnlockedAchievements().length;
+    const achBtn = this.add.text(
+      w - 64,
+      32,
+      `🏆 ${achCount}/${ACHIEVEMENTS_CATALOG.length}`,
+      {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '11px',
+        fontWeight: '700',
+        color: '#0f172a',
+        backgroundColor: '#facc15',
+        padding: { x: 8, y: 6 }
+      }
+    ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+
+    achBtn.on('pointerdown', () => {
+      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+      this.showcaseModalOpen = true;
+      AudioManager.playClick();
+      this.openAchievementsModal(tier);
+    });
+
+    const soundBtn = this.add.text(w - 18, 18, Storage.isSoundEnabled() ? '🔊' : '🔇', {
+      fontSize: '23px'
     }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
 
     soundBtn.on('pointerdown', () => {
@@ -1331,7 +1576,6 @@ export class MenuScene extends Phaser.Scene {
       if (Math.abs(dx) > 1) {
         actor.sprite.scaleX = dx >= 0 ? 1 : -1;
       }
-      // Y-сортировка глубины: в верхнем проходе (y <= 316) персонаж за центральной мебелью (depth 7), в нижнем — перед ней (depth 12)
       actor.sprite.setDepth(actor.sprite.y <= 318 ? 7 : 12);
     }
 
