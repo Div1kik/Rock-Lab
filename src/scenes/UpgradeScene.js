@@ -110,6 +110,7 @@ export class UpgradeScene extends Phaser.Scene {
     const money = Storage.getMoney();
     const rep = Storage.getReputation();
     const labLvl = Storage.getLabLevel();
+    const staffLvl = Storage.getPerkLevel('assistant');
 
     this.balanceTxt.setText(`💰 ${money} ₽  ★ ${rep}`);
 
@@ -247,11 +248,13 @@ export class UpgradeScene extends Phaser.Scene {
         const y = startY + idx * 94;
         const unlocked = Storage.isTestUnlocked(item.key);
         const labOk = labLvl >= item.reqLab;
-        const canBuy = !unlocked && labOk && money >= item.cost;
+        const staffOk = !item.reqStaff || staffLvl >= item.reqStaff;
+        const canBuy = !unlocked && labOk && staffOk && money >= item.cost;
 
         let btnText = `КУПИТЬ · ${item.cost} ₽`;
         if (unlocked) btnText = '✅ АКТИВЕН';
         else if (!labOk) btnText = `НУЖНА ЛАБА Ур. ${item.reqLab}`;
+        else if (!staffOk) btnText = `НУЖЕН СТАЖЁР (Ур. ${item.reqStaff}+)`;
 
         this.renderItemCard(
           y,
@@ -273,7 +276,7 @@ export class UpgradeScene extends Phaser.Scene {
           item.key
         );
       });
-      totalContentH = TEST_UPGRADES.length * 94;
+      totalContentH = TEST_UPGRADES.length * 94 + 20;
     } else if (this.activeTab === 'tools') {
       TOOL_UPGRADES.forEach((tool, idx) => {
         const y = startY + idx * 82;
@@ -282,8 +285,10 @@ export class UpgradeScene extends Phaser.Scene {
         const cost = getToolCost(tool, lvl);
         const canBuy = !isMax && money >= cost;
 
-        const titleStr = `${tool.name} [Ур. ${lvl}/${tool.maxLevel}]`;
-        const btnLabel = isMax ? 'МАКС.' : `УЛУЧШИТЬ · ${cost} ₽`;
+        const titleStr = tool.isSingleModule
+          ? `${tool.name} [${isMax ? 'УСТАНОВЛЕНО' : 'МОДУЛЬ'}]`
+          : `${tool.name} [Ур. ${lvl}/${tool.maxLevel}]`;
+        const btnLabel = isMax ? (tool.isSingleModule ? '✅ КУПЛЕНО' : 'МАКС.') : `КУПИТЬ · ${cost} ₽`;
 
         this.renderItemCard(
           y,
@@ -304,7 +309,7 @@ export class UpgradeScene extends Phaser.Scene {
           btnLabel
         );
       });
-      totalContentH = TOOL_UPGRADES.length * 82;
+      totalContentH = TOOL_UPGRADES.length * 82 + 20;
     } else if (this.activeTab === 'perks') {
       PERK_UPGRADES.forEach((perk, idx) => {
         const y = startY + idx * 106;
@@ -329,7 +334,7 @@ export class UpgradeScene extends Phaser.Scene {
           }
         }, 98, customBtn);
       });
-      totalContentH = PERK_UPGRADES.length * 106;
+      totalContentH = PERK_UPGRADES.length * 106 + 20;
     } else if (this.activeTab === 'decor') {
       DECOR_ITEMS.forEach((item, idx) => {
         const y = startY + idx * 56;
@@ -347,7 +352,7 @@ export class UpgradeScene extends Phaser.Scene {
           } else {
             isToggleOn = Storage.isDecorActive(item.key);
           }
-          btnLabel = isToggleOn ? 'ВКЛ 🟢' : 'ВЫКЛ ⚫';
+          btnLabel = isToggleOn ? 'ВКЛ 🟢' : 'ВЫКЛ → ВКЛ';
         }
 
         this.renderCompactDecorCard(
@@ -515,8 +520,8 @@ export class UpgradeScene extends Phaser.Scene {
       color: '#a8a29e'
     }).setOrigin(0, 0.5);
 
-    const btnBg = owned ? (isToggleOn ? '#4ade80' : '#44403c') : (canClick ? '#d97706' : '#44403c');
-    const btnColor = owned ? (isToggleOn ? '#0f172a' : '#e2e8f0') : (canClick ? '#ffffff' : '#a8a29e');
+    const btnBg = owned ? (isToggleOn ? '#4ade80' : '#475569') : (canClick ? '#d97706' : '#44403c');
+    const btnColor = owned ? (isToggleOn ? '#0f172a' : '#f8fafc') : (canClick ? '#ffffff' : '#a8a29e');
 
     const btn = this.add.text(width - 28, y + cardH / 2, btnLabel, {
       fontFamily: '"JetBrains Mono", monospace',
@@ -566,7 +571,7 @@ export class UpgradeScene extends Phaser.Scene {
       const statusTxt = this.add.text(
         30,
         y + cardH - 16,
-        isEnabled ? '🟢 ИГРАЕТ В ПЛЕЙЛИСТЕ' : '⚪ ОТКЛЮЧЕН ИЗ РОТАЦИИ',
+        isEnabled ? '🟢 ИГРАЕТ В ПЛЕЙЛИСТЕ' : '⚪ ВЫКЛЮЧЕН ИЗ РОТАЦИИ',
         {
           fontFamily: '"JetBrains Mono", monospace',
           fontSize: '10px',
@@ -578,14 +583,14 @@ export class UpgradeScene extends Phaser.Scene {
       const toggleBtn = this.add.text(
         width - 30,
         y + cardH - 16,
-        isEnabled ? 'ВКЛ 🟢' : 'ВЫКЛ ⚫',
+        isEnabled ? 'ВКЛ 🟢' : 'ВЫКЛ → ВКЛ',
         {
           fontFamily: '"JetBrains Mono", monospace',
           fontSize: '11px',
           fontWeight: '700',
-          color: isEnabled ? '#0f172a' : '#e2e8f0',
-          backgroundColor: isEnabled ? '#4ade80' : '#44403c',
-          padding: { x: 12, y: 5 }
+          color: isEnabled ? '#0f172a' : '#f8fafc',
+          backgroundColor: isEnabled ? '#4ade80' : '#475569',
+          padding: { x: 11, y: 5 }
         }
       ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
