@@ -18,6 +18,7 @@ export class UpgradeScene extends Phaser.Scene {
     this.activeTab = 'tests';
     this.scrollOffset = 0;
     this.maxScroll = 0;
+    this.wasDragging = false;
   }
 
   create() {
@@ -70,6 +71,7 @@ export class UpgradeScene extends Phaser.Scene {
     let isDragging = false;
 
     this.input.on('pointerdown', (ptr) => {
+      this.wasDragging = false;
       if (ptr.y >= 224) {
         isDragging = true;
         dragStartY = ptr.y;
@@ -80,6 +82,9 @@ export class UpgradeScene extends Phaser.Scene {
     this.input.on('pointermove', (ptr) => {
       if (!isDragging || this.maxScroll <= 0) return;
       const dy = ptr.y - dragStartY;
+      if (Math.abs(dy) > 8) {
+        this.wasDragging = true;
+      }
       this.scrollOffset = Phaser.Math.Clamp(startOffset + dy, -this.maxScroll, 0);
       this.listContainer.y = this.scrollOffset;
     });
@@ -113,7 +118,6 @@ export class UpgradeScene extends Phaser.Scene {
     topBg.fillRect(0, 58, width, 166);
     this.topFixedContainer.add(topBg);
 
-    // 1. Карточка расширения лаборатории
     const nextLab = LAB_UPGRADES.find((l) => l.level === labLvl + 1);
     const labCard = this.add.graphics();
     labCard.fillStyle(0x292524, 1);
@@ -145,7 +149,7 @@ export class UpgradeScene extends Phaser.Scene {
       ).setOrigin(1, 0.5).setInteractive({ useHandCursor: canBuyLab });
 
       if (canBuyLab) {
-        buyLabBtn.on('pointerdown', () => {
+        buyLabBtn.on('pointerup', () => {
           if (Storage.spendMoney(nextLab.cost)) {
             Storage.setLabLevel(nextLab.level);
             AudioManager.playStamp();
@@ -164,7 +168,6 @@ export class UpgradeScene extends Phaser.Scene {
       this.topFixedContainer.add(maxTxt);
     }
 
-    // 2. Рекламный блок «Срочный тендер» с редким шансом на декор или аудиопак
     const adBanner = this.add.graphics();
     adBanner.fillStyle(0x1e293b, 1);
     adBanner.fillRoundedRect(18, 130, width - 36, 46, 10);
@@ -193,7 +196,7 @@ export class UpgradeScene extends Phaser.Scene {
       padding: { x: 10, y: 6 }
     }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
-    adActionBtn.on('pointerdown', () => {
+    adActionBtn.on('pointerup', () => {
       adActionBtn.disableInteractive();
       PlatformSDK.showRewarded(() => {
         this.handleTenderAdReward();
@@ -202,7 +205,6 @@ export class UpgradeScene extends Phaser.Scene {
 
     this.topFixedContainer.add([adBanner, adTitle, adSub, adActionBtn]);
 
-    // 3. Вкладки магазина
     const tabY = 198;
     const gap = 4;
     const tabW = (width - 36 - gap * 4) / 5;
@@ -221,7 +223,7 @@ export class UpgradeScene extends Phaser.Scene {
         align: 'center'
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-      btn.on('pointerdown', () => {
+      btn.on('pointerup', () => {
         if (!isSelected) {
           AudioManager.playClick();
           this.activeTab = tabKey;
@@ -259,6 +261,7 @@ export class UpgradeScene extends Phaser.Scene {
           item.cost,
           canBuy,
           () => {
+            if (this.wasDragging) return;
             if (Storage.spendMoney(item.cost)) {
               Storage.unlockTest(item.key);
               AudioManager.playStamp();
@@ -290,6 +293,7 @@ export class UpgradeScene extends Phaser.Scene {
           cost,
           canBuy,
           () => {
+            if (this.wasDragging) return;
             if (Storage.spendMoney(cost)) {
               Storage.upgradeTool(tool.key);
               AudioManager.playLatchSnap();
@@ -317,6 +321,7 @@ export class UpgradeScene extends Phaser.Scene {
         }
 
         this.renderItemCard(y, `${perk.name} [Ур. ${lvl}/${perk.maxLevel}]`, perk.desc, isMax, cost, canBuy, () => {
+          if (this.wasDragging) return;
           if (Storage.spendMoney(cost)) {
             Storage.upgradePerk(perk.key);
             AudioManager.playStamp();
@@ -327,22 +332,22 @@ export class UpgradeScene extends Phaser.Scene {
       totalContentH = PERK_UPGRADES.length * 106;
     } else if (this.activeTab === 'decor') {
       DECOR_ITEMS.forEach((item, idx) => {
-        const y = startY + idx * 54;
+        const y = startY + idx * 56;
         const owned = Storage.hasDecor(item.key);
-        const isEquippedSkin = item.isSkin && Storage.getActiveSkin() === item.skinId;
-        const isEquippedTheme = item.isLabTheme && Storage.getActiveLabTheme() === item.themeId;
         const canBuy = !owned && money >= item.cost;
-        const canEquip = owned && ((item.isSkin && !isEquippedSkin) || (item.isLabTheme && !isEquippedTheme));
 
+        let isToggleOn = false;
         let btnLabel = `${item.cost} ₽`;
+
         if (owned) {
           if (item.isSkin) {
-            btnLabel = isEquippedSkin ? '👕 НАДЕТО' : 'ОДЕТЬ';
+            isToggleOn = Storage.getActiveSkin() === item.skinId;
           } else if (item.isLabTheme) {
-            btnLabel = isEquippedTheme ? '🏛️ АКТИВНО' : 'ПРИМЕНИТЬ';
+            isToggleOn = Storage.getActiveLabTheme() === item.themeId;
           } else {
-            btnLabel = '✅ В ЦЕХУ';
+            isToggleOn = Storage.isDecorActive(item.key);
           }
+          btnLabel = isToggleOn ? 'ВКЛ 🟢' : 'ВЫКЛ ⚫';
         }
 
         this.renderCompactDecorCard(
@@ -350,8 +355,10 @@ export class UpgradeScene extends Phaser.Scene {
           `${item.icon} ${item.name}`,
           item.desc,
           owned,
-          canBuy || canEquip,
+          isToggleOn,
+          canBuy || owned,
           () => {
+            if (this.wasDragging) return;
             if (!owned) {
               if (Storage.spendMoney(item.cost)) {
                 Storage.buyDecor(item.key);
@@ -361,11 +368,15 @@ export class UpgradeScene extends Phaser.Scene {
                 this.refreshUI();
               }
             } else if (item.isSkin) {
-              Storage.setActiveSkin(item.skinId);
+              Storage.setActiveSkin(isToggleOn ? 'default' : item.skinId);
               AudioManager.playLatchSnap();
               this.refreshUI();
             } else if (item.isLabTheme) {
-              Storage.setActiveLabTheme(item.themeId);
+              Storage.setActiveLabTheme(isToggleOn ? 'default' : item.themeId);
+              AudioManager.playLatchSnap();
+              this.refreshUI();
+            } else {
+              Storage.toggleDecorActive(item.key);
               AudioManager.playLatchSnap();
               this.refreshUI();
             }
@@ -373,7 +384,7 @@ export class UpgradeScene extends Phaser.Scene {
           btnLabel
         );
       });
-      totalContentH = DECOR_ITEMS.length * 54 + 24;
+      totalContentH = DECOR_ITEMS.length * 56 + 24;
     } else if (this.activeTab === 'music') {
       MUSIC_PACK_CATALOG.forEach((pack, idx) => {
         const y = startY + idx * 96;
@@ -392,7 +403,6 @@ export class UpgradeScene extends Phaser.Scene {
     const lockedPacks = MUSIC_PACK_CATALOG.filter((p) => !Storage.isMusicPackUnlocked(p.id));
     const lockedDecor = DECOR_ITEMS.filter((d) => !Storage.hasDecor(d.key));
 
-    // 5% ультра-редкий шанс выбить закрытый музыкальный пак
     if (roll < 0.05 && lockedPacks.length > 0) {
       const wonPack = lockedPacks[Math.floor(Math.random() * lockedPacks.length)];
       Storage.unlockMusicPack(wonPack.id);
@@ -402,7 +412,6 @@ export class UpgradeScene extends Phaser.Scene {
       return;
     }
 
-    // 10% редкий шанс выбить предмет декора/робота
     if (roll < 0.15 && lockedDecor.length > 0) {
       const wonDecor = lockedDecor[Math.floor(Math.random() * lockedDecor.length)];
       Storage.buyDecor(wonDecor.key);
@@ -413,7 +422,6 @@ export class UpgradeScene extends Phaser.Scene {
       return;
     }
 
-    // 85% Срочный государственный тендер с повышенной оплатой ×2.5
     const labLvl = Storage.getLabLevel();
     const completed = Storage.getState().completedContracts || 0;
     const tender = generateContract(labLvl, completed, true, 2.5);
@@ -472,7 +480,7 @@ export class UpgradeScene extends Phaser.Scene {
       padding: { x: 18, y: 10 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-    okBtn.on('pointerdown', () => {
+    okBtn.on('pointerup', () => {
       AudioManager.playClick();
       modal.destroy();
       if (goToBoard && tender) {
@@ -485,39 +493,42 @@ export class UpgradeScene extends Phaser.Scene {
     modal.add([blocker, dim, panel, t1, t2, okBtn]);
   }
 
-  renderCompactDecorCard(y, titleStr, descStr, owned, canClick, onClick, btnLabel) {
+  renderCompactDecorCard(y, titleStr, descStr, owned, isToggleOn, canClick, onClick, btnLabel) {
     const { width } = this.scale;
-    const cardH = 48;
+    const cardH = 50;
     const card = this.add.graphics();
     card.fillStyle(0x292524, 1);
     card.fillRoundedRect(18, y, width - 36, cardH, 8);
-    card.lineStyle(1.5, owned ? 0x22c55e : 0x57534e, 0.9);
+    card.lineStyle(1.5, owned ? (isToggleOn ? 0x22c55e : 0x64748b) : 0x57534e, 0.9);
     card.strokeRoundedRect(18, y, width - 36, cardH, 8);
 
-    const title = this.add.text(28, y + 14, titleStr, {
+    const title = this.add.text(28, y + 15, titleStr, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '11px',
       fontWeight: '700',
       color: '#fef3c7'
     }).setOrigin(0, 0.5);
 
-    const desc = this.add.text(28, y + 32, descStr, {
+    const desc = this.add.text(28, y + 34, descStr, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '9px',
       color: '#a8a29e'
     }).setOrigin(0, 0.5);
 
+    const btnBg = owned ? (isToggleOn ? '#4ade80' : '#44403c') : (canClick ? '#d97706' : '#44403c');
+    const btnColor = owned ? (isToggleOn ? '#0f172a' : '#e2e8f0') : (canClick ? '#ffffff' : '#a8a29e');
+
     const btn = this.add.text(width - 28, y + cardH / 2, btnLabel, {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '10px',
       fontWeight: '700',
-      color: canClick ? '#ffffff' : owned ? '#4ade80' : '#a8a29e',
-      backgroundColor: canClick ? '#d97706' : '#44403c',
-      padding: { x: 9, y: 5 }
+      color: btnColor,
+      backgroundColor: btnBg,
+      padding: { x: 10, y: 5 }
     }).setOrigin(1, 0.5).setInteractive({ useHandCursor: canClick });
 
     if (canClick) {
-      btn.on('pointerdown', onClick);
+      btn.on('pointerup', onClick);
     }
 
     this.listContainer.add([card, title, desc, btn]);
@@ -578,7 +589,8 @@ export class UpgradeScene extends Phaser.Scene {
         }
       ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
-      toggleBtn.on('pointerdown', () => {
+      toggleBtn.on('pointerup', () => {
+        if (this.wasDragging) return;
         const nowOn = Storage.toggleMusicPackEnabled(pack.id);
         AudioManager.playLatchSnap();
         if (nowOn) {
@@ -606,7 +618,8 @@ export class UpgradeScene extends Phaser.Scene {
         padding: { x: 10, y: 5 }
       }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
-      adBtn.on('pointerdown', () => {
+      adBtn.on('pointerup', () => {
+        if (this.wasDragging) return;
         adBtn.disableInteractive();
         PlatformSDK.showRewarded(() => {
           const totalWatched = Storage.incrementMusicPackAds(pack.id);
@@ -640,7 +653,8 @@ export class UpgradeScene extends Phaser.Scene {
       }).setOrigin(1, 0.5).setInteractive({ useHandCursor: canBuyCoins });
 
       if (canBuyCoins) {
-        coinBtn.on('pointerdown', () => {
+        coinBtn.on('pointerup', () => {
+          if (this.wasDragging) return;
           if (Storage.spendMoney(pack.price)) {
             Storage.unlockMusicPack(pack.id);
             AudioManager.activatePackFirstTrack(pack.id);
@@ -685,7 +699,8 @@ export class UpgradeScene extends Phaser.Scene {
         padding: { x: 8, y: 4 }
       }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
 
-      infoBtn.on('pointerdown', () => {
+      infoBtn.on('pointerup', () => {
+        if (this.wasDragging) return;
         AudioManager.playClick();
         this.scene.start('GuideScene', { returnScene: 'UpgradeScene', guideKey });
       });
@@ -703,7 +718,7 @@ export class UpgradeScene extends Phaser.Scene {
     }).setOrigin(1, 0.5).setInteractive({ useHandCursor: canBuy });
 
     if (canBuy) {
-      btn.on('pointerdown', onBuy);
+      btn.on('pointerup', onBuy);
     }
 
     this.listContainer.add([card, title, desc, btn]);
