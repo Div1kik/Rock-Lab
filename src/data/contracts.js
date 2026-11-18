@@ -198,8 +198,11 @@ export function generateContract(labLevel = 1, completedCount = 0, forceVip = fa
     ['shear_crack', 'water_sat', 'frost_test', 'ultrasonic', 'triaxial', 'shear_load'].includes(t)
   ).length;
 
+  // Заказы со стабилометром (трёхосное сжатие) оплачиваются заметно выше из-за сложности и работы бригады
+  const triaxialBonus = selectedTests.includes('triaxial') ? 180 : 0;
+
   const baseReward = Math.round(
-    (95 + site.tier * 65 + selectedTests.length * 35 + premiumCount * 45) * vipMult
+    (95 + site.tier * 65 + selectedTests.length * 35 + premiumCount * 45 + triaxialBonus) * vipMult
   );
 
   const prefix = tenderMultiplier > 1 ? '🔥 ГОСТЕНДЕР: ' : isVip ? '⚡ СРОЧНО: ' : '';
@@ -220,7 +223,7 @@ export function generateContract(labLevel = 1, completedCount = 0, forceVip = fa
     boxesCount: site.boxes,
     tests: selectedTests,
     reward: baseReward,
-    repReward: Math.round((site.tier * 2 + selectedTests.length + premiumCount) * (isVip ? 1.5 : 1))
+    repReward: Math.round((site.tier * 2 + selectedTests.length + premiumCount + (triaxialBonus > 0 ? 2 : 0)) * (isVip ? 1.5 : 1))
   };
 }
 
