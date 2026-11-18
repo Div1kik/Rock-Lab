@@ -24,6 +24,7 @@ const DEFAULT_STATE = {
   },
   decorOwned: [],
   activeSkin: 'default',
+  activeLabTheme: 'default',
   wear: {
     saw: 100,
     grinder: 100,
@@ -83,6 +84,7 @@ class StorageManager {
         },
         decorOwned: Array.isArray(parsed.decorOwned) ? parsed.decorOwned : [],
         activeSkin: parsed.activeSkin || 'default',
+        activeLabTheme: parsed.activeLabTheme || 'default',
         wear: {
           ...DEFAULT_STATE.wear,
           ...(parsed.wear || {})
@@ -183,6 +185,15 @@ class StorageManager {
     this.save();
   }
 
+  getActiveLabTheme() {
+    return this.state.activeLabTheme || 'default';
+  }
+
+  setActiveLabTheme(themeId) {
+    this.state.activeLabTheme = themeId || 'default';
+    this.save();
+  }
+
   getWear(key) {
     return Math.max(0, Math.min(100, this.state.wear?.[key] ?? 100));
   }
@@ -275,7 +286,6 @@ class StorageManager {
     if (!Array.isArray(this.state.enabledMusicPacks)) this.state.enabledMusicPacks = ['base'];
     const idx = this.state.enabledMusicPacks.indexOf(packId);
     if (idx >= 0) {
-      // Не даём выключить последний активный пак, чтобы плеер не остался без треков
       if (this.state.enabledMusicPacks.length <= 1) return true;
       this.state.enabledMusicPacks.splice(idx, 1);
       this.save();
