@@ -2,7 +2,7 @@ import { Storage } from './Storage.js';
 import { AudioManager } from './AudioManager.js';
 
 /**
- * Пошаговый интерактивный Spotlight-туториал для ROCK LAB
+ * Пошаговый интерактивный туториал для ROCK LAB с сохранением видимости сцены и приборов
  */
 class TutorialController {
   constructor() {
@@ -45,101 +45,67 @@ class TutorialController {
   }
 
   /**
-   * Показывает затемнение с вырезом (Spotlight) вокруг нужного элемента и карточку-подсказку.
-   * @param {Phaser.Scene} scene
-   * @param {object} opts
-   * @param {object|null} opts.hole - { x, y, w, h } центр и размеры подсвечиваемой области (сквозь неё проходят клики!)
-   * @param {number} opts.cardY - Y-координата карточки с текстом
-   * @param {string} opts.badge - Заголовок шага (напр. "ШАГ 1/8 · ЗАКАЗЫ")
-   * @param {string} opts.text - Текст объяснения
-   * @param {string|null} opts.nextLabel - Если задано, рисует кнопку "ДАЛЕЕ →" (для информационных шагов)
-   * @param {Function|null} opts.onNext - Колбэк при нажатии "ДАЛЕЕ →"
-   * @param {boolean} opts.blockOutside - Блокировать ли нажатия вне подсвеченного окна (по умолчанию true)
+   * Показывает лёгкую подсветку вокруг целевого элемента и карточку-подсказку,
+   * не скрывая в темноте сам процесс испытания.
    */
   showSpotlight(scene, opts) {
     this.clear(scene);
     if (!this.isActive()) return;
 
-    const { width, height } = scene.scale;
+    const { width } = scene.scale;
     const {
       hole = null,
       cardY = 210,
       badge = 'ОБУЧЕНИЕ · ИНСТРУКТАЖ',
       text = '',
       nextLabel = null,
-      onNext = null,
-      blockOutside = true
+      onNext = null
     } = opts;
 
     const group = scene.add.container(0, 0).setDepth(110);
     this.overlayGroup = group;
 
-    const dimG = scene.add.graphics();
-    dimG.fillStyle(0x060912, 0.78);
+    // Лёгкая атмосферная вуаль (не блокирует клики и оставляет сцену хорошо читаемой)
+    const softVeil = scene.add.graphics();
+    softVeil.fillStyle(0x090d16, 0.24);
+    softVeil.fillRect(0, 0, width, scene.scale.height);
+    group.add(softVeil);
 
     if (hole) {
-      const left = Math.max(0, hole.x - hole.w / 2);
-      const right = Math.min(width, hole.x + hole.w / 2);
-      const top = Math.max(0, hole.y - hole.h / 2);
-      const bottom = Math.min(height, hole.y + hole.h / 2);
+      const left = Math.max(8, hole.x - hole.w / 2);
+      const top = Math.max(8, hole.y - hole.h / 2);
+      const rw = Math.min(width - 16, hole.w);
+      const rh = hole.h;
 
-      // 4 прямоугольника вокруг подсвеченной зоны, чтобы клики свободно проходили сквозь "дырку"
-      if (top > 0) dimG.fillRect(0, 0, width, top);
-      if (bottom < height) dimG.fillRect(0, bottom, width, height - bottom);
-      if (left > 0) dimG.fillRect(0, top, left, bottom - top);
-      if (right < width) dimG.fillRect(right, top, width - right, bottom - top);
-
-      // Блокеры по краям (не перекрывают сам hole!)
-      if (blockOutside) {
-        if (top > 0) {
-          group.add(scene.add.zone(width / 2, top / 2, width, top).setInteractive());
-        }
-        if (bottom < height) {
-          group.add(scene.add.zone(width / 2, bottom + (height - bottom) / 2, width, height - bottom).setInteractive());
-        }
-        if (left > 0) {
-          group.add(scene.add.zone(left / 2, top + (bottom - top) / 2, left, bottom - top).setInteractive());
-        }
-        if (right < width) {
-          group.add(scene.add.zone(right + (width - right) / 2, top + (bottom - top) / 2, width - right, bottom - top).setInteractive());
-        }
-      }
-
-      // Пульсирующая золотая рамка вокруг целевого элемента
       const frame = scene.add.graphics();
       frame.lineStyle(3, 0xfacc15, 1);
-      frame.strokeRoundedRect(left - 2, top - 2, right - left + 4, bottom - top + 4, 12);
+      frame.strokeRoundedRect(left - 2, top - 2, rw + 4, rh + 4, 12);
+      frame.lineStyle(1.5, 0x38bdf8, 0.75);
+      frame.strokeRoundedRect(left - 6, top - 6, rw + 12, rh + 12, 15);
       group.add(frame);
 
       scene.tweens.add({
         targets: frame,
-        alpha: 0.35,
-        duration: 550,
+        alpha: 0.4,
+        duration: 600,
         yoyo: true,
         repeat: -1
       });
-    } else {
-      dimG.fillRect(0, 0, width, height);
-      if (blockOutside) {
-        group.add(scene.add.zone(width / 2, height / 2, width, height).setInteractive());
-      }
     }
 
-    group.add(dimG);
-
     // Карточка инструктора
-    const cardW = 388;
+    const cardW = 412;
     const hasBtn = Boolean(nextLabel);
-    const cardH = hasBtn ? 168 : 132;
+    const cardH = hasBtn ? 186 : 134;
     const cx = width / 2;
 
     const card = scene.add.graphics();
-    card.fillStyle(0x141926, 0.98);
+    card.fillStyle(0x141926, 0.96);
     card.fillRoundedRect(cx - cardW / 2, cardY - cardH / 2, cardW, cardH, 14);
-    card.lineStyle(2.5, 0x38bdf8, 1);
+    card.lineStyle(2.5, 0x38bdf8, 0.95);
     card.strokeRoundedRect(cx - cardW / 2, cardY - cardH / 2, cardW, cardH, 14);
 
-    const badgeTxt = scene.add.text(cx - cardW / 2 + 16, cardY - cardH / 2 + 18, `👷 ${badge}`, {
+    const badgeTxt = scene.add.text(cx - cardW / 2 + 14, cardY - cardH / 2 + 18, `👷 ${badge}`, {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '10px',
       fontWeight: '700',
@@ -160,16 +126,16 @@ class TutorialController {
 
     const bodyTxt = scene.add.text(
       cx,
-      cardY + (hasBtn ? -8 : 10),
+      cardY + (hasBtn ? -12 : 8),
       text,
       {
         fontFamily: '"Rubik", sans-serif',
-        fontSize: '12px',
+        fontSize: '11.5px',
         fontWeight: '600',
         color: '#f8fafc',
         align: 'center',
         lineSpacing: 4,
-        wordWrap: { width: cardW - 32 }
+        wordWrap: { width: cardW - 28 }
       }
     ).setOrigin(0.5);
 
