@@ -111,6 +111,82 @@ export const RARE_INCLUSIONS = [
   { id: 'diamond_kimberlite', name: 'Алмаз в кимберлите', rarity: 'Легендарный', weight: 0.7, value: 1850, color: 0x38bdf8, icon: '✨' }
 ];
 
+export const EXPEDITIONS_CATALOG = [
+  {
+    id: 'exp_ural',
+    title: 'Экспедиция: Уральский разлом',
+    region: 'Северный Урал · Скважина №412',
+    siteType: 'quarry',
+    icon: '⛰️',
+    cost: 15000,
+    payout: 24000,
+    rep: 25,
+    minRarityTier: 3, // Гарантированный Редкий+ минерал
+    rockId: 'granite',
+    reqMpa: 78,
+    tests: ['uniaxial', 'shear_crack', 'ultrasonic'],
+    desc: 'Глубокое колонковое бурение в зоне рудных жил. Гарантирует находку редкого образца!'
+  },
+  {
+    id: 'exp_arctic',
+    title: 'Экспедиция: Таймырская мерзлота',
+    region: 'Полуостров Таймыр · Буровая платформа',
+    siteType: 'powerline',
+    icon: '❄️',
+    cost: 32000,
+    payout: 52000,
+    rep: 45,
+    minRarityTier: 6, // Гарантированный Эпический+ минерал
+    rockId: 'permafrost',
+    reqMpa: 26,
+    tests: ['uniaxial', 'frost_test', 'triaxial'],
+    desc: 'Арктическая вездеходная партия. Привозит глубинные керны с эпическими минералами!'
+  },
+  {
+    id: 'exp_yakutia',
+    title: 'Экспедиция: Кимберлитовая трубка',
+    region: 'Якутия · Сверхглубокий горизонт',
+    siteType: 'quarry',
+    icon: '💎',
+    cost: 65000,
+    payout: 110000,
+    rep: 85,
+    minRarityTier: 7, // Высочайший шанс на Легендарный алмаз/золото
+    rockId: 'basalt',
+    reqMpa: 105,
+    tests: ['uniaxial', 'triaxial', 'ultrasonic', 'shear_load'],
+    desc: 'Сверхдорогая экспедиция в алмазоносную трубку. Высочайший шанс добыть Легендарный алмаз!'
+  }
+];
+
+export function generateExpeditionContract(expId) {
+  const exp = EXPEDITIONS_CATALOG.find((e) => e.id === expId);
+  if (!exp) return null;
+  const rock = ROCK_TYPES.find((r) => r.id === exp.rockId) || ROCK_TYPES[0];
+  const swing = randInt(-10, 20);
+  const trueStrengthMpa = Math.max(15, Math.min(165, exp.reqMpa + swing));
+
+  return {
+    id: `exp_${exp.id}_${Date.now()}`,
+    company: exp.region,
+    title: `${exp.icon} ${exp.title}`,
+    siteType: exp.siteType,
+    tier: 5,
+    isExpedition: true,
+    guaranteedMinGemIdx: exp.minRarityTier,
+    isVip: true,
+    isAudit: false,
+    rock,
+    reqMpa: exp.reqMpa,
+    trueStrengthMpa,
+    isActuallySafe: trueStrengthMpa >= exp.reqMpa,
+    boxesCount: 2,
+    tests: [...exp.tests],
+    reward: exp.payout,
+    repReward: exp.rep
+  };
+}
+
 export const MEGA_PROJECTS = [
   {
     id: 'mega_bridge',
@@ -225,14 +301,15 @@ export function generateMegaStageContract(projectId, stageIndex) {
   };
 }
 
-export function rollWeightedInclusion() {
-  const totalWeight = RARE_INCLUSIONS.reduce((sum, item) => sum + item.weight, 0);
+export function rollWeightedInclusion(minIndex = 0) {
+  const pool = RARE_INCLUSIONS.slice(Math.max(0, minIndex));
+  const totalWeight = pool.reduce((sum, item) => sum + item.weight, 0);
   let r = Math.random() * totalWeight;
-  for (const item of RARE_INCLUSIONS) {
+  for (const item of pool) {
     r -= item.weight;
     if (r <= 0) return item;
   }
-  return RARE_INCLUSIONS[0];
+  return pool[0];
 }
 
 const COMPANIES = [
@@ -306,7 +383,8 @@ export function generateContract(labLevel = 1, completedCount = 0, forceVip = fa
 
   const isVip = forceVip || (completedCount >= 2 && Math.random() < 0.25);
   const auditBonusMult = Storage.getAuditBonus() > 0 ? 1.15 : 1;
-  const vipMult = (isVip ? 1.75 : 1) * auditBonusMult * tenderMultiplier;
+  const licenseMult = Storage.hasRnd('rnd_license') ? 1.35 : 1;
+  const vipMult = (isVip ? 1.75 : 1) * auditBonusMult * tenderMultiplier * licenseMult;
 
   const premiumCount = selectedTests.filter((t) =>
     ['shear_crack', 'water_sat', 'frost_test', 'ultrasonic', 'triaxial', 'shear_load'].includes(t)
