@@ -1,5 +1,6 @@
 import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
+import { TutorialManager } from '../utils/TutorialManager.js';
 
 export class PrepScene extends Phaser.Scene {
   constructor() {
@@ -125,6 +126,7 @@ export class PrepScene extends Phaser.Scene {
 
   startSpecimenPrep() {
     if (this.currentSpecIdx >= this.prepSpecs.length) {
+      TutorialManager.clear(this);
       const avgPrep = Math.round(
         this.prepScores.reduce((a, b) => a + b, 0) / this.prepScores.length
       );
@@ -395,6 +397,16 @@ export class PrepScene extends Phaser.Scene {
         }
       }
     };
+
+    if (TutorialManager.isActive()) {
+      TutorialManager.advanceTo(3);
+      TutorialManager.showSpotlight(this, {
+        hole: { x: width / 2, y: height - 110, w: 326, h: 88 },
+        cardY: 204,
+        badge: 'ШАГ 4/8 · ОТРЕЗНОЙ СТАНОК',
+        text: 'Удерживай кнопку подачи пилы, пока алмазный диск\nне отрежет цилиндр строго по зелёной разметке!'
+      });
+    }
   }
 
   startSplitCrackPhase(spec) {
@@ -616,6 +628,16 @@ export class PrepScene extends Phaser.Scene {
         }
       }
     };
+
+    if (TutorialManager.isActive()) {
+      TutorialManager.advanceTo(4);
+      TutorialManager.showSpotlight(this, {
+        hole: { x: width / 2, y: height - 110, w: 326, h: 88 },
+        cardY: 204,
+        badge: 'ШАГ 5/8 · ШЛИФОВКА ПО ГОСТу',
+        text: 'Зажми шлифовальный круг — убери заусенцы с торцов\nдо допуска ≤ 0.05 мм, иначе пресс исказит результат!'
+      });
+    }
   }
 
   startMeasurePhase(spec) {
@@ -916,6 +938,16 @@ export class PrepScene extends Phaser.Scene {
         lcdText.setColor(Math.abs(gap) <= 0.08 ? '#4ade80' : '#7dd3fc');
       }
     };
+
+    if (TutorialManager.isActive()) {
+      TutorialManager.advanceTo(5);
+      TutorialManager.showSpotlight(this, {
+        hole: { x: width / 2, y: height - 110, w: 326, h: 88 },
+        cardY: 204,
+        badge: 'ШАГ 6/8 · ЗАМЕР ГЕОМЕТРИИ',
+        text: 'Зажми кнопку и отпусти, когда губки штангенциркуля\nсомкнутся по краям керна (сначала высота H, затем диаметр D)!'
+      });
+    }
   }
 
   createActionBtn(x, y, w, h, label) {
