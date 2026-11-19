@@ -563,7 +563,7 @@ export class UnpackScene extends Phaser.Scene {
       wordWrap: { width: cardW - 36 }
     }).setOrigin(0.5);
 
-    const btn = this.add.text(width / 2, cardY + cardH - 34, 'ПОДОЖДИТЕ...', {
+    const btn = this.add.text(width / 2, cardY + cardH - 34, 'ОСМОТР ОБРАЗЦА (2 С)...', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '13px',
       fontWeight: '700',
@@ -577,10 +577,10 @@ export class UnpackScene extends Phaser.Scene {
     this.tweens.add({
       targets: modalGroup,
       alpha: 1,
-      duration: 220
+      duration: 240
     });
 
-    this.time.delayedCall(850, () => {
+    this.time.delayedCall(2200, () => {
       if (!btn.active) return;
       btn.setText('ПРОДОЛЖИТЬ ПОДГОТОВКУ →');
       btn.setColor('#0f172a');
@@ -588,6 +588,7 @@ export class UnpackScene extends Phaser.Scene {
       btn.setInteractive({ useHandCursor: true });
 
       btn.on('pointerdown', () => {
+        btn.disableInteractive();
         AudioManager.playClick();
         this.scene.start('PrepScene', { contract: this.contract });
       });
