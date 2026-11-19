@@ -21,10 +21,10 @@ export class TestScene extends Phaser.Scene {
     this.coreTempC = -12.0;
     this.thawPenalty = 0;
 
-    this.autoTestIdx =
-      Storage.getPerkLevel('assistant') >= 6 && this.testsQueue.length >= 2
-        ? Math.floor(Math.random() * this.testsQueue.length)
-        : -1;
+    // На 6-м уровне штата лаборанты выполняют 1 стенд (или 2 с НИОКР «Академия кадров»)
+    const staffLvl = Storage.getPerkLevel('assistant');
+    const maxAuto = Storage.hasRnd('rnd_double_staff') ? 2 : 1;
+    this.autoTestsRemaining = staffLvl >= 6 && this.testsQueue.length >= 2 ? maxAuto : 0;
   }
 
   createRockBlock(x, y, w, h) {
@@ -103,16 +103,17 @@ export class TestScene extends Phaser.Scene {
     this.stepTxt.setText(`ЭТАП 3 · СТЕНД ${this.currentTestIdx + 1} ИЗ ${this.testsQueue.length}`);
     this.titleTxt.setText(meta.name.toUpperCase());
 
-    if (this.currentTestIdx === this.autoTestIdx) {
-      this.autoTestIdx = -1;
+    // Автоматическое выполнение стендов старшими лаборантами (оставляя минимум 1 стенд игроку)
+    if (this.autoTestsRemaining > 0 && this.currentTestIdx < this.testsQueue.length - 1) {
+      this.autoTestsRemaining -= 1;
       AudioManager.playLatchSnap();
-      this.scores.push(96);
+      this.scores.push(97);
 
       const { width, height } = this.scale;
       const autoBanner = this.add.text(
         width / 2,
         height * 0.46,
-        `👷 СТАРШИЙ ЛАБОРАНТ ВЫПОЛНИЛ СТЕНД!\n«${meta.name}»\n\nЗамер зафиксирован с точностью 96%`,
+        `👷 СТАРШИЙ ЛАБОРАНТ ВЫПОЛНИЛ СТЕНД!\n«${meta.name}»\n\nЗамер зафиксирован с точностью 97%`,
         {
           fontFamily: '"Rubik", sans-serif',
           fontSize: '16px',
@@ -128,7 +129,7 @@ export class TestScene extends Phaser.Scene {
 
       this.stageContainer.add(autoBanner);
 
-      this.time.delayedCall(1250, () => {
+      this.time.delayedCall(1150, () => {
         this.currentTestIdx += 1;
         this.startNextTest();
       });
@@ -220,9 +221,11 @@ export class TestScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const pressLvl = Storage.getUpgradeLevel('press');
     const sensorsLvl = Storage.getUpgradeLevel('sensors');
+    const hasGoldPress = Storage.hasRnd('rnd_gold_press');
+    const hasAiRnd = Storage.hasRnd('rnd_ai');
     const isBrittle = this.contract?.rock?.trait === 'brittle';
     const frameColors = [0x64748b, 0x0284c9, 0x059669, 0x7c3aed, 0xbe123c, 0xd97706];
-    const pressAccent = frameColors[Math.min(frameColors.length - 1, pressLvl - 1)];
+    const pressAccent = hasGoldPress ? 0xfacc15 : frameColors[Math.min(frameColors.length - 1, pressLvl - 1)];
 
     const hint = this.add.text(
       width / 2,
@@ -242,16 +245,16 @@ export class TestScene extends Phaser.Scene {
     const cy = 335;
 
     const frame = this.add.graphics();
-    const colW = pressLvl >= 3 ? 22 : 18;
-    frame.fillStyle(0x64748b, 1);
+    const colW = pressLvl >= 3 || hasGoldPress ? 22 : 18;
+    frame.fillStyle(hasGoldPress ? 0xb45309 : 0x64748b, 1);
     frame.fillRect(cx - 104, cy - 124, colW, 224);
     frame.fillRect(cx + 82, cy - 124, colW, 224);
     frame.fillStyle(pressAccent, 1);
     frame.fillRoundedRect(cx - 116, cy - 142, 232, 28, 6);
-    frame.fillStyle(0x334155, 1);
+    frame.fillStyle(hasGoldPress ? 0x78350f : 0x334155, 1);
     frame.fillRoundedRect(cx - 116, cy + 94, 232, 26, 6);
 
-    if (pressLvl >= 2) {
+    if (pressLvl >= 2 || hasGoldPress) {
       frame.fillStyle(0x1e293b, 1);
       frame.fillRoundedRect(cx - 142, cy - 20, 24, 96, 8);
       frame.lineStyle(2, pressAccent, 0.9);
@@ -261,12 +264,12 @@ export class TestScene extends Phaser.Scene {
       frame.lineBetween(cx - 130, cy - 128, cx - 116, cy - 128);
     }
 
-    if (pressLvl >= 4) {
-      frame.fillStyle(0x475569, 1);
+    if (pressLvl >= 4 || hasGoldPress) {
+      frame.fillStyle(hasGoldPress ? 0xd97706 : 0x475569, 1);
       frame.fillRoundedRect(cx - 34, cy - 166, 68, 24, 5);
     }
 
-    if (sensorsLvl >= 2) {
+    if (sensorsLvl >= 2 || hasAiRnd) {
       frame.fillStyle(0x38bdf8, 1);
       frame.fillRect(cx - 82, cy + 12, 8, 22);
       frame.fillRect(cx + 74, cy + 12, 8, 22);
@@ -274,15 +277,15 @@ export class TestScene extends Phaser.Scene {
       frame.lineBetween(cx - 74, cy + 23, cx + 74, cy + 23);
     }
 
-    const lowerPlaten = this.add.rectangle(cx, cy + 84, 118, 18, 0x94a3b8);
+    const lowerPlaten = this.add.rectangle(cx, cy + 84, 118, 18, hasGoldPress ? 0xfde047 : 0x94a3b8);
 
     const baseCoreH = 116;
     const baseCoreW = 68;
     const coreBottomY = cy + 75;
     const core = this.createRockBlock(cx, coreBottomY - baseCoreH / 2, baseCoreW, baseCoreH);
 
-    const piston = this.add.rectangle(cx, cy - 58, 118, 20, 0xf59e0b);
-    const rod = this.add.rectangle(cx, cy - 96, 30, 58, 0xcbd5e1);
+    const piston = this.add.rectangle(cx, cy - 58, 118, 20, hasGoldPress ? 0xfacc15 : 0xf59e0b);
+    const rod = this.add.rectangle(cx, cy - 96, 30, 58, hasGoldPress ? 0xfef08a : 0xcbd5e1);
     const cracks = this.add.graphics();
 
     const barX = width - 58;
@@ -291,8 +294,9 @@ export class TestScene extends Phaser.Scene {
     const barW = 26;
 
     const brittleNarrow = isBrittle ? 0.05 : 0;
-    const targetMin = 0.68 - Math.min(0.11, (pressLvl - 1) * 0.025) + brittleNarrow;
-    const targetMax = 0.86 + Math.min(0.06, (pressLvl - 1) * 0.015);
+    const aiExpand = hasAiRnd ? 0.04 : 0;
+    const targetMin = 0.68 - Math.min(0.11, (pressLvl - 1) * 0.025) - aiExpand + brittleNarrow;
+    const targetMax = 0.86 + Math.min(0.06, (pressLvl - 1) * 0.015) + aiExpand * 0.5;
 
     const gaugeBg = this.add.graphics();
     gaugeBg.fillStyle(0x0f172a, 1);
@@ -332,7 +336,6 @@ export class TestScene extends Phaser.Scene {
       holding = false;
       AudioManager.stopPressHum();
 
-      // Достижение «На грани разрыва!»: отпустил пресс в самой верхней кромке (94–99% от разрушения)
       if (load >= 0.94 && load < 1.0) {
         AchievementManager.unlock(this, 'edge_of_rupture');
       }
@@ -1006,6 +1009,7 @@ export class TestScene extends Phaser.Scene {
   buildTriaxialTest() {
     const { width, height } = this.scale;
     const pressLvl = Storage.getUpgradeLevel('press');
+    const hasAiRnd = Storage.hasRnd('rnd_ai');
 
     const hint = this.add.text(
       width / 2,
@@ -1121,8 +1125,9 @@ export class TestScene extends Phaser.Scene {
     let axialLoad = 0;
     let holdingAxial = false;
 
-    const axialTargetMin = 0.68 - Math.min(0.1, (pressLvl - 1) * 0.02);
-    const axialTargetMax = 0.87 + Math.min(0.05, (pressLvl - 1) * 0.015);
+    const aiExpand = hasAiRnd ? 0.04 : 0;
+    const axialTargetMin = 0.68 - Math.min(0.1, (pressLvl - 1) * 0.02) - aiExpand;
+    const axialTargetMax = 0.87 + Math.min(0.05, (pressLvl - 1) * 0.015) + aiExpand * 0.5;
 
     const drawGauge = (isAxialMode) => {
       barBg.clear();
@@ -1348,6 +1353,7 @@ export class TestScene extends Phaser.Scene {
     const sensorsLvl = Storage.getUpgradeLevel('sensors');
     const calPct = Storage.getWear('calibration');
     const calDriftPenalty = Math.round(((100 - calPct) / 100) * 8);
+    const aiBonus = Storage.hasRnd('rnd_ai') ? 3 : 0;
 
     const testsAvg = this.scores.length
       ? this.scores.reduce((a, b) => a + b, 0) / this.scores.length
@@ -1355,7 +1361,7 @@ export class TestScene extends Phaser.Scene {
 
     const avgAccuracy = Math.max(15, Math.round(testsAvg * 0.75 + this.prepAccuracy * 0.25 - this.thawPenalty));
 
-    const rawErrorPct = Math.max(2, Math.round((100 - avgAccuracy) * 0.42 - (sensorsLvl - 1) * 2.5 + calDriftPenalty));
+    const rawErrorPct = Math.max(2, Math.round((100 - avgAccuracy) * 0.42 - (sensorsLvl - 1) * 2.5 - aiBonus + calDriftPenalty));
     const errorPct = Math.max(2, Math.min(38, rawErrorPct));
 
     const sign = Math.random() < 0.5 ? -1 : 1;
