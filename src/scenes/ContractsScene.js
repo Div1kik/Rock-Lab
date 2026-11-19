@@ -1,21 +1,26 @@
 import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
+import { AchievementManager } from '../utils/AchievementManager.js';
 import {
   generateContractBoard,
   TEST_CATALOG,
   MEGA_PROJECTS,
-  generateMegaStageContract
+  generateMegaStageContract,
+  EXPEDITIONS_CATALOG,
+  generateExpeditionContract
 } from '../data/contracts.js';
 
 export class ContractsScene extends Phaser.Scene {
   constructor() {
     super('ContractsScene');
     this.contracts = [];
-    this.mode = 'regular'; // 'regular' | 'mega'
+    this.mode = 'regular'; // 'regular' | 'mega' | 'expeditions'
   }
 
   init(data) {
-    this.mode = data?.mode === 'mega' ? 'mega' : 'regular';
+    if (data?.mode === 'mega') this.mode = 'mega';
+    else if (data?.mode === 'expeditions') this.mode = 'expeditions';
+    else this.mode = 'regular';
   }
 
   create() {
@@ -45,31 +50,42 @@ export class ContractsScene extends Phaser.Scene {
       this.scene.start('MenuScene');
     });
 
-    this.add.text(width - 20, 22, `Ур. ${labLvl} · ★ ${Storage.getReputation()}`, {
+    this.balTxt = this.add.text(width - 20, 22, `💰 ${Storage.getMoney()} ₽ · ★ ${Storage.getReputation()}`, {
       fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '15px',
+      fontSize: '13px',
       fontWeight: '700',
-      color: '#38bdf8'
+      color: '#facc15'
     }).setOrigin(1, 0);
 
-    // Переключатель режимов: Обычные заказы / Стройки века (Мега-проекты)
-    const tabW = (width - 44) / 2;
-    this.regTabBtn = this.add.text(18 + tabW / 2, 92, '📋 ТЕКУЩИЕ ЗАКАЗЫ', {
+    // 3 вкладки: Обычные заказы / Стройки века / Буровые экспедиции
+    const gap = 5;
+    const tabW = (width - 36 - gap * 2) / 3;
+
+    this.regTabBtn = this.add.text(18 + tabW / 2, 92, '📋 ЗАКАЗЫ', {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '12px',
+      fontSize: '11px',
       fontWeight: '700',
       fixedWidth: tabW,
       align: 'center',
-      padding: { x: 4, y: 9 }
+      padding: { x: 2, y: 9 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-    this.megaTabBtn = this.add.text(width - 18 - tabW / 2, 92, '🏗️ СТРОЙКИ ВЕКА', {
+    this.megaTabBtn = this.add.text(18 + tabW * 1.5 + gap, 92, '🏗️ СТРОЙКИ ВЕКА', {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '12px',
+      fontSize: '11px',
       fontWeight: '700',
       fixedWidth: tabW,
       align: 'center',
-      padding: { x: 4, y: 9 }
+      padding: { x: 2, y: 9 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    this.expTabBtn = this.add.text(18 + tabW * 2.5 + gap * 2, 92, '🚁 ЭКСПЕДИЦИИ', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '11px',
+      fontWeight: '700',
+      fixedWidth: tabW,
+      align: 'center',
+      padding: { x: 2, y: 9 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
     this.regTabBtn.on('pointerdown', () => {
@@ -84,6 +100,14 @@ export class ContractsScene extends Phaser.Scene {
       if (this.mode !== 'mega') {
         AudioManager.playClick();
         this.mode = 'mega';
+        this.refreshBoard();
+      }
+    });
+
+    this.expTabBtn.on('pointerdown', () => {
+      if (this.mode !== 'expeditions') {
+        AudioManager.playClick();
+        this.mode = 'expeditions';
         this.refreshBoard();
       }
     });
@@ -116,21 +140,119 @@ export class ContractsScene extends Phaser.Scene {
   }
 
   refreshBoard() {
-    const isMega = this.mode === 'mega';
+    this.balTxt.setText(`💰 ${Storage.getMoney()} ₽ · ★ ${Storage.getReputation()}`);
 
-    this.regTabBtn.setColor(!isMega ? '#1c1917' : '#e2e8f0');
-    this.regTabBtn.setBackgroundColor(!isMega ? '#facc15' : '#292524');
+    this.regTabBtn.setColor(this.mode === 'regular' ? '#1c1917' : '#e2e8f0');
+    this.regTabBtn.setBackgroundColor(this.mode === 'regular' ? '#facc15' : '#292524');
 
-    this.megaTabBtn.setColor(isMega ? '#0f172a' : '#fef08a');
-    this.megaTabBtn.setBackgroundColor(isMega ? '#38bdf8' : '#1e293b');
+    this.megaTabBtn.setColor(this.mode === 'mega' ? '#0f172a' : '#fef08a');
+    this.megaTabBtn.setBackgroundColor(this.mode === 'mega' ? '#38bdf8' : '#1e293b');
 
-    this.refreshBtn.setVisible(!isMega);
+    this.expTabBtn.setColor(this.mode === 'expeditions' ? '#0f172a' : '#7dd3fc');
+    this.expTabBtn.setBackgroundColor(this.mode === 'expeditions' ? '#34d399' : '#1e293b');
 
-    if (isMega) {
+    this.refreshBtn.setVisible(this.mode === 'regular');
+
+    if (this.mode === 'mega') {
       this.renderMegaProjects();
+    } else if (this.mode === 'expeditions') {
+      this.renderExpeditions();
     } else {
       this.renderCards();
     }
+  }
+
+  renderExpeditions() {
+    this.cardsContainer.removeAll(true);
+    const { width } = this.scale;
+    const money = Storage.getMoney();
+
+    EXPEDITIONS_CATALOG.forEach((exp, idx) => {
+      const y = 122 + idx * 198;
+      const cardW = width - 36;
+      const cardH = 186;
+      const x = 18;
+      const canAfford = money >= exp.cost;
+
+      const card = this.add.graphics();
+      card.fillStyle(0x0f172a, 1);
+      card.fillRoundedRect(x, y, cardW, cardH, 12);
+      card.lineStyle(2, canAfford ? 0x34d399 : 0x475569, 1);
+      card.strokeRoundedRect(x, y, cardW, cardH, 12);
+
+      const title = this.add.text(x + 14, y + 14, `${exp.icon} ${exp.title}`, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '15px',
+        fontWeight: '700',
+        color: '#fef3c7'
+      });
+
+      const regionTxt = this.add.text(x + 14, y + 36, exp.region, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
+        fontWeight: '600',
+        color: '#34d399'
+      });
+
+      const descTxt = this.add.text(x + 14, y + 58, exp.desc, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
+        color: '#cbd5e1',
+        wordWrap: { width: cardW - 28 }
+      });
+
+      const lootTxt = this.add.text(
+        x + 14,
+        y + 102,
+        `Награда за анализ: +${exp.payout} ₽  ★+${exp.rep}  |  💎 Гарант. редкий образец`,
+        {
+          fontFamily: '"JetBrains Mono", monospace',
+          fontSize: '10px',
+          fontWeight: '700',
+          color: '#facc15'
+        }
+      );
+
+      const btnW = cardW - 28;
+      const btnH = 38;
+      const btnX = x + 14;
+      const btnY = y + cardH - btnH - 12;
+
+      const btnBg = this.add.graphics();
+      btnBg.fillStyle(canAfford ? 0x059669 : 0x334155, 1);
+      btnBg.fillRoundedRect(btnX, btnY, btnW, btnH, 8);
+
+      const btnLabel = this.add.text(
+        btnX + btnW / 2,
+        btnY + btnH / 2,
+        canAfford ? `🚁 СНАРЯДИТЬ БУРОВУЮ ПАРТИЮ (-${exp.cost} ₽)` : `НЕДОСТАТОЧНО СРЕДСТВ (${exp.cost} ₽)`,
+        {
+          fontFamily: '"Rubik", sans-serif',
+          fontSize: '12px',
+          fontWeight: '700',
+          color: canAfford ? '#ffffff' : '#94a3b8'
+        }
+      ).setOrigin(0.5);
+
+      this.cardsContainer.add([card, title, regionTxt, descTxt, lootTxt, btnBg, btnLabel]);
+
+      if (canAfford) {
+        const hitZone = this.add.zone(btnX + btnW / 2, btnY + btnH / 2, btnW, btnH)
+          .setInteractive({ useHandCursor: true });
+
+        hitZone.on('pointerdown', () => {
+          if (Storage.spendMoney(exp.cost)) {
+            const contract = generateExpeditionContract(exp.id);
+            AudioManager.playStamp();
+            AchievementManager.unlock(this, 'polar_driller');
+            Storage.setActiveContract(contract);
+            this.scene.start('UnpackScene', { contract });
+          }
+        });
+
+        this.cardsContainer.add(hitZone);
+      }
+    });
   }
 
   renderMegaProjects() {
@@ -184,7 +306,6 @@ export class ContractsScene extends Phaser.Scene {
         color: isDone ? '#4ade80' : '#7dd3fc'
       });
 
-      // Шкала прогресса этапов стройки века
       const segGap = 6;
       const segW = (cardW - 28 - segGap * (totalStages - 1)) / totalStages;
       for (let s = 0; s < totalStages; s++) {
