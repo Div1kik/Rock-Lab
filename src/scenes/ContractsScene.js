@@ -1,3 +1,4 @@
+import { TutorialManager } from '../utils/TutorialManager.js';
 import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
 import { AchievementManager } from '../utils/AchievementManager.js';
