@@ -119,13 +119,14 @@ export const EXPEDITIONS_CATALOG = [
     siteType: 'quarry',
     icon: '⛰️',
     cost: 15000,
-    payout: 24000,
-    rep: 25,
-    minRarityTier: 3, // Гарантированный Редкий+ минерал
+    payout: 18500,
+    rep: 20,
+    cooldownDays: 2,
+    minRarityTier: 3,
     rockId: 'granite',
     reqMpa: 78,
     tests: ['uniaxial', 'shear_crack', 'ultrasonic'],
-    desc: 'Глубокое колонковое бурение в зоне рудных жил. Гарантирует находку редкого образца!'
+    desc: 'Глубокое колонковое бурение (раз в 2 дня). Гарантирует находку редкого образца!'
   },
   {
     id: 'exp_arctic',
@@ -134,13 +135,14 @@ export const EXPEDITIONS_CATALOG = [
     siteType: 'powerline',
     icon: '❄️',
     cost: 32000,
-    payout: 52000,
-    rep: 45,
-    minRarityTier: 6, // Гарантированный Эпический+ минерал
+    payout: 39000,
+    rep: 35,
+    cooldownDays: 4,
+    minRarityTier: 6,
     rockId: 'permafrost',
     reqMpa: 26,
     tests: ['uniaxial', 'frost_test', 'triaxial'],
-    desc: 'Арктическая вездеходная партия. Привозит глубинные керны с эпическими минералами!'
+    desc: 'Арктическая вездеходная партия (раз в 4 дня). Привозит эпические минералы!'
   },
   {
     id: 'exp_yakutia',
@@ -149,13 +151,14 @@ export const EXPEDITIONS_CATALOG = [
     siteType: 'quarry',
     icon: '💎',
     cost: 65000,
-    payout: 110000,
-    rep: 85,
-    minRarityTier: 7, // Высочайший шанс на Легендарный алмаз/золото
+    payout: 78000,
+    rep: 60,
+    cooldownDays: 7,
+    minRarityTier: 7,
     rockId: 'basalt',
     reqMpa: 105,
     tests: ['uniaxial', 'triaxial', 'ultrasonic', 'shear_load'],
-    desc: 'Сверхдорогая экспедиция в алмазоносную трубку. Высочайший шанс добыть Легендарный алмаз!'
+    desc: 'Сверхглубокая экспедиция (раз в 7 дней). Высочайший шанс добыть Легендарный алмаз!'
   }
 ];
 
