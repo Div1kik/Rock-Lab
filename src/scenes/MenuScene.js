@@ -1,3 +1,4 @@
+import { MineralRenderer } from '../utils/MineralRenderer.js';
 import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
 import { RARE_INCLUSIONS, MEGA_PROJECTS } from '../data/contracts.js';
