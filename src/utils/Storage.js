@@ -3,6 +3,8 @@ const SAVE_KEY = 'rocklab_save_v1';
 const DEFAULT_STATE = {
   playerId: null,
   playerName: null,
+  tutorialCompleted: false,
+  tutorialStep: 0,
   money: 150,
   reputation: 10,
   completedContracts: 0,
@@ -107,9 +109,14 @@ class StorageManager {
         : [...unlockedPacks];
       if (!enabledPacks.length) enabledPacks.push('base');
 
+      // Если игрок уже выполнял заказы до этого обновления — не навязываем стартовый туториал принудительно
+      const alreadyExperienced = (parsed.completedContracts || 0) > 0;
+
       return {
         ...structuredClone(DEFAULT_STATE),
         ...parsed,
+        tutorialCompleted: typeof parsed.tutorialCompleted === 'boolean' ? parsed.tutorialCompleted : alreadyExperienced,
+        tutorialStep: typeof parsed.tutorialStep === 'number' ? parsed.tutorialStep : 0,
         upgrades: mergedUpgrades,
         caliperAutoMode: parsed.caliperAutoMode !== false,
         perks: {
@@ -153,6 +160,31 @@ class StorageManager {
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(this.state));
     } catch {}
+  }
+
+  isTutorialCompleted() {
+    return Boolean(this.state.tutorialCompleted);
+  }
+
+  getTutorialStep() {
+    return this.state.tutorialStep || 0;
+  }
+
+  setTutorialStep(step) {
+    this.state.tutorialStep = step;
+    this.save();
+  }
+
+  completeTutorial() {
+    this.state.tutorialCompleted = true;
+    this.state.tutorialStep = 99;
+    this.save();
+  }
+
+  resetTutorial() {
+    this.state.tutorialCompleted = false;
+    this.state.tutorialStep = 0;
+    this.save();
   }
 
   getState() { return this.state; }
