@@ -1,8 +1,8 @@
-import { MineralRenderer } from '../utils/MineralRenderer.js';
 import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
 import { RARE_INCLUSIONS, MEGA_PROJECTS } from '../data/contracts.js';
 import { AchievementManager, ACHIEVEMENTS_CATALOG } from '../utils/AchievementManager.js';
+import { MineralRenderer } from '../utils/MineralRenderer.js';
 
 const LAB_TIERS = {
   1: { name: 'Гаражная геолаборатория', wall: 0x292524, floor: 0x3f3a36, table: 0x57504a, accent: 0xeab308 },
@@ -873,7 +873,6 @@ export class MenuScene extends Phaser.Scene {
     eqG.strokeRoundedRect(pressX - 34, frontBenchY - 78, 68, 15, 4);
 
     if (hasGoldPress) {
-      // Платиновая корона и сияющий манометр Золотого пресса «Титан-Аурум»
       eqG.fillStyle(0xfef08a, 1);
       eqG.fillRoundedRect(pressX - 20, frontBenchY - 86, 40, 8, 3);
       eqG.fillStyle(0x38bdf8, 1);
@@ -941,23 +940,19 @@ export class MenuScene extends Phaser.Scene {
       eqG.fillRect(tx - 10, frontBenchY - 46, 20, 34);
     }
 
-    // Кофемашина на отдельной высокой стойке-тумбе справа (с паром и интерактивной подачей кофе)
+    // Кофемашина на отдельной высокой стойке-тумбе справа
     if (coffeeLvl > 0) {
       const cmX = w - 34;
-      // Тумба-подставка под кофемашину
       eqG.fillStyle(0x292524, 1);
       eqG.fillRoundedRect(cmX - 18, frontBenchY - 16, 36, 16, 3);
-      // Корпус кофемашины
       eqG.fillStyle(0xe2e8f0, 1);
       eqG.fillRoundedRect(cmX - 15, frontBenchY - 48, 30, 32, 5);
       eqG.lineStyle(1.5, 0x0f172a, 0.95);
       eqG.strokeRoundedRect(cmX - 15, frontBenchY - 48, 30, 32, 5);
-      // Красная верхняя панель и индикатор
       eqG.fillStyle(0xdc2626, 1);
       eqG.fillRect(cmX - 13, frontBenchY - 46, 26, 9);
       eqG.fillStyle(0x4ade80, 1);
       eqG.fillCircle(cmX + 8, frontBenchY - 41, 2);
-      // Ниша и кружка с кофе
       eqG.fillStyle(0x1e293b, 1);
       eqG.fillRect(cmX - 10, frontBenchY - 34, 20, 16);
       eqG.fillStyle(0xfef3c7, 1);
@@ -1043,12 +1038,10 @@ export class MenuScene extends Phaser.Scene {
     const style = palette.style || 'human';
 
     const g = this.add.graphics();
-    // Ноги
     g.fillStyle(palette.pants, 1);
     g.fillRect(-7, -22, 5, 22);
     g.fillRect(2, -22, 5, 22);
 
-    // Туловище (для миньонов — овальное жёлтое тело с синим комбинезоном)
     if (style === 'minions') {
       g.fillStyle(0xfacc15, 1);
       g.fillRoundedRect(-10, -56, 20, 36, 9);
@@ -1056,7 +1049,6 @@ export class MenuScene extends Phaser.Scene {
       g.fillRoundedRect(-10, -38, 20, 18, 4);
       g.fillRect(-7, -45, 3, 8);
       g.fillRect(4, -45, 3, 8);
-      // Очки-гогглы миньона
       g.fillStyle(0x334155, 1);
       g.fillRect(-10, -51, 20, 4);
       g.fillStyle(0xffffff, 1);
@@ -1095,7 +1087,6 @@ export class MenuScene extends Phaser.Scene {
       }
     }
 
-    // Руки (левая и правая с кистями)
     const armColor = style === 'minions' ? 0xfacc15 : palette.coat;
     const handColor = style === 'minions' || style === 'robots' || role === 'android' || style === 'ninja'
       ? 0x1e293b
@@ -1144,7 +1135,6 @@ export class MenuScene extends Phaser.Scene {
       this.particles.emitParticleAt(worker.x, worker.y - 45, 8);
 
       if (style === 'mario') {
-        // Прыжок как у Марио с вылетающей золотой монеткой!
         this.showSpeechBubble(worker, 'ЙА-ХУУ! +1 МОНЕТА! 🍄🪙', 0xef4444);
         const coin = this.add.circle(worker.x, worker.y - 68, 6, 0xfacc15).setStrokeStyle(1.5, 0xb45309).setDepth(32);
         this.tweens.add({
@@ -1447,7 +1437,7 @@ export class MenuScene extends Phaser.Scene {
     dimBg.fillRect(0, 0, width, height);
 
     const boxW = 396;
-    const boxH = 650;
+    const boxH = 656;
     const boxX = width / 2 - boxW / 2;
     const boxY = height / 2 - boxH / 2;
 
@@ -1470,14 +1460,12 @@ export class MenuScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     const foundGems = Storage.getGems();
-    const subText = hasShowcase
-      ? `Найдено: ${foundGems.length}/${RARE_INCLUSIONS.length} · Выбери до 4 образцов на полку`
-      : `Найдено: ${foundGems.length}/${RARE_INCLUSIONS.length} · Купи витрину в Магазине (Ур. 2+)`;
+    const subText = `Найдено: ${foundGems.length}/${RARE_INCLUSIONS.length} · Тапни по образцу для 3D-осмотра`;
 
     const sub = this.add.text(width / 2, boxY + 46, subText, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '11px',
-      color: '#94a3b8'
+      color: '#38bdf8'
     }).setOrigin(0.5);
 
     modalContainer.add([blocker, dimBg, panel, title, sub]);
@@ -1493,12 +1481,20 @@ export class MenuScene extends Phaser.Scene {
       rowG.lineStyle(1.5, owned ? gem.color : 0x334155, owned ? 0.9 : 0.6);
       rowG.strokeRoundedRect(boxX + 14, ry, boxW - 28, rowH, 8);
 
-      const iconTxt = this.add.text(boxX + 34, ry + rowH / 2, owned ? gem.icon : '❓', {
-        fontSize: '20px'
-      }).setOrigin(0.5).setAlpha(owned ? 1 : 0.45);
+      modalContainer.add(rowG);
+
+      if (owned) {
+        const miniGem = MineralRenderer.createMineralDisplay(this, boxX + 36, ry + rowH / 2, gem.id, 0.56, false);
+        modalContainer.add(miniGem);
+      } else {
+        const lockTxt = this.add.text(boxX + 36, ry + rowH / 2, '❓', {
+          fontSize: '18px'
+        }).setOrigin(0.5).setAlpha(0.45);
+        modalContainer.add(lockTxt);
+      }
 
       const nameTxt = this.add.text(
-        boxX + 56,
+        boxX + 62,
         ry + 15,
         owned ? `${gem.name}${owned.count > 1 ? ` (×${owned.count})` : ''}` : 'Неизвестный образец',
         {
@@ -1510,9 +1506,9 @@ export class MenuScene extends Phaser.Scene {
       ).setOrigin(0, 0.5);
 
       const descTxt = this.add.text(
-        boxX + 56,
+        boxX + 62,
         ry + 35,
-        owned ? `${gem.rarity} · Ценность ${gem.value} ₽` : `Редкость: ${gem.rarity}`,
+        owned ? `${gem.rarity} · 🔍 Осмотреть 3D` : `Редкость: ${gem.rarity}`,
         {
           fontFamily: '"Rubik", sans-serif',
           fontSize: '10px',
@@ -1520,32 +1516,43 @@ export class MenuScene extends Phaser.Scene {
         }
       ).setOrigin(0, 0.5);
 
-      modalContainer.add([rowG, iconTxt, nameTxt, descTxt]);
+      modalContainer.add([nameTxt, descTxt]);
 
-      if (owned && hasShowcase) {
-        const isShown = Storage.isGemDisplayed(gem.id);
-        const toggleBtn = this.add.text(
-          boxX + boxW - 24,
-          ry + rowH / 2,
-          isShown ? '✅ НА ПОЛКЕ' : '+ НА ПОЛКУ',
-          {
-            fontFamily: '"JetBrains Mono", monospace',
-            fontSize: '9px',
-            fontWeight: '700',
-            color: isShown ? '#0f172a' : '#fef3c7',
-            backgroundColor: isShown ? '#4ade80' : '#334155',
-            padding: { x: 7, y: 5 }
-          }
-        ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+      if (owned) {
+        const inspectZone = this.add.zone(boxX + 145, ry + rowH / 2, 230, rowH)
+          .setInteractive({ useHandCursor: true });
 
-        toggleBtn.on('pointerdown', () => {
-          AudioManager.playLatchSnap();
-          Storage.toggleGemDisplay(gem.id);
-          modalContainer.destroy();
-          this.openShowcaseModal(tier);
+        inspectZone.on('pointerdown', () => {
+          AudioManager.playClick();
+          this.openMineralInspectorModal(gem, owned.count || 1);
         });
+        modalContainer.add(inspectZone);
 
-        modalContainer.add(toggleBtn);
+        if (hasShowcase) {
+          const isShown = Storage.isGemDisplayed(gem.id);
+          const toggleBtn = this.add.text(
+            boxX + boxW - 22,
+            ry + rowH / 2,
+            isShown ? '✅ НА ПОЛКЕ' : '+ НА ПОЛКУ',
+            {
+              fontFamily: '"JetBrains Mono", monospace',
+              fontSize: '9px',
+              fontWeight: '700',
+              color: isShown ? '#0f172a' : '#fef3c7',
+              backgroundColor: isShown ? '#4ade80' : '#334155',
+              padding: { x: 7, y: 5 }
+            }
+          ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+
+          toggleBtn.on('pointerdown', () => {
+            AudioManager.playLatchSnap();
+            Storage.toggleGemDisplay(gem.id);
+            modalContainer.destroy();
+            this.openShowcaseModal(tier);
+          });
+
+          modalContainer.add(toggleBtn);
+        }
       }
     });
 
@@ -1565,6 +1572,118 @@ export class MenuScene extends Phaser.Scene {
     });
 
     modalContainer.add(closeBtn);
+  }
+
+  openMineralInspectorModal(gem, count = 1) {
+    const { width, height } = this.scale;
+    const inspContainer = this.add.container(0, 0).setDepth(75);
+
+    const MINERAL_NOTES = {
+      calcite: 'Формула: CaCO₃ · Твёрдость по Моосу: 3\nОбладает сильным двойным лучепреломлением и характерным стеклянным блеском.',
+      pyrite: 'Формула: FeS₂ · Твёрдость по Моосу: 6–6.5\n«Золото дураков» — образует идеальные кубические кристаллы с металлической штриховкой.',
+      agate: 'Формула: SiO₂ · Твёрдость по Моосу: 6.5–7\nСкрытокристаллический халцедон с тончайшими полосами природных пигментов.',
+      quartz: 'Формула: SiO₂ · Твёрдость по Моосу: 7\nПьезоэлектрический кристалл чистейшего кремнезёма в шестигранной призме.',
+      ammonite: 'Возраст: ~145 млн лет (Мезозой)\nОкаменелая раковина головоногого моллюска, замещённая кальцитом и пиритом.',
+      amethyst: 'Формула: SiO₂ (примеси Fe⁴⁺) · Твёрдость: 7\nДрагоценная фиолетовая разновидность кварца из скальных жеод Урала.',
+      malachite: 'Формула: Cu₂CO₃(OH)₂ · Твёрдость: 3.5–4\nЗнаменитый уральский карбонат меди с шелковистым ленточно-почковидным узором.',
+      native_gold: 'Формула: Au · Плотность: 19.3 г/см³\nБлагородный самородный металл, вплавленный в жильный молочно-белый кварц.',
+      diamond_kimberlite: 'Формула: C · Твёрдость по Моосу: 10\nСверхтвёрдый октаэдр природного алмаза в коренной кимберлитовой трубке.'
+    };
+
+    const blocker = this.add.zone(width / 2, height / 2, width, height).setInteractive();
+    const dim = this.add.graphics();
+    dim.fillStyle(0x050811, 0.96);
+    dim.fillRect(0, 0, width, height);
+
+    const cardW = 376;
+    const cardH = 490;
+    const cx = width / 2;
+    const cy = height / 2;
+
+    const panel = this.add.graphics();
+    panel.fillStyle(0x131926, 1);
+    panel.fillRoundedRect(cx - cardW / 2, cy - cardH / 2, cardW, cardH, 18);
+    panel.lineStyle(3, gem.color, 1);
+    panel.strokeRoundedRect(cx - cardW / 2, cy - cardH / 2, cardW, cardH, 18);
+
+    const header = this.add.text(cx, cy - cardH / 2 + 28, '🔬 3D-ОСМОТР ОБРАЗЦА', {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '12px',
+      fontWeight: '700',
+      color: '#7dd3fc'
+    }).setOrigin(0.5);
+
+    const title = this.add.text(cx, cy - cardH / 2 + 56, `${gem.name}${count > 1 ? ` (×${count})` : ''}`, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '16px',
+      fontWeight: '700',
+      color: '#fef3c7',
+      align: 'center',
+      wordWrap: { width: cardW - 36 }
+    }).setOrigin(0.5);
+
+    const stageY = cy - 30;
+    const stageBg = this.add.graphics();
+    stageBg.fillStyle(0x090d16, 1);
+    stageBg.fillRoundedRect(cx - 140, stageY - 96, 280, 192, 14);
+    stageBg.lineStyle(1.5, gem.color, 0.55);
+    stageBg.strokeRoundedRect(cx - 140, stageY - 96, 280, 192, 14);
+
+    const glow = this.add.circle(cx, stageY, 68, gem.color, 0.14);
+    const mineralObj = MineralRenderer.createMineralDisplay(this, cx, stageY, gem.id, 2.05, true);
+
+    const dragHint = this.add.text(cx, stageY + 80, '↔ ПРОВЕДИ ПАЛЬЦЕМ, ЧТОБЫ ПОКРУТИТЬ ОБРАЗЕЦ', {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '9px',
+      fontWeight: '700',
+      color: '#facc15'
+    }).setOrigin(0.5);
+
+    const statsBadge = this.add.text(
+      cx,
+      cy + 92,
+      `Класс: ${gem.rarity}  ·  Оценочная стоимость: ${gem.value} ₽`,
+      {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '10px',
+        fontWeight: '700',
+        color: '#4ade80',
+        backgroundColor: '#0f172a',
+        padding: { x: 10, y: 5 }
+      }
+    ).setOrigin(0.5);
+
+    const noteTxt = this.add.text(
+      cx,
+      cy + 146,
+      MINERAL_NOTES[gem.id] || 'Редкий геологический образец из керновой скважины.',
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
+        color: '#cbd5e1',
+        align: 'center',
+        lineSpacing: 5,
+        wordWrap: { width: cardW - 44 }
+      }
+    ).setOrigin(0.5);
+
+    const backBtn = this.add.text(cx, cy + cardH / 2 - 32, '← НАЗАД К ВИТРИНЕ', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '13px',
+      fontWeight: '700',
+      color: '#0f172a',
+      backgroundColor: '#facc15',
+      padding: { x: 20, y: 9 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    backBtn.on('pointerdown', () => {
+      AudioManager.playClick();
+      inspContainer.destroy();
+    });
+
+    inspContainer.add([
+      blocker, dim, panel, header, title, stageBg, glow, mineralObj, dragHint, statsBadge, noteTxt, backBtn
+    ]);
   }
 
   createTopBar(w, tier) {
