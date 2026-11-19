@@ -266,7 +266,7 @@ export class MenuScene extends Phaser.Scene {
       height - 110,
       halfW,
       48,
-      '📖 ГОСТы',
+      '📖 ГОСТЫ',
       0x0369a1,
       0xf0f9ff,
       () => {
