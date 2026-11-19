@@ -24,6 +24,7 @@ const DEFAULT_STATE = {
     decor: 0,
     cryobox: 0
   },
+  rndOwned: [],
   decorOwned: [],
   decorDisabled: [],
   activeSkin: 'default',
@@ -94,6 +95,7 @@ class StorageManager {
           ...DEFAULT_STATE.perks,
           ...(parsed.perks || {})
         },
+        rndOwned: Array.isArray(parsed.rndOwned) ? parsed.rndOwned : [],
         decorOwned: Array.isArray(parsed.decorOwned) ? parsed.decorOwned : [],
         decorDisabled: Array.isArray(parsed.decorDisabled) ? parsed.decorDisabled : [],
         activeSkin: parsed.activeSkin || 'default',
@@ -199,6 +201,31 @@ class StorageManager {
     this.state.perks[key] = (this.state.perks[key] || 0) + 1;
     this.save();
     return this.state.perks[key];
+  }
+
+  hasRnd(key) {
+    return Array.isArray(this.state.rndOwned) && this.state.rndOwned.includes(key);
+  }
+
+  buyRnd(key) {
+    if (!Array.isArray(this.state.rndOwned)) this.state.rndOwned = [];
+    if (!this.state.rndOwned.includes(key)) {
+      this.state.rndOwned.push(key);
+      this.save();
+    }
+  }
+
+  getBranchesCount() {
+    return ['branch_norilsk', 'branch_ural', 'branch_shelf'].filter((k) => this.hasRnd(k)).length;
+  }
+
+  getPassiveBranchIncome() {
+    let sum = 0;
+    if (this.hasRnd('branch_norilsk')) sum += 800;
+    if (this.hasRnd('branch_ural')) sum += 1800;
+    if (this.hasRnd('branch_shelf')) sum += 3500;
+    if (this.hasRnd('rnd_iso_center')) sum += 1500;
+    return sum;
   }
 
   hasDecor(key) {
