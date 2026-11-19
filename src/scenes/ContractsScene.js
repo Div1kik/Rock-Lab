@@ -1,7 +1,7 @@
-import { TutorialManager } from '../utils/TutorialManager.js';
 import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
 import { AchievementManager } from '../utils/AchievementManager.js';
+import { TutorialManager } from '../utils/TutorialManager.js';
 import {
   generateContractBoard,
   TEST_CATALOG,
@@ -137,6 +137,22 @@ export class ContractsScene extends Phaser.Scene {
     });
 
     this.refreshBoard();
+
+    if (TutorialManager.isActive()) {
+      const firstCnt = this.contracts[0];
+      if (firstCnt) {
+        firstCnt.tests = ['uniaxial'];
+        firstCnt.boxesCount = 1;
+        this.refreshBoard();
+      }
+      TutorialManager.advanceTo(1);
+      TutorialManager.showSpotlight(this, {
+        hole: { x: width / 2, y: 215, w: width - 28, h: 194 },
+        cardY: 430,
+        badge: 'ШАГ 2/8 · ДОСКА ЗАКАЗОВ',
+        text: `Обрати внимание на «Норму объекта: ≥ ${firstCnt?.reqMpa || 25} МПа».\nНажми «ВЗЯТЬ В РАБОТУ →», чтобы принять пробы в цех!`
+      });
+    }
   }
 
   refreshBoard() {
@@ -164,7 +180,7 @@ export class ContractsScene extends Phaser.Scene {
 
   renderExpeditions() {
     this.cardsContainer.removeAll(true);
-    const { width, height } = this.scale;
+    const { width } = this.scale;
     const money = Storage.getMoney();
     const hasCompletedMega = Storage.getCompletedMegasCount() >= 1;
 
