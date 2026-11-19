@@ -2,6 +2,7 @@ import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
 import { rollWeightedInclusion } from '../data/contracts.js';
 import { MineralRenderer } from '../utils/MineralRenderer.js';
+import { TutorialManager } from '../utils/TutorialManager.js';
 
 export class UnpackScene extends Phaser.Scene {
   constructor() {
@@ -64,6 +65,18 @@ export class UnpackScene extends Phaser.Scene {
     this.buildDrillSprite();
     this.buildCrowbarSprite();
     this.buildCrate();
+
+    if (TutorialManager.isActive()) {
+      TutorialManager.advanceTo(2);
+      TutorialManager.showSpotlight(this, {
+        hole: { x: width / 2, y: height * 0.54, w: 334, h: 404 },
+        cardY: 162,
+        badge: 'ШАГ 3/8 · ВСКРЫТИЕ ЯЩИКА',
+        text: this.boxMode === 'screws'
+          ? 'Зажми по очереди 4 болта шуруповёртом,\nзатем сними крышку и кликни по каждому керну!'
+          : 'Быстро тапай или зажми скобу справа, чтобы сорвать\nкрышку ломиком, затем забери керны на распил!'
+      });
+    }
   }
 
   buildDrillSprite() {
@@ -454,6 +467,8 @@ export class UnpackScene extends Phaser.Scene {
       return;
     }
 
+    TutorialManager.clear(this);
+
     if (this.contract?.isExpedition) {
       const foundGem = rollWeightedInclusion(this.contract.guaranteedMinGemIdx || 3);
       Storage.addGem(foundGem);
@@ -516,7 +531,6 @@ export class UnpackScene extends Phaser.Scene {
       padding: { x: 10, y: 4 }
     }).setOrigin(0.5);
 
-    // Пьедестал и вращающийся 3D-образец минерала
     const glow = this.add.circle(width / 2, cardY + 136, 56, gem.color, 0.16);
     const mineralObj = MineralRenderer.createMineralDisplay(this, width / 2, cardY + 136, gem.id, 1.55, true);
 
