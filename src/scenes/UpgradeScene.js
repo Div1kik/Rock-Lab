@@ -40,7 +40,7 @@ export class UpgradeScene extends Phaser.Scene {
       fontWeight: '700',
       color: '#fde68a',
       backgroundColor: '#292524',
-      padding: { x: 10, y: 6 }
+      padding: { x: 12, y: 7 }
     }).setDepth(21).setInteractive({ useHandCursor: true });
 
     backBtn.on('pointerdown', () => {
@@ -64,7 +64,7 @@ export class UpgradeScene extends Phaser.Scene {
     this.listContainer.setMask(maskShape.createGeometryMask());
 
     this.setupScrollInput();
-    this.refreshUI();
+    this.refreshUI(false);
   }
 
   setupScrollInput() {
@@ -102,11 +102,20 @@ export class UpgradeScene extends Phaser.Scene {
     });
   }
 
-  refreshUI() {
+  drawVectorLock(x, y, color = 0x94a3b8) {
+    const g = this.add.graphics();
+    g.lineStyle(2, color, 1);
+    g.strokeCircle(x, y - 4, 4.5);
+    g.fillStyle(color, 1);
+    g.fillRoundedRect(x - 6, y - 2, 12, 9, 2);
+    return g;
+  }
+
+  refreshUI(preserveScroll = true) {
+    const prevScroll = preserveScroll ? this.scrollOffset : 0;
+
     this.topFixedContainer.removeAll(true);
     this.listContainer.removeAll(true);
-    this.scrollOffset = 0;
-    this.listContainer.y = 0;
 
     const { width, height } = this.scale;
     const money = Storage.getMoney();
@@ -147,7 +156,7 @@ export class UpgradeScene extends Phaser.Scene {
           fontWeight: '700',
           color: canBuyLab ? '#0f172a' : '#a8a29e',
           backgroundColor: canBuyLab ? '#38bdf8' : '#44403c',
-          padding: { x: 9, y: 5 }
+          padding: { x: 10, y: 6 }
         }
       ).setOrigin(1, 0.5).setInteractive({ useHandCursor: canBuyLab });
 
@@ -157,7 +166,7 @@ export class UpgradeScene extends Phaser.Scene {
             Storage.setLabLevel(nextLab.level);
             AudioManager.playStamp();
             AchievementManager.evaluateAll(this);
-            this.refreshUI();
+            this.refreshUI(true);
           }
         });
       }
@@ -230,7 +239,7 @@ export class UpgradeScene extends Phaser.Scene {
         fontWeight: '700',
         color: isSelected ? '#1c1917' : '#e7e5e4',
         backgroundColor: isSelected ? '#facc15' : '#292524',
-        padding: { x: 1, y: 7 },
+        padding: { x: 2, y: 8 },
         fixedWidth: tabW,
         align: 'center'
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
@@ -239,7 +248,7 @@ export class UpgradeScene extends Phaser.Scene {
         if (!isSelected) {
           AudioManager.playClick();
           this.activeTab = tabKey;
-          this.refreshUI();
+          this.refreshUI(false);
         }
       });
       this.topFixedContainer.add(btn);
@@ -281,7 +290,7 @@ export class UpgradeScene extends Phaser.Scene {
               Storage.unlockTest(item.key);
               AudioManager.playStamp();
               AchievementManager.evaluateAll(this);
-              this.refreshUI();
+              this.refreshUI(true);
             }
           },
           86,
@@ -315,7 +324,7 @@ export class UpgradeScene extends Phaser.Scene {
             if (Storage.spendMoney(cost)) {
               Storage.upgradeTool(tool.key);
               AudioManager.playLatchSnap();
-              this.refreshUI();
+              this.refreshUI(true);
             }
           },
           75,
@@ -344,7 +353,7 @@ export class UpgradeScene extends Phaser.Scene {
             Storage.upgradePerk(perk.key);
             AudioManager.playStamp();
             AchievementManager.evaluateAll(this);
-            this.refreshUI();
+            this.refreshUI(true);
           }
         }, 98, customBtn);
       });
@@ -373,7 +382,7 @@ export class UpgradeScene extends Phaser.Scene {
               Storage.buyRnd(item.key);
               AudioManager.playStamp();
               AchievementManager.evaluateAll(this);
-              this.refreshUI();
+              this.refreshUI(true);
             }
           },
           88,
@@ -421,7 +430,7 @@ export class UpgradeScene extends Phaser.Scene {
                 } else {
                   AudioManager.playLatchSnap();
                 }
-                this.refreshUI();
+                this.refreshUI(true);
               });
               return;
             }
@@ -432,20 +441,20 @@ export class UpgradeScene extends Phaser.Scene {
                 if (item.isLabTheme) Storage.setActiveLabTheme(item.themeId);
                 AudioManager.playStamp();
                 AchievementManager.evaluateAll(this);
-                this.refreshUI();
+                this.refreshUI(true);
               }
             } else if (item.isSkin) {
               Storage.setActiveSkin(isToggleOn ? 'default' : item.skinId);
               AudioManager.playLatchSnap();
-              this.refreshUI();
+              this.refreshUI(true);
             } else if (item.isLabTheme) {
               Storage.setActiveLabTheme(isToggleOn ? 'default' : item.themeId);
               AudioManager.playLatchSnap();
-              this.refreshUI();
+              this.refreshUI(true);
             } else {
               Storage.toggleDecorActive(item.key);
               AudioManager.playLatchSnap();
-              this.refreshUI();
+              this.refreshUI(true);
             }
           },
           btnLabel,
@@ -464,6 +473,8 @@ export class UpgradeScene extends Phaser.Scene {
 
     const visibleH = height - startY;
     this.maxScroll = Math.max(0, totalContentH - visibleH + 20);
+    this.scrollOffset = Phaser.Math.Clamp(prevScroll, -this.maxScroll, 0);
+    this.listContainer.y = this.scrollOffset;
   }
 
   handleTenderAdReward() {
@@ -555,7 +566,7 @@ export class UpgradeScene extends Phaser.Scene {
       if (goToBoard) {
         this.scene.start('ContractsScene');
       } else {
-        this.refreshUI();
+        this.refreshUI(true);
       }
     });
 
@@ -601,7 +612,7 @@ export class UpgradeScene extends Phaser.Scene {
       fontWeight: '700',
       color: btnColor,
       backgroundColor: btnBg,
-      padding: { x: 10, y: 5 }
+      padding: { x: 10, y: 6 }
     }).setOrigin(1, 0.5).setInteractive({ useHandCursor: canClick });
 
     if (canClick) {
@@ -662,7 +673,7 @@ export class UpgradeScene extends Phaser.Scene {
           fontWeight: '700',
           color: isEnabled ? '#0f172a' : '#f8fafc',
           backgroundColor: isEnabled ? '#4ade80' : '#475569',
-          padding: { x: 11, y: 5 }
+          padding: { x: 11, y: 6 }
         }
       ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
@@ -673,7 +684,7 @@ export class UpgradeScene extends Phaser.Scene {
         if (nowOn) {
           AudioManager.activatePackFirstTrack(pack.id);
         }
-        this.refreshUI();
+        this.refreshUI(true);
       });
 
       this.listContainer.add([statusTxt, toggleBtn]);
@@ -692,7 +703,7 @@ export class UpgradeScene extends Phaser.Scene {
         fontWeight: '700',
         color: '#0f172a',
         backgroundColor: '#facc15',
-        padding: { x: 10, y: 5 }
+        padding: { x: 10, y: 6 }
       }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
       adBtn.on('pointerup', () => {
@@ -706,14 +717,15 @@ export class UpgradeScene extends Phaser.Scene {
           } else {
             AudioManager.playLatchSnap();
           }
-          this.refreshUI();
+          this.refreshUI(true);
         });
       });
 
       this.listContainer.add([tagTxt, adBtn]);
     } else {
       const canBuyCoins = money >= pack.price;
-      const tagTxt = this.add.text(30, y + cardH - 16, '💿 ПРЕМИУМ · 5 ТРЕКОВ', {
+      const lockIcon = this.drawVectorLock(36, y + cardH - 16, 0xfde68a);
+      const tagTxt = this.add.text(48, y + cardH - 16, 'ПРЕМИУМ · 5 ТРЕКОВ', {
         fontFamily: '"JetBrains Mono", monospace',
         fontSize: '10px',
         fontWeight: '700',
@@ -726,7 +738,7 @@ export class UpgradeScene extends Phaser.Scene {
         fontWeight: '700',
         color: canBuyCoins ? '#ffffff' : '#a8a29e',
         backgroundColor: canBuyCoins ? '#d97706' : '#44403c',
-        padding: { x: 12, y: 5 }
+        padding: { x: 12, y: 6 }
       }).setOrigin(1, 0.5).setInteractive({ useHandCursor: canBuyCoins });
 
       if (canBuyCoins) {
@@ -735,12 +747,12 @@ export class UpgradeScene extends Phaser.Scene {
           if (Storage.spendMoney(pack.price)) {
             Storage.unlockMusicPack(pack.id);
             AudioManager.activatePackFirstTrack(pack.id);
-            this.refreshUI();
+            this.refreshUI(true);
           }
         });
       }
 
-      this.listContainer.add([tagTxt, coinBtn]);
+      this.listContainer.add([lockIcon, tagTxt, coinBtn]);
     }
   }
 
@@ -767,13 +779,13 @@ export class UpgradeScene extends Phaser.Scene {
     });
 
     if (guideKey) {
-      const infoBtn = this.add.text(30, y + cardH - 16, '? ГОСТ', {
+      const infoBtn = this.add.text(30, y + cardH - 16, 'СПРАВКА ГОСТ', {
         fontFamily: '"JetBrains Mono", monospace',
-        fontSize: '11px',
+        fontSize: '10px',
         fontWeight: '700',
         color: '#38bdf8',
         backgroundColor: '#0f172a',
-        padding: { x: 8, y: 4 }
+        padding: { x: 9, y: 5 }
       }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
 
       infoBtn.on('pointerup', () => {
@@ -791,7 +803,7 @@ export class UpgradeScene extends Phaser.Scene {
       fontWeight: '700',
       color: canBuy ? '#ffffff' : isMax ? '#4ade80' : '#a8a29e',
       backgroundColor: canBuy ? '#d97706' : '#44403c',
-      padding: { x: 10, y: 4 }
+      padding: { x: 10, y: 5 }
     }).setOrigin(1, 0.5).setInteractive({ useHandCursor: canBuy });
 
     if (canBuy) {
