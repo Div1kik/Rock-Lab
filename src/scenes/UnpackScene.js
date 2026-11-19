@@ -1,6 +1,7 @@
 import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
 import { rollWeightedInclusion } from '../data/contracts.js';
+import { MineralRenderer } from '../utils/MineralRenderer.js';
 
 export class UnpackScene extends Phaser.Scene {
   constructor() {
@@ -453,7 +454,6 @@ export class UnpackScene extends Phaser.Scene {
       return;
     }
 
-    // Если это буровая экспедиция — гарантированно находим редкий/легендарный образец!
     if (this.contract?.isExpedition) {
       const foundGem = rollWeightedInclusion(this.contract.guaranteedMinGemIdx || 3);
       Storage.addGem(foundGem);
@@ -461,7 +461,6 @@ export class UnpackScene extends Phaser.Scene {
       return;
     }
 
-    // Обычный шанс находки: 9% (или 25% с НИОКР «Лазерная томография керна»)
     const gemChance = Storage.hasRnd('rnd_tomography') ? 0.25 : 0.09;
     if (Math.random() < gemChance) {
       const foundGem = rollWeightedInclusion(0);
@@ -490,8 +489,8 @@ export class UnpackScene extends Phaser.Scene {
     overlay.fillStyle(0x0b101b, 0.94);
     overlay.fillRect(0, 0, width, height);
 
-    const cardW = 352;
-    const cardH = 330;
+    const cardW = 362;
+    const cardH = 420;
     const cardX = width / 2 - cardW / 2;
     const cardY = height / 2 - cardH / 2;
 
@@ -501,14 +500,14 @@ export class UnpackScene extends Phaser.Scene {
     card.lineStyle(3, gem.color, 1);
     card.strokeRoundedRect(cardX, cardY, cardW, cardH, 16);
 
-    const tHeader = this.add.text(width / 2, cardY + 32, '✨ НАХОДКА В КЕРНЕ!', {
+    const tHeader = this.add.text(width / 2, cardY + 28, '✨ НАХОДКА В КЕРНЕ!', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '15px',
       fontWeight: '700',
       color: '#facc15'
     }).setOrigin(0.5);
 
-    const tRarity = this.add.text(width / 2, cardY + 62, `Редкость: ${gem.rarity.toUpperCase()}`, {
+    const tRarity = this.add.text(width / 2, cardY + 56, `Редкость: ${gem.rarity.toUpperCase()}`, {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '11px',
       fontWeight: '700',
@@ -517,31 +516,40 @@ export class UnpackScene extends Phaser.Scene {
       padding: { x: 10, y: 4 }
     }).setOrigin(0.5);
 
-    const tName = this.add.text(width / 2, cardY + 118, `${gem.icon} ${gem.name}`, {
+    // Пьедестал и вращающийся 3D-образец минерала
+    const glow = this.add.circle(width / 2, cardY + 136, 56, gem.color, 0.16);
+    const mineralObj = MineralRenderer.createMineralDisplay(this, width / 2, cardY + 136, gem.id, 1.55, true);
+
+    const spinHint = this.add.text(width / 2, cardY + 198, '🔄 Покрути образец пальцем!', {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '9px',
+      color: '#94a3b8'
+    }).setOrigin(0.5);
+
+    const tName = this.add.text(width / 2, cardY + 228, gem.name, {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '17px',
+      fontSize: '16px',
       fontWeight: '700',
       color: '#ffffff',
       align: 'center',
-      lineSpacing: 6,
       wordWrap: { width: cardW - 36 }
     }).setOrigin(0.5);
 
     const hasShowcase = Storage.getPerkLevel('showcase') > 0;
     const storageHint = hasShowcase
-      ? 'Образец отправлен на склад.\nВыбери его в окне витрины, чтобы выставить на полку!'
+      ? 'Образец отправлен на склад.\nНажми на него в витрине, чтобы осмотреть в 3D или выставить на полку!'
       : 'Образец сохранён на складе лаборатории.\nКупи витрину в Магазине (со 2-го ур. лабы), чтобы выставить его!';
 
-    const tDesc = this.add.text(width / 2, cardY + 196, storageHint, {
+    const tDesc = this.add.text(width / 2, cardY + 286, storageHint, {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '12px',
+      fontSize: '11px',
       color: '#cbd5e1',
       align: 'center',
-      lineSpacing: 5,
+      lineSpacing: 4,
       wordWrap: { width: cardW - 36 }
     }).setOrigin(0.5);
 
-    const btn = this.add.text(width / 2, cardY + cardH - 36, 'ПОДОЖДИТЕ...', {
+    const btn = this.add.text(width / 2, cardY + cardH - 34, 'ПОДОЖДИТЕ...', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '13px',
       fontWeight: '700',
@@ -550,7 +558,7 @@ export class UnpackScene extends Phaser.Scene {
       padding: { x: 18, y: 11 }
     }).setOrigin(0.5);
 
-    modalGroup.add([overlay, card, tHeader, tRarity, tName, tDesc, btn]);
+    modalGroup.add([overlay, card, tHeader, tRarity, glow, mineralObj, spinHint, tName, tDesc, btn]);
 
     this.tweens.add({
       targets: modalGroup,
