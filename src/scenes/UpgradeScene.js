@@ -217,7 +217,6 @@ export class UpgradeScene extends Phaser.Scene {
 
     this.topFixedContainer.add([adBanner, adTitle, adSub, adActionBtn]);
 
-    // 6 вкладок магазина (включая НИОКР для эндгейма)
     const tabY = 198;
     const gap = 3;
     const tabW = (width - 36 - gap * 5) / 6;
@@ -386,10 +385,11 @@ export class UpgradeScene extends Phaser.Scene {
       DECOR_ITEMS.forEach((item, idx) => {
         const y = startY + idx * 56;
         const owned = Storage.hasDecor(item.key);
-        const canBuy = !owned && money >= item.cost;
+        const isAdItem = Boolean(item.reqAds);
+        const canBuy = !owned && !isAdItem && money >= item.cost;
 
         let isToggleOn = false;
-        let btnLabel = `${item.cost} ₽`;
+        let btnLabel = isAdItem ? `🎬 ${Storage.getDecorAds(item.key)}/${item.reqAds}` : `${item.cost} ₽`;
 
         if (owned) {
           if (item.isSkin) {
@@ -408,9 +408,23 @@ export class UpgradeScene extends Phaser.Scene {
           item.desc,
           owned,
           isToggleOn,
-          canBuy || owned,
+          canBuy || owned || isAdItem,
           () => {
             if (this.wasDragging) return;
+            if (!owned && isAdItem) {
+              PlatformSDK.showRewarded(() => {
+                const watched = Storage.incrementDecorAds(item.key);
+                if (watched >= item.reqAds) {
+                  Storage.buyDecor(item.key);
+                  if (item.isSkin) Storage.setActiveSkin(item.skinId);
+                  AudioManager.playStamp();
+                } else {
+                  AudioManager.playLatchSnap();
+                }
+                this.refreshUI();
+              });
+              return;
+            }
             if (!owned) {
               if (Storage.spendMoney(item.cost)) {
                 Storage.buyDecor(item.key);
@@ -434,7 +448,8 @@ export class UpgradeScene extends Phaser.Scene {
               this.refreshUI();
             }
           },
-          btnLabel
+          btnLabel,
+          isAdItem && !owned
         );
       });
       totalContentH = DECOR_ITEMS.length * 56 + 24;
@@ -454,7 +469,7 @@ export class UpgradeScene extends Phaser.Scene {
   handleTenderAdReward() {
     const roll = Math.random();
     const lockedPacks = MUSIC_PACK_CATALOG.filter((p) => !Storage.isMusicPackUnlocked(p.id));
-    const lockedDecor = DECOR_ITEMS.filter((d) => !Storage.hasDecor(d.key));
+    const lockedDecor = DECOR_ITEMS.filter((d) => !Storage.hasDecor(d.key) && !d.reqAds);
 
     if (roll < 0.05 && lockedPacks.length > 0) {
       const wonPack = lockedPacks[Math.floor(Math.random() * lockedPacks.length)];
@@ -547,13 +562,13 @@ export class UpgradeScene extends Phaser.Scene {
     modal.add([blocker, dim, panel, t1, t2, okBtn]);
   }
 
-  renderCompactDecorCard(y, titleStr, descStr, owned, isToggleOn, canClick, onClick, btnLabel) {
+  renderCompactDecorCard(y, titleStr, descStr, owned, isToggleOn, canClick, onClick, btnLabel, isAdBtn = false) {
     const { width } = this.scale;
     const cardH = 50;
     const card = this.add.graphics();
     card.fillStyle(0x292524, 1);
     card.fillRoundedRect(18, y, width - 36, cardH, 8);
-    card.lineStyle(1.5, owned ? (isToggleOn ? 0x22c55e : 0x64748b) : 0x57534e, 0.9);
+    card.lineStyle(1.5, owned ? (isToggleOn ? 0x22c55e : 0x64748b) : isAdBtn ? 0x38bdf8 : 0x57534e, 0.9);
     card.strokeRoundedRect(18, y, width - 36, cardH, 8);
 
     const title = this.add.text(28, y + 15, titleStr, {
@@ -569,8 +584,16 @@ export class UpgradeScene extends Phaser.Scene {
       color: '#a8a29e'
     }).setOrigin(0, 0.5);
 
-    const btnBg = owned ? (isToggleOn ? '#4ade80' : '#475569') : (canClick ? '#d97706' : '#44403c');
-    const btnColor = owned ? (isToggleOn ? '#0f172a' : '#f8fafc') : (canClick ? '#ffffff' : '#a8a29e');
+    const btnBg = owned
+      ? (isToggleOn ? '#4ade80' : '#475569')
+      : isAdBtn
+        ? '#facc15'
+        : (canClick ? '#d97706' : '#44403c');
+    const btnColor = owned
+      ? (isToggleOn ? '#0f172a' : '#f8fafc')
+      : isAdBtn
+        ? '#0f172a'
+        : (canClick ? '#ffffff' : '#a8a29e');
 
     const btn = this.add.text(width - 28, y + cardH / 2, btnLabel, {
       fontFamily: '"JetBrains Mono", monospace',
