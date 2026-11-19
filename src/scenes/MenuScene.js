@@ -84,9 +84,12 @@ export class MenuScene extends Phaser.Scene {
 
     const auditLeft = Storage.getAuditBonus();
     const completedMegas = Storage.getCompletedMegasCount();
+    const branchesCount = Storage.getBranchesCount();
     let subLabel = `Ур. ${labLvl} · ${tier.name}`;
     if (auditLeft > 0) {
       subLabel += ` · 🛡️ +15% (×${auditLeft})`;
+    } else if (branchesCount > 0) {
+      subLabel += ` · 🌐 Филиалов: ${branchesCount}/3`;
     } else if (completedMegas > 0) {
       subLabel += ` · 🏗️ Строек века: ${completedMegas}/${MEGA_PROJECTS.length}`;
     }
@@ -158,7 +161,6 @@ export class MenuScene extends Phaser.Scene {
       color: '#a8a29e'
     }).setOrigin(0.5).setAlpha(0.85);
 
-    // Проверяем накопительные достижения при входе в лабораторию
     AchievementManager.evaluateAll(this);
   }
 
@@ -272,7 +274,6 @@ export class MenuScene extends Phaser.Scene {
     g.fillStyle(hasNeon ? 0x38bdf8 : tier.accent, hasNeon ? 0.9 : 0.35 + decorLvl * 0.08);
     g.fillRect(0, 75, w, 4);
 
-    // Центральное окно / карта (сдвинуто чуть левее, чтобы справа поместился подвесной стенд наград)
     const winX = w / 2 - 122;
     const winW = 216;
     if (labLvl >= 5) {
@@ -311,20 +312,16 @@ export class MenuScene extends Phaser.Scene {
       }
     }
 
-    // =========================================================================
-    // ПОДВЕСНОЙ ЗАСТЕКЛЁННЫЙ СТЕНД НАГРАД «СТРОЕК ВЕКА» НА ЗАДНЕЙ СТЕНЕ
-    // =========================================================================
+    // Подвесной застеклённый стенд наград «Строек века»
     const trophyX = w - 134;
     const trophyY = 140;
     const trophyW = 62;
     const trophyH = 76;
 
-    // Кронштейны крепления к стене
     g.fillStyle(0x475569, 1);
     g.fillRect(trophyX + 8, trophyY - 4, 6, 4);
     g.fillRect(trophyX + trophyW - 14, trophyY - 4, 6, 4);
 
-    // Корпус витрины наград и внутренняя полка
     g.fillStyle(0x0f172a, 0.94);
     g.fillRoundedRect(trophyX, trophyY, trophyW, trophyH, 6);
     g.lineStyle(2, 0xfacc15, 0.85);
@@ -332,7 +329,6 @@ export class MenuScene extends Phaser.Scene {
     g.fillStyle(0x334155, 1);
     g.fillRect(trophyX + 4, trophyY + 38, trophyW - 8, 3);
 
-    // 4 ячейки под кубки мега-проектов (2 сверху, 2 снизу)
     const trophySlots = [
       { id: 'mega_bridge', x: trophyX + 18, y: trophyY + 22 },
       { id: 'mega_metro', x: trophyX + 44, y: trophyY + 22 },
@@ -347,7 +343,6 @@ export class MenuScene extends Phaser.Scene {
         g.fillCircle(slot.x, slot.y, 6);
         return;
       }
-      // Золотой кубок / макет завершённого мега-проекта
       g.fillStyle(0xfacc15, 1);
       g.fillRect(slot.x - 6, slot.y + 8, 12, 3);
       if (slot.id === 'mega_bridge') {
@@ -368,7 +363,6 @@ export class MenuScene extends Phaser.Scene {
       }
     });
 
-    // Стеклянная панель с диагональным бликом поверх стенда наград
     g.fillStyle(0x38bdf8, 0.12);
     g.fillRoundedRect(trophyX + 2, trophyY + 2, trophyW - 4, trophyH - 4, 4);
     g.lineStyle(1.5, 0xffffff, 0.35);
@@ -384,7 +378,6 @@ export class MenuScene extends Phaser.Scene {
       this.openAchievementsModal(tier);
     });
 
-    // Витрина редких минералов слева
     const foundGems = Storage.getGems();
     if (showcaseLvl > 0) {
       const shelfX = 14;
@@ -535,9 +528,6 @@ export class MenuScene extends Phaser.Scene {
     g.fillRect(0, frontBenchY, w, 3);
   }
 
-  // =========================================================================
-  // МОДАЛЬНОЕ ОКНО ДОСТИЖЕНИЙ И НАГРАД СТРОЕК ВЕКА
-  // =========================================================================
   openAchievementsModal(tier) {
     const { width, height } = this.scale;
     const modalContainer = this.add.container(0, 0).setDepth(65);
@@ -689,6 +679,7 @@ export class MenuScene extends Phaser.Scene {
     const pressLvl = Storage.getUpgradeLevel('press');
     const sawLvl = Storage.getUpgradeLevel('saw');
     const grinderLvl = Storage.getUpgradeLevel('grinder');
+    const hasGoldPress = Storage.hasRnd('rnd_gold_press');
 
     const hasSplit = Storage.isTestUnlocked('shear_crack');
     const hasWater = Storage.isTestUnlocked('water_sat');
@@ -918,15 +909,16 @@ export class MenuScene extends Phaser.Scene {
       eqG.fillTriangle(spX - 7, frontBenchY - 26, spX + 7, frontBenchY - 26, spX, frontBenchY - 12);
     }
 
+    // Главный гидропресс (перекрашивается в чистое золото при покупке НИОКР «Титан-Аурум»)
     const pressX = w / 2;
     const pressColors = [0xd97706, 0xca8a04, 0x059669, 0x0284c9, 0x4f46e5, 0xfacc15];
-    const pCol = pressColors[Math.min(pressColors.length - 1, pressLvl - 1)];
-    eqG.fillStyle(0x3f3f46, 1);
+    const pCol = hasGoldPress ? 0xfacc15 : pressColors[Math.min(pressColors.length - 1, pressLvl - 1)];
+    eqG.fillStyle(hasGoldPress ? 0xb45309 : 0x3f3f46, 1);
     eqG.fillRect(pressX - 26, frontBenchY - 62, 7, 62);
     eqG.fillRect(pressX + 19, frontBenchY - 62, 7, 62);
     eqG.fillStyle(pCol, 1);
     eqG.fillRoundedRect(pressX - 32, frontBenchY - 72, 64, 13, 4);
-    eqG.lineStyle(1.5, 0x0f172a, 0.9);
+    eqG.lineStyle(1.5, hasGoldPress ? 0xfef08a : 0x0f172a, 0.95);
     eqG.strokeRoundedRect(pressX - 32, frontBenchY - 72, 64, 13, 4);
     eqG.fillRect(pressX - 9, frontBenchY - 59, 18, 12);
     eqG.fillStyle(0xd6d3d1, 1);
@@ -1322,7 +1314,6 @@ export class MenuScene extends Phaser.Scene {
       color: '#38bdf8'
     });
 
-    // Кнопка открытия Достижений в верхней панели
     const achCount = Storage.getUnlockedAchievements().length;
     const achBtn = this.add.text(
       w - 64,
