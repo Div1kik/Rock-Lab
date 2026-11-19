@@ -167,7 +167,6 @@ export class MenuScene extends Phaser.Scene {
     this.createTopBar(width, tier);
 
     if (this.isVisiting()) {
-      // Режим визита в гости к коллеге
       this.add.text(width / 2, 86, `👁️ В ГОСТЯХ: ${this.visitProfile.name}`, {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '20px',
@@ -196,7 +195,6 @@ export class MenuScene extends Phaser.Scene {
       return;
     }
 
-    // Обычный режим своей лаборатории
     this.add.text(width / 2, 90, 'ROCK LAB', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '32px',
@@ -287,7 +285,6 @@ export class MenuScene extends Phaser.Scene {
 
     AchievementManager.evaluateAll(this);
 
-    // Синхронизируем актуальный профиль и снимок лаборатории с лидером-сервисом
     const myProfile = Storage.buildPublicProfile(PlatformSDK.playerName);
     PlatformSDK.submitLabProfile(myProfile);
   }
@@ -304,7 +301,7 @@ export class MenuScene extends Phaser.Scene {
     card.lineStyle(2, 0x38bdf8, 0.9);
     card.strokeRoundedRect(cx - panelW / 2, panelY, panelW, panelH, 14);
 
-    const infoTxt = this.add.text(
+    this.add.text(
       cx,
       panelY + 32,
       `Тапай по приборам, витрине и роботам коллеги!\n★ Репутация: ${this.visitProfile.reputation}  ·  Строек века: ${this.visitProfile.completedMegas}/4`,
@@ -476,7 +473,6 @@ export class MenuScene extends Phaser.Scene {
     g.fillStyle(hasNeon ? 0x38bdf8 : tier.accent, hasNeon ? 0.9 : 0.35 + decorLvl * 0.08);
     g.fillRect(0, 75, w, 4);
 
-    // Центральное окно / Карта филиалов / Карта месторождений
     const winX = w / 2 - 122;
     const winW = 216;
     if (branchesCount > 0 || hasGeoMap) {
@@ -554,7 +550,6 @@ export class MenuScene extends Phaser.Scene {
       g.strokePath();
     }
 
-    // Подвесной застеклённый стенд наград «Строек века»
     const trophyX = w - 134;
     const trophyY = 140;
     const trophyW = 62;
@@ -622,7 +617,6 @@ export class MenuScene extends Phaser.Scene {
       });
     }
 
-    // Витрина минералов слева
     if (showcaseLvl > 0) {
       const shelfX = 14;
       const shelfY = 148;
@@ -887,6 +881,8 @@ export class MenuScene extends Phaser.Scene {
 
     const rowH = 64;
     const rowGap = 8;
+    const visitHitTargets = [];
+
     entries.forEach((entry, idx) => {
       const ry = listStartY + idx * (rowH + rowGap);
       const isSelf = Boolean(entry.isSelf || entry.playerId === myProfile.playerId);
@@ -932,47 +928,72 @@ export class MenuScene extends Phaser.Scene {
       scrollGroup.add([rowG, rankTxt, pName, pStats]);
 
       if (!isSelf && entry.snapshot) {
-        const visitBtn = this.add.text(boxX + boxW - 24, ry + rowH / 2, '👁️ В ГОСТИ', {
+        const btnX = boxX + boxW - 24;
+        const btnY = ry + rowH / 2;
+        const visitBtn = this.add.text(btnX, btnY, '👁️ В ГОСТИ', {
           fontFamily: '"Rubik", sans-serif',
           fontSize: '10px',
           fontWeight: '700',
           color: '#0f172a',
           backgroundColor: '#4ade80',
           padding: { x: 9, y: 6 }
-        }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
-
-        visitBtn.on('pointerdown', () => {
-          AudioManager.playStamp();
-          maskG.destroy();
-          modalContainer.destroy();
-          this.showcaseModalOpen = false;
-          this.scene.restart({ visitProfile: entry });
-        });
+        }).setOrigin(1, 0.5);
 
         scrollGroup.add(visitBtn);
+        visitHitTargets.push({
+          left: btnX - visitBtn.width - 8,
+          right: btnX + 8,
+          top: ry,
+          bottom: ry + rowH,
+          entry
+        });
       }
     });
 
     const totalH = entries.length * (rowH + rowGap);
     const maxScroll = Math.max(0, totalH - listViewH + 10);
     let scrollY = 0;
-    let dragStart = 0;
+    let dragStartX = 0;
+    let dragStartY = 0;
     let dragStartScroll = 0;
     let dragging = false;
 
     const dragZone = this.add.zone(width / 2, listStartY + listViewH / 2, boxW, listViewH)
-      .setInteractive();
+      .setInteractive({ useHandCursor: true });
+
     dragZone.on('pointerdown', (ptr) => {
       dragging = true;
-      dragStart = ptr.y;
+      dragStartX = ptr.x;
+      dragStartY = ptr.y;
       dragStartScroll = scrollY;
     });
+
     dragZone.on('pointermove', (ptr) => {
       if (!dragging || maxScroll <= 0) return;
-      scrollY = Phaser.Math.Clamp(dragStartScroll + (ptr.y - dragStart), -maxScroll, 0);
+      scrollY = Phaser.Math.Clamp(dragStartScroll + (ptr.y - dragStartY), -maxScroll, 0);
       scrollGroup.y = scrollY;
     });
-    dragZone.on('pointerup', () => { dragging = false; });
+
+    dragZone.on('pointerup', (ptr) => {
+      if (!dragging) return;
+      dragging = false;
+      const moveDist = Math.hypot(ptr.x - dragStartX, ptr.y - dragStartY);
+      // Если это короткий тап (не свайп) — проверяем попадание по кнопке «В ГОСТИ»
+      if (moveDist < 12) {
+        const contentY = ptr.y - scrollY;
+        const hit = visitHitTargets.find(
+          (t) => ptr.x >= t.left && ptr.x <= t.right && contentY >= t.top && contentY <= t.bottom
+        );
+        if (hit) {
+          AudioManager.playStamp();
+          maskG.destroy();
+          modalContainer.destroy();
+          this.showcaseModalOpen = false;
+          this.scene.restart({ visitProfile: hit.entry });
+        }
+      }
+    });
+
     modalContainer.add(dragZone);
 
     closeBtn.once('pointerdown', () => {
@@ -1411,7 +1432,6 @@ export class MenuScene extends Phaser.Scene {
       color: '#38bdf8'
     });
 
-    // Кнопка Таблицы лидеров и Гостевого режима (🌐 ТОП)
     const topBtn = this.add.text(w - 134, 32, '🌐 ТОП', {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '11px',
@@ -1428,7 +1448,6 @@ export class MenuScene extends Phaser.Scene {
       this.openLeaderboardModal(tier);
     });
 
-    // Кнопка Достижений (🏆)
     const achCount = Storage.getUnlockedAchievements().length;
     const achBtn = this.add.text(
       w - 56,
@@ -1814,7 +1833,6 @@ export class MenuScene extends Phaser.Scene {
       });
     }
 
-    // Навигационный граф проходов
     const topLaneY = 304;
     const botLaneY = frontBenchY - 6;
     const leftCorridorX = 62;
