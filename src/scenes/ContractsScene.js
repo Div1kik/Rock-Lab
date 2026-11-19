@@ -14,7 +14,7 @@ export class ContractsScene extends Phaser.Scene {
   constructor() {
     super('ContractsScene');
     this.contracts = [];
-    this.mode = 'regular'; // 'regular' | 'mega' | 'expeditions'
+    this.mode = 'regular';
   }
 
   init(data) {
@@ -57,7 +57,6 @@ export class ContractsScene extends Phaser.Scene {
       color: '#facc15'
     }).setOrigin(1, 0);
 
-    // 3 вкладки: Обычные заказы / Стройки века / Буровые экспедиции
     const gap = 5;
     const tabW = (width - 36 - gap * 2) / 3;
 
@@ -164,20 +163,59 @@ export class ContractsScene extends Phaser.Scene {
 
   renderExpeditions() {
     this.cardsContainer.removeAll(true);
-    const { width } = this.scale;
+    const { width, height } = this.scale;
     const money = Storage.getMoney();
+    const hasCompletedMega = Storage.getCompletedMegasCount() >= 1;
+
+    if (!hasCompletedMega) {
+      const lockCard = this.add.graphics();
+      lockCard.fillStyle(0x1e293b, 1);
+      lockCard.fillRoundedRect(24, 180, width - 48, 250, 16);
+      lockCard.lineStyle(2, 0xfacc15, 0.9);
+      lockCard.strokeRoundedRect(24, 180, width - 48, 250, 16);
+
+      const lockIcon = this.add.text(width / 2, 232, '🔒 🚁', {
+        fontSize: '36px'
+      }).setOrigin(0.5);
+
+      const lockTitle = this.add.text(width / 2, 282, 'БУРОВЫЕ ЭКСПЕДИЦИИ ЗАКРЫТЫ', {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '16px',
+        fontWeight: '700',
+        color: '#facc15'
+      }).setOrigin(0.5);
+
+      const lockDesc = this.add.text(
+        width / 2,
+        345,
+        'Чтобы финансировать собственные буровые партии в Арктику и Якутию,\nсначала завершите полностью хотя бы 1 «Стройку века»!',
+        {
+          fontFamily: '"Rubik", sans-serif',
+          fontSize: '12px',
+          color: '#cbd5e1',
+          align: 'center',
+          lineSpacing: 5,
+          wordWrap: { width: width - 84 }
+        }
+      ).setOrigin(0.5);
+
+      this.cardsContainer.add([lockCard, lockIcon, lockTitle, lockDesc]);
+      return;
+    }
 
     EXPEDITIONS_CATALOG.forEach((exp, idx) => {
       const y = 122 + idx * 198;
       const cardW = width - 36;
       const cardH = 186;
       const x = 18;
-      const canAfford = money >= exp.cost;
+      const daysLeft = Storage.getExpeditionCooldownLeft(exp.id, exp.cooldownDays);
+      const isReady = daysLeft <= 0;
+      const canAfford = isReady && money >= exp.cost;
 
       const card = this.add.graphics();
       card.fillStyle(0x0f172a, 1);
       card.fillRoundedRect(x, y, cardW, cardH, 12);
-      card.lineStyle(2, canAfford ? 0x34d399 : 0x475569, 1);
+      card.lineStyle(2, canAfford ? 0x34d399 : isReady ? 0x64748b : 0x334155, 1);
       card.strokeRoundedRect(x, y, cardW, cardH, 12);
 
       const title = this.add.text(x + 14, y + 14, `${exp.icon} ${exp.title}`, {
@@ -186,6 +224,18 @@ export class ContractsScene extends Phaser.Scene {
         fontWeight: '700',
         color: '#fef3c7'
       });
+
+      const cdBadge = this.add.text(
+        x + cardW - 14,
+        y + 15,
+        isReady ? `⏱️ Раз в ${exp.cooldownDays} дн.` : `⏳ Через ${daysLeft} дн.`,
+        {
+          fontFamily: '"JetBrains Mono", monospace',
+          fontSize: '10px',
+          fontWeight: '700',
+          color: isReady ? '#38bdf8' : '#f87171'
+        }
+      ).setOrigin(1, 0);
 
       const regionTxt = this.add.text(x + 14, y + 36, exp.region, {
         fontFamily: '"Rubik", sans-serif',
@@ -222,19 +272,18 @@ export class ContractsScene extends Phaser.Scene {
       btnBg.fillStyle(canAfford ? 0x059669 : 0x334155, 1);
       btnBg.fillRoundedRect(btnX, btnY, btnW, btnH, 8);
 
-      const btnLabel = this.add.text(
-        btnX + btnW / 2,
-        btnY + btnH / 2,
-        canAfford ? `🚁 СНАРЯДИТЬ БУРОВУЮ ПАРТИЮ (-${exp.cost} ₽)` : `НЕДОСТАТОЧНО СРЕДСТВ (${exp.cost} ₽)`,
-        {
-          fontFamily: '"Rubik", sans-serif',
-          fontSize: '12px',
-          fontWeight: '700',
-          color: canAfford ? '#ffffff' : '#94a3b8'
-        }
-      ).setOrigin(0.5);
+      let btnText = `🚁 СНАРЯДИТЬ ПАРТИЮ (-${exp.cost} ₽)`;
+      if (!isReady) btnText = `⏳ БУРОВАЯ НА ТЕХОБСЛУЖИВАНИИ (ЕЩЁ ${daysLeft} ЗАКАЗ.)`;
+      else if (!canAfford) btnText = `НЕДОСТАТОЧНО СРЕДСТВ (${exp.cost} ₽)`;
 
-      this.cardsContainer.add([card, title, regionTxt, descTxt, lootTxt, btnBg, btnLabel]);
+      const btnLabel = this.add.text(btnX + btnW / 2, btnY + btnH / 2, btnText, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
+        fontWeight: '700',
+        color: canAfford ? '#ffffff' : '#94a3b8'
+      }).setOrigin(0.5);
+
+      this.cardsContainer.add([card, title, cdBadge, regionTxt, descTxt, lootTxt, btnBg, btnLabel]);
 
       if (canAfford) {
         const hitZone = this.add.zone(btnX + btnW / 2, btnY + btnH / 2, btnW, btnH)
@@ -242,6 +291,7 @@ export class ContractsScene extends Phaser.Scene {
 
         hitZone.on('pointerdown', () => {
           if (Storage.spendMoney(exp.cost)) {
+            Storage.markExpeditionLaunched(exp.id);
             const contract = generateExpeditionContract(exp.id);
             AudioManager.playStamp();
             AchievementManager.unlock(this, 'polar_driller');
