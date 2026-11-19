@@ -2,6 +2,7 @@ import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
 import { PlatformSDK } from '../utils/PlatformSDK.js';
 import { AchievementManager } from '../utils/AchievementManager.js';
+import { TutorialManager } from '../utils/TutorialManager.js';
 
 export class ReportScene extends Phaser.Scene {
   constructor() {
@@ -148,6 +149,16 @@ export class ReportScene extends Phaser.Scene {
       0xb91c1c,
       () => this.playStampAnimationAndSubmit(false)
     );
+
+    if (TutorialManager.isActive()) {
+      TutorialManager.advanceTo(7);
+      TutorialManager.showSpotlight(this, {
+        hole: { x: width / 2, y: height - 155, w: 376, h: 156 },
+        cardY: 365,
+        badge: 'ШАГ 8/8 · ИТОГОВЫЙ ВЕРДИКТ',
+        text: `Сравни показание прибора (${this.measuredMpa} МПа) с нормой (${this.contract.reqMpa} МПа).\nЕсли больше или равно — жми «ОДОБРИТЬ», если меньше — «ЗАБРАКОВАТЬ»!`
+      });
+    }
   }
 
   createStampButton(x, y, w, h, label, bgColor, onClick) {
@@ -178,6 +189,8 @@ export class ReportScene extends Phaser.Scene {
   }
 
   playStampAnimationAndSubmit(approvedByPlayer) {
+    TutorialManager.clear(this);
+
     const { width } = this.scale;
     const stampX = width / 2 + 54;
     const stampY = this.sheetCenterY + 132;
@@ -262,7 +275,6 @@ export class ReportScene extends Phaser.Scene {
       Storage.getPerkLevel('showcase') * 35;
     const perkRepBonus = Storage.getPerkLevel('decor');
 
-    // Пассивный доход от региональных филиалов и гранта ISO
     const passiveBranchBonus = Storage.getPassiveBranchIncome();
     const isoRepBonus = Storage.hasRnd('rnd_iso_center') ? 15 : 0;
 
