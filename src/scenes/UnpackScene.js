@@ -453,9 +453,18 @@ export class UnpackScene extends Phaser.Scene {
       return;
     }
 
-    // Редкий шанс находки (9% за партию), чтобы минералы реально ценились
-    if (Math.random() < 0.09) {
-      const foundGem = rollWeightedInclusion();
+    // Если это буровая экспедиция — гарантированно находим редкий/легендарный образец!
+    if (this.contract?.isExpedition) {
+      const foundGem = rollWeightedInclusion(this.contract.guaranteedMinGemIdx || 3);
+      Storage.addGem(foundGem);
+      this.showRareGemModal(foundGem);
+      return;
+    }
+
+    // Обычный шанс находки: 9% (или 25% с НИОКР «Лазерная томография керна»)
+    const gemChance = Storage.hasRnd('rnd_tomography') ? 0.25 : 0.09;
+    if (Math.random() < gemChance) {
+      const foundGem = rollWeightedInclusion(0);
       Storage.addGem(foundGem);
       this.showRareGemModal(foundGem);
       return;
@@ -471,7 +480,6 @@ export class UnpackScene extends Phaser.Scene {
     const { width, height } = this.scale;
     AudioManager.playStamp();
 
-    // Блокируем сквозные клики по экрану и добавляем паузу перед активацией кнопки
     this.add.zone(width / 2, height / 2, width, height)
       .setInteractive()
       .setDepth(59);
