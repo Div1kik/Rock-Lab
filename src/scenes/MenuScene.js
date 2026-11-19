@@ -19,10 +19,15 @@ const LAB_THEMES = {
 };
 
 const SKIN_PALETTES = {
-  default: { coat: 0xf8fafc, pants: 0x334155, helmet: 0xfacc15 },
-  miner: { coat: 0xf97316, pants: 0x1e293b, helmet: 0xffffff },
-  arctic: { coat: 0x0284c9, pants: 0x0f172a, helmet: 0x38bdf8 },
-  gold: { coat: 0xfacc15, pants: 0x78350f, helmet: 0xfef08a }
+  default: { coat: 0xf8fafc, pants: 0x334155, helmet: 0xfacc15, head: 0xfde68a },
+  miner: { coat: 0xf97316, pants: 0x1e293b, helmet: 0xffffff, head: 0xfde68a },
+  arctic: { coat: 0x0284c9, pants: 0x0f172a, helmet: 0x38bdf8, head: 0xfde68a },
+  gold: { coat: 0xfacc15, pants: 0x78350f, helmet: 0xfef08a, head: 0xfde68a },
+  robots: { coat: 0x94a3b8, pants: 0x1e293b, helmet: 0x38bdf8, head: 0xcbd5e1, style: 'robots' },
+  minions: { coat: 0x2563eb, pants: 0x1d4ed8, helmet: 0xfacc15, head: 0xfacc15, style: 'minions' },
+  mario: { coat: 0xdc2626, pants: 0x2563eb, helmet: 0xdc2626, head: 0xfde68a, style: 'mario' },
+  astronaut: { coat: 0xf8fafc, pants: 0xe2e8f0, helmet: 0x38bdf8, head: 0x0f172a, style: 'astronaut' },
+  ninja: { coat: 0x18181b, pants: 0x09090b, helmet: 0xef4444, head: 0xfde68a, style: 'ninja' }
 };
 
 const ENGINEER_LINES = [
@@ -39,6 +44,20 @@ const INTERN_LINES = [
   'Подготовил шайбы для среза!',
   'Штангенциркуль обнулён!',
   'Учусь работать на стабилометре!'
+];
+
+const ROBOT_SKIN_LINES = [
+  '01001011 · БИП-БОП-СКАН! ⚡',
+  'АНАЛИЗ ПРОЧНОСТИ: 99.9% 🤖',
+  'КЕРН ОДОБРЕН СИСТЕМОЙ · БЗ-З!',
+  'КАЛИБРОВКА ДАТЧИКОВ: ОПТИМАЛЬНО'
+];
+
+const MINION_LINES = [
+  'БАНАНА-КЕРН! БЕЛЛО! 🍌',
+  'ПАПАЙЯ-ГОСТ! ТУЛИЛАЛУ! 😄',
+  'ПОКАЙЯ! ПРЕСС БАМ-БАМ! 🔨',
+  'БЕЛЛО, ШЕФ! КЕРН ГОТОВ!'
 ];
 
 export class MenuScene extends Phaser.Scene {
@@ -177,7 +196,7 @@ export class MenuScene extends Phaser.Scene {
       fontWeight: '700',
       color: '#0f172a',
       align: 'center',
-      wordWrap: { width: 145 }
+      wordWrap: { width: 150 }
     }).setOrigin(0.5);
 
     const padX = 10;
@@ -230,6 +249,7 @@ export class MenuScene extends Phaser.Scene {
     const hasCooler = Storage.isDecorActive('cooler');
     const hasPlants = Storage.isDecorActive('plants');
     const activeTheme = Storage.getActiveLabTheme();
+    const branchesCount = Storage.getBranchesCount();
 
     const backWallY = 266;
     const frontBenchY = h * 0.545;
@@ -274,9 +294,63 @@ export class MenuScene extends Phaser.Scene {
     g.fillStyle(hasNeon ? 0x38bdf8 : tier.accent, hasNeon ? 0.9 : 0.35 + decorLvl * 0.08);
     g.fillRect(0, 75, w, 4);
 
+    // Центральное окно / Карта филиалов / Карта месторождений
     const winX = w / 2 - 122;
     const winW = 216;
-    if (labLvl >= 5) {
+    if (branchesCount > 0 || hasGeoMap) {
+      g.fillStyle(0x0f172a, 1);
+      g.fillRoundedRect(winX, 138, winW, 78, 8);
+      g.lineStyle(2.5, branchesCount > 0 ? 0x38bdf8 : 0x4b5563, 1);
+      g.strokeRoundedRect(winX, 138, winW, 78, 8);
+
+      // Контуры материка на мониторе филиалов
+      g.fillStyle(0x15803d, 0.6);
+      g.fillRoundedRect(winX + 18, 152, 68, 36, 8);
+      g.fillRoundedRect(winX + 94, 148, 102, 46, 10);
+
+      // Координаты 3 филиалов на карте
+      const bNorilsk = { x: winX + 128, y: 158, active: Storage.hasRnd('branch_norilsk') };
+      const bUral = { x: winX + 104, y: 174, active: Storage.hasRnd('branch_ural') };
+      const bShelf = { x: winX + 182, y: 182, active: Storage.hasRnd('branch_shelf') };
+
+      // Линии связи от главного штаба к активным филиалам
+      g.lineStyle(1.5, 0x38bdf8, 0.8);
+      [bNorilsk, bUral, bShelf].forEach((b) => {
+        if (b.active) {
+          g.lineBetween(winX + 54, 170, b.x, b.y);
+        }
+      });
+
+      [bNorilsk, bUral, bShelf].forEach((b) => {
+        g.fillStyle(b.active ? 0x4ade80 : 0x475569, 1);
+        g.fillCircle(b.x, b.y, b.active ? 5 : 3.5);
+        if (b.active) {
+          const pulse = this.add.circle(b.x, b.y, 6, 0x4ade80, 0.5).setDepth(3);
+          this.tweens.add({
+            targets: pulse,
+            scale: 2.1,
+            alpha: 0,
+            duration: 1200,
+            repeat: -1
+          });
+        }
+      });
+
+      const mapZone = this.add.zone(winX + winW / 2, 177, winW, 78).setInteractive({ useHandCursor: true });
+      mapZone.on('pointerdown', () => {
+        if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+        AudioManager.playClick();
+        const passive = Storage.getPassiveBranchIncome();
+        const mapAnchor = this.add.container(winX + winW / 2, 224).setDepth(28);
+        this.showSpeechBubble(
+          mapAnchor,
+          branchesCount > 0
+            ? `🌐 Филиалов: ${branchesCount}/3 · Пассив: +${passive} ₽/заказ`
+            : '🗺️ Геокарта месторождений активна!',
+          0x38bdf8
+        );
+      });
+    } else if (labLvl >= 5) {
       g.fillStyle(0x0284c9, 0.45);
       g.fillRoundedRect(winX, 138, winW, 78, 8);
       g.lineStyle(3, 0x94a3b8, 1);
@@ -291,25 +365,14 @@ export class MenuScene extends Phaser.Scene {
       g.strokeRoundedRect(winX + 12, 140, 192, 74, 8);
       g.fillStyle(0x0ea5e9, 0.12);
       g.fillRect(winX + 18, 146, 180, 62);
-
-      if (hasGeoMap) {
-        g.fillStyle(0x15803d, 0.65);
-        g.fillRoundedRect(winX + 28, 154, 52, 30, 6);
-        g.fillRoundedRect(winX + 96, 152, 78, 38, 8);
-        g.fillStyle(0xfacc15, 1);
-        g.fillCircle(winX + 52, 168, 4);
-        g.fillCircle(winX + 122, 164, 4);
-        g.fillCircle(winX + 154, 176, 4);
-      } else {
-        g.lineStyle(2, tier.accent, 0.9);
-        g.beginPath();
-        g.moveTo(winX + 28, 198);
-        g.lineTo(winX + 70, 182);
-        g.lineTo(winX + 112, 160);
-        g.lineTo(winX + 148, 154);
-        g.lineTo(winX + 180, 194);
-        g.strokePath();
-      }
+      g.lineStyle(2, tier.accent, 0.9);
+      g.beginPath();
+      g.moveTo(winX + 28, 198);
+      g.lineTo(winX + 70, 182);
+      g.lineTo(winX + 112, 160);
+      g.lineTo(winX + 148, 154);
+      g.lineTo(winX + 180, 194);
+      g.strokePath();
     }
 
     // Подвесной застеклённый стенд наград «Строек века»
@@ -480,6 +543,7 @@ export class MenuScene extends Phaser.Scene {
       });
     }
 
+    // Кулер с интерактивными пузырьками
     const floorLineY = backWallY + 28;
     if (hasCooler) {
       const cx = w - 34;
@@ -493,6 +557,23 @@ export class MenuScene extends Phaser.Scene {
       g.fillRect(cx - 5, floorLineY - 26, 4, 5);
       g.fillStyle(0xef4444, 1);
       g.fillRect(cx + 2, floorLineY - 26, 4, 5);
+
+      const coolerZone = this.add.zone(cx, floorLineY - 32, 34, 66).setInteractive({ useHandCursor: true });
+      coolerZone.on('pointerdown', () => {
+        if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+        AudioManager.playCorePickup();
+        for (let b = 0; b < 6; b++) {
+          const bub = this.add.circle(cx + (Math.random() - 0.5) * 12, floorLineY - 42, 2.5, 0xe0f2fe, 0.95).setDepth(6);
+          this.tweens.add({
+            targets: bub,
+            y: floorLineY - 62,
+            alpha: 0,
+            delay: b * 80,
+            duration: 450,
+            onComplete: () => bub.destroy()
+          });
+        }
+      });
     }
 
     if (hasPlants) {
@@ -526,149 +607,6 @@ export class MenuScene extends Phaser.Scene {
     g.fillRect(0, frontBenchY, w, 11);
     g.fillStyle(0x71717a, 1);
     g.fillRect(0, frontBenchY, w, 3);
-  }
-
-  openAchievementsModal(tier) {
-    const { width, height } = this.scale;
-    const modalContainer = this.add.container(0, 0).setDepth(65);
-
-    const blocker = this.add.zone(width / 2, height / 2, width, height).setInteractive();
-    const dimBg = this.add.graphics();
-    dimBg.fillStyle(0x090d16, 0.95);
-    dimBg.fillRect(0, 0, width, height);
-
-    const boxW = 408;
-    const boxH = 680;
-    const boxX = width / 2 - boxW / 2;
-    const boxY = height / 2 - boxH / 2;
-
-    const panel = this.add.graphics();
-    panel.fillStyle(0x181c26, 1);
-    panel.fillRoundedRect(boxX, boxY, boxW, boxH, 16);
-    panel.lineStyle(3, tier.accent, 1);
-    panel.strokeRoundedRect(boxX, boxY, boxW, boxH, 16);
-
-    const unlockedList = Storage.getUnlockedAchievements();
-    const title = this.add.text(
-      width / 2,
-      boxY + 24,
-      `🏆 ДОСТИЖЕНИЯ (${unlockedList.length}/${ACHIEVEMENTS_CATALOG.length})`,
-      {
-        fontFamily: '"Rubik", sans-serif',
-        fontSize: '16px',
-        fontWeight: '700',
-        color: '#facc15'
-      }
-    ).setOrigin(0.5);
-
-    const megasDone = Storage.getCompletedMegasCount();
-    const sub = this.add.text(
-      width / 2,
-      boxY + 46,
-      `Сдано строек века: ${megasDone}/${MEGA_PROJECTS.length} · Свайпай список вниз/вверх`,
-      {
-        fontFamily: '"Rubik", sans-serif',
-        fontSize: '11px',
-        color: '#94a3b8'
-      }
-    ).setOrigin(0.5);
-
-    modalContainer.add([blocker, dimBg, panel, title, sub]);
-
-    const listStartY = boxY + 66;
-    const listViewH = boxH - 122;
-    const scrollGroup = this.add.container(0, 0);
-    modalContainer.add(scrollGroup);
-
-    const maskG = this.make.graphics();
-    maskG.fillStyle(0xffffff);
-    maskG.fillRect(boxX + 8, listStartY, boxW - 16, listViewH);
-    scrollGroup.setMask(maskG.createGeometryMask());
-
-    const rowH = 66;
-    const rowGap = 8;
-    ACHIEVEMENTS_CATALOG.forEach((ach, idx) => {
-      const isDone = unlockedList.includes(ach.id);
-      const ry = listStartY + idx * (rowH + rowGap);
-
-      const rowG = this.add.graphics();
-      rowG.fillStyle(isDone ? 0x1e293b : 0x11151f, 1);
-      rowG.fillRoundedRect(boxX + 14, ry, boxW - 28, rowH, 10);
-      rowG.lineStyle(1.5, isDone ? 0xfacc15 : 0x334155, isDone ? 0.95 : 0.6);
-      rowG.strokeRoundedRect(boxX + 14, ry, boxW - 28, rowH, 10);
-
-      const iconTxt = this.add.text(boxX + 36, ry + rowH / 2, isDone ? ach.icon : '🔒', {
-        fontSize: '22px'
-      }).setOrigin(0.5).setAlpha(isDone ? 1 : 0.5);
-
-      const nameTxt = this.add.text(boxX + 60, ry + 16, ach.title, {
-        fontFamily: '"Rubik", sans-serif',
-        fontSize: '12px',
-        fontWeight: '700',
-        color: isDone ? '#fef08a' : '#94a3b8'
-      }).setOrigin(0, 0.5);
-
-      const rewardTxt = this.add.text(
-        boxX + boxW - 24,
-        ry + 16,
-        isDone ? '✅ ПОЛУЧЕНО' : `+${ach.rewardMoney}₽ ★${ach.rewardRep}`,
-        {
-          fontFamily: '"JetBrains Mono", monospace',
-          fontSize: '9px',
-          fontWeight: '700',
-          color: isDone ? '#4ade80' : '#38bdf8'
-        }
-      ).setOrigin(1, 0.5);
-
-      const descTxt = this.add.text(boxX + 60, ry + 42, ach.desc, {
-        fontFamily: '"Rubik", sans-serif',
-        fontSize: '10px',
-        color: isDone ? '#e2e8f0' : '#64748b',
-        wordWrap: { width: boxW - 84 }
-      }).setOrigin(0, 0.5);
-
-      scrollGroup.add([rowG, iconTxt, nameTxt, rewardTxt, descTxt]);
-    });
-
-    const totalH = ACHIEVEMENTS_CATALOG.length * (rowH + rowGap);
-    const maxScroll = Math.max(0, totalH - listViewH + 10);
-    let scrollY = 0;
-    let dragStart = 0;
-    let dragStartScroll = 0;
-    let dragging = false;
-
-    const dragZone = this.add.zone(width / 2, listStartY + listViewH / 2, boxW, listViewH)
-      .setInteractive();
-    dragZone.on('pointerdown', (ptr) => {
-      dragging = true;
-      dragStart = ptr.y;
-      dragStartScroll = scrollY;
-    });
-    dragZone.on('pointermove', (ptr) => {
-      if (!dragging || maxScroll <= 0) return;
-      scrollY = Phaser.Math.Clamp(dragStartScroll + (ptr.y - dragStart), -maxScroll, 0);
-      scrollGroup.y = scrollY;
-    });
-    dragZone.on('pointerup', () => { dragging = false; });
-    modalContainer.add(dragZone);
-
-    const closeBtn = this.add.text(width / 2, boxY + boxH - 28, 'ЗАКРЫТЬ', {
-      fontFamily: '"Rubik", sans-serif',
-      fontSize: '13px',
-      fontWeight: '700',
-      color: '#ffffff',
-      backgroundColor: '#d97706',
-      padding: { x: 26, y: 9 }
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-
-    closeBtn.on('pointerdown', () => {
-      AudioManager.playClick();
-      maskG.destroy();
-      modalContainer.destroy();
-      this.showcaseModalOpen = false;
-    });
-
-    modalContainer.add(closeBtn);
   }
 
   createLiveMiniLab(w, h, tier, labLvl) {
@@ -879,19 +817,29 @@ export class MenuScene extends Phaser.Scene {
       });
     }
 
+    // --- 3. ПЕРЕДНИЙ ВЕРСТАК С ДЕТАЛИЗИРОВАННЫМИ ПРИБОРАМИ И АНИМАЦИЯМИ ---
     const eqG = this.add.graphics().setDepth(14);
 
-    const sawX = 52;
+    // Отрезной станок (saw)
+    const sawX = 50;
     eqG.fillStyle(0x334155, 1);
     eqG.fillRoundedRect(sawX - 20, frontBenchY - 20, 40, 20, 4);
     eqG.lineStyle(1.5, 0x0f172a, 0.9);
     eqG.strokeRoundedRect(sawX - 20, frontBenchY - 20, 40, 20, 4);
     eqG.fillStyle(sawLvl >= 3 ? 0x10b981 : 0xd97706, 1);
     eqG.fillRoundedRect(sawX - 15, frontBenchY - 36, 30, 16, 4);
-    eqG.fillStyle(0xcbd5e1, 1);
-    eqG.fillCircle(sawX, frontBenchY - 20, 9);
+    const sawBlade = this.add.circle(sawX, frontBenchY - 20, 9, 0xcbd5e1).setStrokeStyle(1.5, 0x0f172a).setDepth(15);
 
-    const grX = 102;
+    const sawZone = this.add.zone(sawX, frontBenchY - 20, 44, 42).setInteractive({ useHandCursor: true }).setDepth(16);
+    sawZone.on('pointerdown', () => {
+      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+      AudioManager.playSawCut();
+      this.particles.emitParticleAt(sawX, frontBenchY - 24, 12);
+      this.tweens.add({ targets: sawBlade, angle: 360, duration: 300 });
+    });
+
+    // Торцешлифовальный станок (grinder)
+    const grX = 100;
     eqG.fillStyle(0x1e293b, 1);
     eqG.fillRoundedRect(grX - 16, frontBenchY - 18, 32, 18, 3);
     eqG.lineStyle(1.5, 0x0f172a, 0.9);
@@ -899,8 +847,9 @@ export class MenuScene extends Phaser.Scene {
     eqG.fillStyle(grinderLvl >= 2 ? 0x38bdf8 : 0x94a3b8, 1);
     eqG.fillEllipse(grX, frontBenchY - 20, 28, 8);
 
+    // Гидроклин (shear_crack)
     if (hasSplit) {
-      const spX = 148;
+      const spX = 146;
       eqG.fillStyle(0x475569, 1);
       eqG.fillRect(spX - 12, frontBenchY - 38, 24, 38);
       eqG.lineStyle(1.5, 0x0f172a, 0.9);
@@ -909,23 +858,57 @@ export class MenuScene extends Phaser.Scene {
       eqG.fillTriangle(spX - 7, frontBenchY - 26, spX + 7, frontBenchY - 26, spX, frontBenchY - 12);
     }
 
-    // Главный гидропресс (перекрашивается в чистое золото при покупке НИОКР «Титан-Аурум»)
+    // Главный гидропресс (с анимированным поршнем и золотой короной при покупке «Титан-Аурум»)
     const pressX = w / 2;
     const pressColors = [0xd97706, 0xca8a04, 0x059669, 0x0284c9, 0x4f46e5, 0xfacc15];
     const pCol = hasGoldPress ? 0xfacc15 : pressColors[Math.min(pressColors.length - 1, pressLvl - 1)];
-    eqG.fillStyle(hasGoldPress ? 0xb45309 : 0x3f3f46, 1);
-    eqG.fillRect(pressX - 26, frontBenchY - 62, 7, 62);
-    eqG.fillRect(pressX + 19, frontBenchY - 62, 7, 62);
-    eqG.fillStyle(pCol, 1);
-    eqG.fillRoundedRect(pressX - 32, frontBenchY - 72, 64, 13, 4);
-    eqG.lineStyle(1.5, hasGoldPress ? 0xfef08a : 0x0f172a, 0.95);
-    eqG.strokeRoundedRect(pressX - 32, frontBenchY - 72, 64, 13, 4);
-    eqG.fillRect(pressX - 9, frontBenchY - 59, 18, 12);
-    eqG.fillStyle(0xd6d3d1, 1);
-    eqG.fillRect(pressX - 10, frontBenchY - 26, 20, 26);
 
+    eqG.fillStyle(hasGoldPress ? 0xb45309 : 0x3f3f46, 1);
+    eqG.fillRect(pressX - 28, frontBenchY - 66, 8, 66);
+    eqG.fillRect(pressX + 20, frontBenchY - 66, 8, 66);
+    eqG.fillStyle(pCol, 1);
+    eqG.fillRoundedRect(pressX - 34, frontBenchY - 78, 68, 15, 4);
+    eqG.lineStyle(1.5, hasGoldPress ? 0xfef08a : 0x0f172a, 0.95);
+    eqG.strokeRoundedRect(pressX - 34, frontBenchY - 78, 68, 15, 4);
+
+    if (hasGoldPress) {
+      // Платиновая корона и сияющий манометр Золотого пресса «Титан-Аурум»
+      eqG.fillStyle(0xfef08a, 1);
+      eqG.fillRoundedRect(pressX - 20, frontBenchY - 86, 40, 8, 3);
+      eqG.fillStyle(0x38bdf8, 1);
+      eqG.fillCircle(pressX + 24, frontBenchY - 70, 4);
+    }
+
+    const pressPiston = this.add.rectangle(pressX, frontBenchY - 54, 22, 14, hasGoldPress ? 0xfef08a : pCol)
+      .setStrokeStyle(1, 0x0f172a)
+      .setDepth(15);
+    const pressCore = this.add.rectangle(pressX, frontBenchY - 13, 20, 26, 0xd6d3d1)
+      .setStrokeStyle(1, 0x1e293b)
+      .setDepth(15);
+
+    const pressZone = this.add.zone(pressX, frontBenchY - 40, 72, 82).setInteractive({ useHandCursor: true }).setDepth(16);
+    pressZone.on('pointerdown', () => {
+      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+      AudioManager.playRockCrack();
+      this.particles.emitParticleAt(pressX, frontBenchY - 22, 14);
+      this.tweens.add({
+        targets: pressPiston,
+        y: frontBenchY - 34,
+        duration: 160,
+        yoyo: true
+      });
+      this.tweens.add({
+        targets: pressCore,
+        scaleY: 0.72,
+        scaleX: 1.18,
+        duration: 160,
+        yoyo: true
+      });
+    });
+
+    // Сдвиговый прибор (shear_load)
     if (hasShearLoad) {
-      const shX = pressX + 62;
+      const shX = pressX + 60;
       eqG.fillStyle(0x334155, 1);
       eqG.fillRoundedRect(shX - 18, frontBenchY - 28, 36, 28, 4);
       eqG.lineStyle(1.5, 0x0f172a, 0.9);
@@ -934,8 +917,9 @@ export class MenuScene extends Phaser.Scene {
       eqG.fillRect(shX - 12, frontBenchY - 36, 24, 8);
     }
 
+    // Ультразвуковой дефектоскоп УЗК (ultrasonic)
     if (hasUltrasonic) {
-      const ux = pressX + 110;
+      const ux = pressX + 106;
       eqG.fillStyle(0x0f172a, 1);
       eqG.fillRoundedRect(ux - 16, frontBenchY - 34, 32, 34, 4);
       eqG.lineStyle(1.5, 0x4ade80, 1);
@@ -945,26 +929,58 @@ export class MenuScene extends Phaser.Scene {
       eqG.lineBetween(ux + 4, frontBenchY - 10, ux + 11, frontBenchY - 20);
     }
 
+    // Трёхосный стабилометр (triaxial)
     if (hasTriaxial) {
       const tx = w - 84;
       eqG.fillStyle(0x1e293b, 1);
       eqG.fillRoundedRect(tx - 15, frontBenchY - 54, 30, 54, 5);
       eqG.lineStyle(1.5, 0x0f172a, 0.9);
       eqG.strokeRoundedRect(tx - 15, frontBenchY - 54, 30, 54, 5);
-      eqG.fillStyle(0x38bdf8, 0.5);
+      eqG.fillStyle(0x38bdf8, 0.55);
       eqG.fillRect(tx - 10, frontBenchY - 46, 20, 34);
     }
 
+    // Кофемашина на отдельной высокой стойке-тумбе справа (с паром и интерактивной подачей кофе)
     if (coffeeLvl > 0) {
-      const cmX = w - 38;
-      eqG.fillStyle(0x1f2937, 1);
-      eqG.fillRoundedRect(cmX - 15, frontBenchY - 32, 30, 32, 5);
+      const cmX = w - 34;
+      // Тумба-подставка под кофемашину
+      eqG.fillStyle(0x292524, 1);
+      eqG.fillRoundedRect(cmX - 18, frontBenchY - 16, 36, 16, 3);
+      // Корпус кофемашины
+      eqG.fillStyle(0xe2e8f0, 1);
+      eqG.fillRoundedRect(cmX - 15, frontBenchY - 48, 30, 32, 5);
+      eqG.lineStyle(1.5, 0x0f172a, 0.95);
+      eqG.strokeRoundedRect(cmX - 15, frontBenchY - 48, 30, 32, 5);
+      // Красная верхняя панель и индикатор
       eqG.fillStyle(0xdc2626, 1);
-      eqG.fillRect(cmX - 12, frontBenchY - 28, 24, 8);
+      eqG.fillRect(cmX - 13, frontBenchY - 46, 26, 9);
+      eqG.fillStyle(0x4ade80, 1);
+      eqG.fillCircle(cmX + 8, frontBenchY - 41, 2);
+      // Ниша и кружка с кофе
+      eqG.fillStyle(0x1e293b, 1);
+      eqG.fillRect(cmX - 10, frontBenchY - 34, 20, 16);
       eqG.fillStyle(0xfef3c7, 1);
-      eqG.fillRect(cmX - 4, frontBenchY - 11, 8, 9);
+      eqG.fillRect(cmX - 4, frontBenchY - 26, 8, 8);
+
+      const coffeeZone = this.add.zone(cmX, frontBenchY - 30, 40, 50).setInteractive({ useHandCursor: true }).setDepth(16);
+      coffeeZone.on('pointerdown', () => {
+        if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+        AudioManager.playLatchSnap();
+        for (let s = 0; s < 4; s++) {
+          const steam = this.add.circle(cmX + (Math.random() - 0.5) * 8, frontBenchY - 32, 3, 0xffffff, 0.75).setDepth(17);
+          this.tweens.add({
+            targets: steam,
+            y: frontBenchY - 56,
+            alpha: 0,
+            delay: s * 90,
+            duration: 520,
+            onComplete: () => steam.destroy()
+          });
+        }
+      });
     }
 
+    // --- 4. НАВИГАЦИОННЫЙ ГРАФ ПРОХОДОВ ---
     const topLaneY = 304;
     const botLaneY = frontBenchY - 6;
     const leftCorridorX = 62;
@@ -988,9 +1004,9 @@ export class MenuScene extends Phaser.Scene {
 
     const extraStaffCount = assistantLvl > 0 ? Math.min(3, Math.floor((assistantLvl + 1) / 2)) : 0;
     const internPalettes = [
-      { coat: 0x38bdf8, pants: 0x1e293b, helmet: 0xfef3c7 },
-      { coat: 0x34d399, pants: 0x1e293b, helmet: 0xffffff },
-      { coat: 0xa78bfa, pants: 0x1e293b, helmet: 0xfacc15 }
+      { ...skin, coat: skin.style ? skin.coat : 0x38bdf8 },
+      { ...skin, coat: skin.style ? skin.coat : 0x34d399 },
+      { ...skin, coat: skin.style ? skin.coat : 0xa78bfa }
     ];
 
     const startNodes = [7, 1, 2];
@@ -999,7 +1015,7 @@ export class MenuScene extends Phaser.Scene {
     }
 
     if (hasRoboHumanoid) {
-      const androidPalette = { coat: 0x94a3b8, pants: 0x0f172a, helmet: 0x38bdf8 };
+      const androidPalette = { coat: 0x94a3b8, pants: 0x0f172a, helmet: 0x38bdf8, head: 0xcbd5e1, style: 'robots' };
       this.spawnLabWorker(6, androidPalette, 'android', 9);
     }
 
@@ -1023,38 +1039,94 @@ export class MenuScene extends Phaser.Scene {
   spawnLabWorker(startNodeId, palette, role, seedIdx) {
     const startNode = this.navNodes[startNodeId] || this.navNodes[0];
     const worker = this.add.container(startNode.x, startNode.y).setDepth(6);
+    const style = palette.style || 'human';
 
     const g = this.add.graphics();
+    // Ноги
     g.fillStyle(palette.pants, 1);
     g.fillRect(-7, -22, 5, 22);
     g.fillRect(2, -22, 5, 22);
-    g.fillStyle(palette.coat, 1);
-    g.fillRoundedRect(-10, -48, 20, 28, 5);
 
-    if (role === 'android') {
-      g.fillStyle(0xcbd5e1, 1);
-      g.fillRoundedRect(-8, -64, 16, 15, 4);
-      g.fillStyle(0x38bdf8, 1);
-      g.fillRect(-5, -59, 10, 4);
+    // Туловище (для миньонов — овальное жёлтое тело с синим комбинезоном)
+    if (style === 'minions') {
+      g.fillStyle(0xfacc15, 1);
+      g.fillRoundedRect(-10, -56, 20, 36, 9);
+      g.fillStyle(0x2563eb, 1);
+      g.fillRoundedRect(-10, -38, 20, 18, 4);
+      g.fillRect(-7, -45, 3, 8);
+      g.fillRect(4, -45, 3, 8);
+      // Очки-гогглы миньона
+      g.fillStyle(0x334155, 1);
+      g.fillRect(-10, -51, 20, 4);
+      g.fillStyle(0xffffff, 1);
+      g.fillCircle(-3, -49, 4.5);
+      g.fillCircle(4, -49, 4.5);
+      g.fillStyle(0x0f172a, 1);
+      g.fillCircle(-3, -49, 2);
+      g.fillCircle(4, -49, 2);
     } else {
-      g.fillStyle(0xfde68a, 1);
-      g.fillCircle(0, -56, 8);
-      g.fillStyle(palette.helmet, 1);
-      g.slice(0, -58, 9, Phaser.Math.DegToRad(180), Phaser.Math.DegToRad(360), false);
-      g.fillPath();
+      g.fillStyle(palette.coat, 1);
+      g.fillRoundedRect(-10, -48, 20, 28, 5);
+
+      if (style === 'robots' || role === 'android') {
+        g.fillStyle(0xcbd5e1, 1);
+        g.fillRoundedRect(-8, -64, 16, 15, 4);
+        g.fillStyle(0x38bdf8, 1);
+        g.fillRect(-5, -59, 10, 4);
+      } else if (style === 'astronaut') {
+        g.fillStyle(0xf8fafc, 1);
+        g.fillCircle(0, -56, 10);
+        g.fillStyle(0x0284c9, 0.85);
+        g.fillRoundedRect(-6, -60, 13, 8, 3);
+      } else if (style === 'ninja') {
+        g.fillStyle(0x18181b, 1);
+        g.fillCircle(0, -56, 8);
+        g.fillStyle(0xfde68a, 1);
+        g.fillRect(-5, -58, 10, 4);
+        g.fillStyle(0xef4444, 1);
+        g.fillRect(-8, -61, 16, 3);
+      } else {
+        g.fillStyle(palette.head || 0xfde68a, 1);
+        g.fillCircle(0, -56, 8);
+        g.fillStyle(palette.helmet, 1);
+        g.slice(0, -58, 9, Phaser.Math.DegToRad(180), Phaser.Math.DegToRad(360), false);
+        g.fillPath();
+      }
     }
+
+    // Руки (левая и правая с кистями)
+    const armColor = style === 'minions' ? 0xfacc15 : palette.coat;
+    const handColor = style === 'minions' || style === 'robots' || role === 'android' || style === 'ninja'
+      ? 0x1e293b
+      : (palette.head || 0xfde68a);
+
+    const leftArm = this.add.graphics();
+    leftArm.fillStyle(armColor, 1);
+    leftArm.fillRoundedRect(-14, -45, 4, 18, 2);
+    leftArm.fillStyle(handColor, 1);
+    leftArm.fillCircle(-12, -26, 2.5);
+
+    const rightArm = this.add.graphics();
+    rightArm.fillStyle(armColor, 1);
+    rightArm.fillRoundedRect(10, -45, 4, 18, 2);
+    rightArm.fillStyle(handColor, 1);
+    rightArm.fillCircle(12, -26, 2.5);
 
     if (role === 'intern' && seedIdx % 2 === 1) {
       g.fillStyle(0x92400e, 1);
-      g.fillRoundedRect(8, -38, 16, 13, 3);
+      g.fillRoundedRect(8, -36, 15, 12, 3);
     }
 
-    worker.add(g);
+    worker.add([leftArm, g, rightArm]);
 
     const nextNode = this.pickNextNeighborNode(startNode.id, -1);
     const actor = {
       sprite: worker,
+      leftArm,
+      rightArm,
+      armPhase: Math.random() * Math.PI * 2,
       role,
+      style,
       currentNodeId: startNode.id,
       prevNodeId: -1,
       targetNodeId: nextNode.id,
@@ -1064,28 +1136,86 @@ export class MenuScene extends Phaser.Scene {
       pauseTimer: 0.4 + seedIdx * 0.35
     };
 
-    const hitZone = this.add.zone(0, -34, 38, 72).setInteractive({ useHandCursor: true });
+    const hitZone = this.add.zone(0, -34, 40, 74).setInteractive({ useHandCursor: true });
     hitZone.on('pointerdown', () => {
       if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
       AudioManager.playClick();
-      this.particles.emitParticleAt(worker.x, worker.y - 45, 7);
+      this.particles.emitParticleAt(worker.x, worker.y - 45, 8);
 
-      if (role === 'android') {
-        this.showSpeechBubble(worker, 'АТЛАНТ-X: СКАНИРОВАНИЕ ПОРОДЫ 99.8%', 0x38bdf8);
+      if (style === 'mario') {
+        // Прыжок как у Марио с вылетающей золотой монеткой!
+        this.showSpeechBubble(worker, 'ЙА-ХУУ! +1 МОНЕТА! 🍄🪙', 0xef4444);
+        const coin = this.add.circle(worker.x, worker.y - 68, 6, 0xfacc15).setStrokeStyle(1.5, 0xb45309).setDepth(32);
+        this.tweens.add({
+          targets: coin,
+          y: worker.y - 104,
+          alpha: 0,
+          duration: 460,
+          onComplete: () => coin.destroy()
+        });
+        this.tweens.add({
+          targets: worker,
+          y: worker.y - 26,
+          duration: 180,
+          yoyo: true,
+          ease: 'Quad.easeOut'
+        });
+      } else if (style === 'minions') {
+        const line = MINION_LINES[Math.floor(Math.random() * MINION_LINES.length)];
+        this.showSpeechBubble(worker, line, 0xfacc15);
+        this.tweens.add({
+          targets: worker,
+          y: worker.y - 14,
+          duration: 110,
+          yoyo: true
+        });
+      } else if (style === 'robots' || role === 'android') {
+        const line = ROBOT_SKIN_LINES[Math.floor(Math.random() * ROBOT_SKIN_LINES.length)];
+        this.showSpeechBubble(worker, line, 0x38bdf8);
+        this.tweens.add({
+          targets: worker,
+          angle: 12,
+          duration: 90,
+          yoyo: true,
+          repeat: 1
+        });
+      } else if (style === 'ninja') {
+        this.showSpeechBubble(worker, 'ТЕНЬ ГОСТа НЕ ЗНАЕТ ПРОМАХА! ⚔️', 0xef4444);
+        this.particles.emitParticleAt(worker.x, worker.y - 30, 18);
+        this.tweens.add({
+          targets: worker,
+          alpha: 0.25,
+          duration: 140,
+          yoyo: true
+        });
+      } else if (style === 'astronaut') {
+        this.showSpeechBubble(worker, 'Хьюстон, прочность 120 МПа! 🚀', 0x38bdf8);
+        this.tweens.add({
+          targets: worker,
+          y: worker.y - 22,
+          duration: 420,
+          yoyo: true,
+          ease: 'Sine.easeInOut'
+        });
       } else if (role === 'intern') {
         const line = INTERN_LINES[Math.floor(Math.random() * INTERN_LINES.length)];
         this.showSpeechBubble(worker, line, 0x34d399);
+        this.tweens.add({
+          targets: worker,
+          y: worker.y - 10,
+          duration: 110,
+          yoyo: true
+        });
       } else {
         const line = ENGINEER_LINES[Math.floor(Math.random() * ENGINEER_LINES.length)];
         this.showSpeechBubble(worker, line, 0xfacc15);
+        this.tweens.add({
+          targets: worker,
+          y: worker.y - 10,
+          duration: 110,
+          yoyo: true
+        });
       }
-
-      this.tweens.add({
-        targets: worker,
-        y: worker.y - 10,
-        duration: 110,
-        yoyo: true
-      });
     });
     worker.add(hitZone);
 
@@ -1160,6 +1290,149 @@ export class MenuScene extends Phaser.Scene {
     bot.add(hitZone);
 
     this.staffActors.push(actor);
+  }
+
+  openAchievementsModal(tier) {
+    const { width, height } = this.scale;
+    const modalContainer = this.add.container(0, 0).setDepth(65);
+
+    const blocker = this.add.zone(width / 2, height / 2, width, height).setInteractive();
+    const dimBg = this.add.graphics();
+    dimBg.fillStyle(0x090d16, 0.95);
+    dimBg.fillRect(0, 0, width, height);
+
+    const boxW = 408;
+    const boxH = 680;
+    const boxX = width / 2 - boxW / 2;
+    const boxY = height / 2 - boxH / 2;
+
+    const panel = this.add.graphics();
+    panel.fillStyle(0x181c26, 1);
+    panel.fillRoundedRect(boxX, boxY, boxW, boxH, 16);
+    panel.lineStyle(3, tier.accent, 1);
+    panel.strokeRoundedRect(boxX, boxY, boxW, boxH, 16);
+
+    const unlockedList = Storage.getUnlockedAchievements();
+    const title = this.add.text(
+      width / 2,
+      boxY + 24,
+      `🏆 ДОСТИЖЕНИЯ (${unlockedList.length}/${ACHIEVEMENTS_CATALOG.length})`,
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '16px',
+        fontWeight: '700',
+        color: '#facc15'
+      }
+    ).setOrigin(0.5);
+
+    const megasDone = Storage.getCompletedMegasCount();
+    const sub = this.add.text(
+      width / 2,
+      boxY + 46,
+      `Сдано строек века: ${megasDone}/${MEGA_PROJECTS.length} · Свайпай список вниз/вверх`,
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
+        color: '#94a3b8'
+      }
+    ).setOrigin(0.5);
+
+    modalContainer.add([blocker, dimBg, panel, title, sub]);
+
+    const listStartY = boxY + 66;
+    const listViewH = boxH - 122;
+    const scrollGroup = this.add.container(0, 0);
+    modalContainer.add(scrollGroup);
+
+    const maskG = this.make.graphics();
+    maskG.fillStyle(0xffffff);
+    maskG.fillRect(boxX + 8, listStartY, boxW - 16, listViewH);
+    scrollGroup.setMask(maskG.createGeometryMask());
+
+    const rowH = 66;
+    const rowGap = 8;
+    ACHIEVEMENTS_CATALOG.forEach((ach, idx) => {
+      const isDone = unlockedList.includes(ach.id);
+      const ry = listStartY + idx * (rowH + rowGap);
+
+      const rowG = this.add.graphics();
+      rowG.fillStyle(isDone ? 0x1e293b : 0x11151f, 1);
+      rowG.fillRoundedRect(boxX + 14, ry, boxW - 28, rowH, 10);
+      rowG.lineStyle(1.5, isDone ? 0xfacc15 : 0x334155, isDone ? 0.95 : 0.6);
+      rowG.strokeRoundedRect(boxX + 14, ry, boxW - 28, rowH, 10);
+
+      const iconTxt = this.add.text(boxX + 36, ry + rowH / 2, isDone ? ach.icon : '🔒', {
+        fontSize: '22px'
+      }).setOrigin(0.5).setAlpha(isDone ? 1 : 0.5);
+
+      const nameTxt = this.add.text(boxX + 60, ry + 16, ach.title, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '12px',
+        fontWeight: '700',
+        color: isDone ? '#fef08a' : '#94a3b8'
+      }).setOrigin(0, 0.5);
+
+      const rewardTxt = this.add.text(
+        boxX + boxW - 24,
+        ry + 16,
+        isDone ? '✅ ПОЛУЧЕНО' : `+${ach.rewardMoney}₽ ★${ach.rewardRep}`,
+        {
+          fontFamily: '"JetBrains Mono", monospace',
+          fontSize: '9px',
+          fontWeight: '700',
+          color: isDone ? '#4ade80' : '#38bdf8'
+        }
+      ).setOrigin(1, 0.5);
+
+      const descTxt = this.add.text(boxX + 60, ry + 42, ach.desc, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '10px',
+        color: isDone ? '#e2e8f0' : '#64748b',
+        wordWrap: { width: boxW - 84 }
+      }).setOrigin(0, 0.5);
+
+      scrollGroup.add([rowG, iconTxt, nameTxt, rewardTxt, descTxt]);
+    });
+
+    const totalH = ACHIEVEMENTS_CATALOG.length * (rowH + rowGap);
+    const maxScroll = Math.max(0, totalH - listViewH + 10);
+    let scrollY = 0;
+    let dragStart = 0;
+    let dragStartScroll = 0;
+    let dragging = false;
+
+    const dragZone = this.add.zone(width / 2, listStartY + listViewH / 2, boxW, listViewH)
+      .setInteractive();
+    dragZone.on('pointerdown', (ptr) => {
+      dragging = true;
+      dragStart = ptr.y;
+      dragStartScroll = scrollY;
+    });
+    dragZone.on('pointermove', (ptr) => {
+      if (!dragging || maxScroll <= 0) return;
+      scrollY = Phaser.Math.Clamp(dragStartScroll + (ptr.y - dragStart), -maxScroll, 0);
+      scrollGroup.y = scrollY;
+    });
+    dragZone.on('pointerup', () => { dragging = false; });
+    modalContainer.add(dragZone);
+
+    const closeBtn = this.add.text(width / 2, boxY + boxH - 28, 'ЗАКРЫТЬ', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '13px',
+      fontWeight: '700',
+      color: '#ffffff',
+      backgroundColor: '#d97706',
+      padding: { x: 26, y: 9 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    closeBtn.on('pointerdown', () => {
+      AudioManager.playClick();
+      maskG.destroy();
+      modalContainer.destroy();
+      this.showcaseModalOpen = false;
+    });
+
+    modalContainer.add(closeBtn);
   }
 
   openShowcaseModal(tier) {
@@ -1540,6 +1813,10 @@ export class MenuScene extends Phaser.Scene {
 
       if (actor.pauseTimer > 0) {
         actor.pauseTimer -= dt;
+        if (actor.leftArm && actor.rightArm) {
+          actor.leftArm.y = 0;
+          actor.rightArm.y = 0;
+        }
         continue;
       }
 
@@ -1566,6 +1843,11 @@ export class MenuScene extends Phaser.Scene {
       actor.sprite.y += (dy / dist) * step;
       if (Math.abs(dx) > 1) {
         actor.sprite.scaleX = dx >= 0 ? 1 : -1;
+      }
+      if (actor.leftArm && actor.rightArm) {
+        actor.armPhase += dt * 10;
+        actor.leftArm.y = Math.sin(actor.armPhase) * 2.2;
+        actor.rightArm.y = -Math.sin(actor.armPhase) * 2.2;
       }
       actor.sprite.setDepth(actor.sprite.y <= 318 ? 7 : 12);
     }
