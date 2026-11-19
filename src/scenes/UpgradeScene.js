@@ -2,9 +2,11 @@ import { Storage } from '../utils/Storage.js';
 import { AudioManager, MUSIC_PACK_CATALOG } from '../utils/AudioManager.js';
 import { PlatformSDK } from '../utils/PlatformSDK.js';
 import { generateContract } from '../data/contracts.js';
+import { AchievementManager } from '../utils/AchievementManager.js';
 import {
   TOOL_UPGRADES,
   PERK_UPGRADES,
+  RND_UPGRADES,
   DECOR_ITEMS,
   TEST_UPGRADES,
   LAB_UPGRADES,
@@ -154,18 +156,27 @@ export class UpgradeScene extends Phaser.Scene {
           if (Storage.spendMoney(nextLab.cost)) {
             Storage.setLabLevel(nextLab.level);
             AudioManager.playStamp();
+            AchievementManager.evaluateAll(this);
             this.refreshUI();
           }
         });
       }
       this.topFixedContainer.add([t1, buyLabBtn]);
     } else {
-      const maxTxt = this.add.text(width / 2, 93, '🏆 МАКСИМАЛЬНЫЙ УРОВЕНЬ ЛАБОРАТОРИИ (Ур. 5)', {
-        fontFamily: '"Rubik", sans-serif',
-        fontSize: '12px',
-        fontWeight: '700',
-        color: '#facc15'
-      }).setOrigin(0.5);
+      const passiveSum = Storage.getPassiveBranchIncome();
+      const maxTxt = this.add.text(
+        width / 2,
+        93,
+        passiveSum > 0
+          ? `🏆 Ур. 5 «Атлант» · Пассив филиалов: +${passiveSum} ₽/заказ`
+          : '🏆 МАКСИМАЛЬНЫЙ УРОВЕНЬ ЛАБОРАТОРИИ (Ур. 5)',
+        {
+          fontFamily: '"Rubik", sans-serif',
+          fontSize: '12px',
+          fontWeight: '700',
+          color: '#facc15'
+        }
+      ).setOrigin(0.5);
       this.topFixedContainer.add(maxTxt);
     }
 
@@ -206,20 +217,21 @@ export class UpgradeScene extends Phaser.Scene {
 
     this.topFixedContainer.add([adBanner, adTitle, adSub, adActionBtn]);
 
+    // 6 вкладок магазина (включая НИОКР для эндгейма)
     const tabY = 198;
-    const gap = 4;
-    const tabW = (width - 36 - gap * 4) / 5;
+    const gap = 3;
+    const tabW = (width - 36 - gap * 5) / 6;
 
     const makeTab = (idx, label, tabKey) => {
       const x = 18 + tabW / 2 + idx * (tabW + gap);
       const isSelected = this.activeTab === tabKey;
       const btn = this.add.text(x, tabY, label, {
         fontFamily: '"Rubik", sans-serif',
-        fontSize: '10px',
+        fontSize: '9px',
         fontWeight: '700',
         color: isSelected ? '#1c1917' : '#e7e5e4',
         backgroundColor: isSelected ? '#facc15' : '#292524',
-        padding: { x: 2, y: 7 },
+        padding: { x: 1, y: 7 },
         fixedWidth: tabW,
         align: 'center'
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
@@ -234,11 +246,12 @@ export class UpgradeScene extends Phaser.Scene {
       this.topFixedContainer.add(btn);
     };
 
-    makeTab(0, '🧪 СТЕНДЫ', 'tests');
-    makeTab(1, '⚙️ СТАНКИ', 'tools');
-    makeTab(2, '🏢 ЦЕХ', 'perks');
-    makeTab(3, '🎨 ДЕКОР', 'decor');
-    makeTab(4, '📻 МУЗЫКА', 'music');
+    makeTab(0, 'СТЕНДЫ', 'tests');
+    makeTab(1, 'СТАНКИ', 'tools');
+    makeTab(2, 'ЦЕХ', 'perks');
+    makeTab(3, 'НИОКР', 'rnd');
+    makeTab(4, 'ДЕКОР', 'decor');
+    makeTab(5, 'МУЗЫКА', 'music');
 
     const startY = 230;
     let totalContentH = 0;
@@ -268,6 +281,7 @@ export class UpgradeScene extends Phaser.Scene {
             if (Storage.spendMoney(item.cost)) {
               Storage.unlockTest(item.key);
               AudioManager.playStamp();
+              AchievementManager.evaluateAll(this);
               this.refreshUI();
             }
           },
@@ -330,11 +344,44 @@ export class UpgradeScene extends Phaser.Scene {
           if (Storage.spendMoney(cost)) {
             Storage.upgradePerk(perk.key);
             AudioManager.playStamp();
+            AchievementManager.evaluateAll(this);
             this.refreshUI();
           }
         }, 98, customBtn);
       });
       totalContentH = PERK_UPGRADES.length * 106 + 20;
+    } else if (this.activeTab === 'rnd') {
+      RND_UPGRADES.forEach((item, idx) => {
+        const y = startY + idx * 96;
+        const owned = Storage.hasRnd(item.key);
+        const labOk = labLvl >= item.reqLab;
+        const canBuy = !owned && labOk && money >= item.cost;
+
+        let btnText = `ИНВЕСТИРОВАТЬ · ${item.cost} ₽`;
+        if (owned) btnText = '✅ ВНЕДРЕНО';
+        else if (!labOk) btnText = `НУЖНА ЛАБА Ур. ${item.reqLab}`;
+
+        this.renderItemCard(
+          y,
+          item.name,
+          item.desc,
+          owned,
+          item.cost,
+          canBuy,
+          () => {
+            if (this.wasDragging) return;
+            if (Storage.spendMoney(item.cost)) {
+              Storage.buyRnd(item.key);
+              AudioManager.playStamp();
+              AchievementManager.evaluateAll(this);
+              this.refreshUI();
+            }
+          },
+          88,
+          btnText
+        );
+      });
+      totalContentH = RND_UPGRADES.length * 96 + 24;
     } else if (this.activeTab === 'decor') {
       DECOR_ITEMS.forEach((item, idx) => {
         const y = startY + idx * 56;
@@ -370,6 +417,7 @@ export class UpgradeScene extends Phaser.Scene {
                 if (item.isSkin) Storage.setActiveSkin(item.skinId);
                 if (item.isLabTheme) Storage.setActiveLabTheme(item.themeId);
                 AudioManager.playStamp();
+                AchievementManager.evaluateAll(this);
                 this.refreshUI();
               }
             } else if (item.isSkin) {
@@ -423,6 +471,7 @@ export class UpgradeScene extends Phaser.Scene {
       if (wonDecor.isSkin) Storage.setActiveSkin(wonDecor.skinId);
       if (wonDecor.isLabTheme) Storage.setActiveLabTheme(wonDecor.themeId);
       AudioManager.playStamp();
+      AchievementManager.evaluateAll(this);
       this.showAdPrizeModal('🎁 РЕДКАЯ ПОСТАВКА ДЕКОРА!', `${wonDecor.icon} ${wonDecor.name}\n\nПредмет бесплатно установлен в вашу лабораторию!`, false);
       return;
     }
