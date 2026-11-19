@@ -4,6 +4,7 @@ import { PlatformSDK } from '../utils/PlatformSDK.js';
 import { RARE_INCLUSIONS, MEGA_PROJECTS } from '../data/contracts.js';
 import { AchievementManager, ACHIEVEMENTS_CATALOG } from '../utils/AchievementManager.js';
 import { MineralRenderer } from '../utils/MineralRenderer.js';
+import { TutorialManager } from '../utils/TutorialManager.js';
 
 const LAB_TIERS = {
   1: { name: 'Гаражная геолаборатория', wall: 0x292524, floor: 0x3f3a36, table: 0x57504a, accent: 0xeab308 },
@@ -287,6 +288,56 @@ export class MenuScene extends Phaser.Scene {
 
     const myProfile = Storage.buildPublicProfile(PlatformSDK.playerName);
     PlatformSDK.submitLabProfile(myProfile);
+
+    this.runMenuTutorialStep(width, height);
+  }
+
+  runMenuTutorialStep(width, height) {
+    if (!TutorialManager.isActive()) return;
+    const step = TutorialManager.getStep();
+
+    if (step < 7) {
+      TutorialManager.advanceTo(0);
+      TutorialManager.showSpotlight(this, {
+        hole: { x: width / 2, y: height - 178, w: 352, h: 66 },
+        cardY: 365,
+        badge: 'ШАГ 1/8 · ДОБРО ПОЖАЛОВАТЬ В ROCK LAB',
+        text: 'Ты — руководитель геотехнической лаборатории!\nЗдесь ты вскрываешь керны, готовишь образцы и давишь их под прессом.\nНажми «ДОСКА ЗАКАЗОВ», чтобы взять первый контракт!'
+      });
+    } else {
+      TutorialManager.showSpotlight(this, {
+        hole: { x: width / 2, y: height * 0.585 + 31, w: 350, h: 72 },
+        cardY: 310,
+        badge: 'ФИНАЛ ИНСТРУКТАЖА · ОБСЛУЖИВАНИЕ И ТО',
+        text: 'Отличная работа! Следи за износом пилы, абразива и поверкой приборов\nна этой панели — иначе появится погрешность в протоколах!',
+        nextLabel: 'ДАЛЕЕ: ПРО МАГАЗИН И КАСТОМИЗАЦИЮ →',
+        onNext: () => {
+          TutorialManager.showSpotlight(this, {
+            hole: { x: width / 2 - 87, y: height - 110, w: 176, h: 58 },
+            cardY: 360,
+            badge: 'МАГАЗИН · СТЕНДЫ, РОБОТЫ И СКИНЫ',
+            text: 'В «⚙️ МАГАЗИНЕ» покупаются новые стенды (УЗК, криокамера, стабилометр),\nнанимаются стажёры и роботы, открываются НИОКР, филиалы и скины команды!',
+            nextLabel: 'ДАЛЕЕ: ВИТРИНА И ГОСТИ →',
+            onNext: () => {
+              TutorialManager.showSpotlight(this, {
+                hole: { x: width - 140, y: 32, w: 155, h: 40 },
+                cardY: 260,
+                badge: 'РЕЙТИНГ, ВИТРИНА И СТРОЙКИ ВЕКА',
+                text: 'В «🌐 ТОП» можно зайти в гости к другим лабораториям,\nа редкие минералы из кернов выставляются в витрину слева.\nДержи премию +200 ₽ за успешный инструктаж!',
+                nextLabel: '🎉 ЗАВЕРШИТЬ И ЗАБРАТЬ +200 ₽!',
+                onNext: () => {
+                  TutorialManager.complete(this);
+                  Storage.addMoney(200);
+                  AudioManager.playStamp();
+                  this.particles.emitParticleAt(width / 2, 260, 24);
+                  if (this.moneyTxt) this.moneyTxt.setText(`💰 ${Storage.getMoney()} ₽`);
+                }
+              });
+            }
+          });
+        }
+      });
+    }
   }
 
   createGuestBottomPanel(w, h) {
@@ -782,9 +833,6 @@ export class MenuScene extends Phaser.Scene {
     g.fillRect(0, frontBenchY, w, 3);
   }
 
-  // =========================================================================
-  // ТАБЛИЦА ЛИДЕРОВ И ВЫБОР ЛАБОРАТОРИИ ДЛЯ ВИЗИТА В ГОСТИ
-  // =========================================================================
   async openLeaderboardModal(tier) {
     const { width, height } = this.scale;
     const modalContainer = this.add.container(0, 0).setDepth(68);
@@ -978,7 +1026,6 @@ export class MenuScene extends Phaser.Scene {
       if (!dragging) return;
       dragging = false;
       const moveDist = Math.hypot(ptr.x - dragStartX, ptr.y - dragStartY);
-      // Если это короткий тап (не свайп) — проверяем попадание по кнопке «В ГОСТИ»
       if (moveDist < 12) {
         const contentY = ptr.y - scrollY;
         const hit = visitHitTargets.find(
@@ -1418,27 +1465,44 @@ export class MenuScene extends Phaser.Scene {
     g.lineStyle(2, tier.accent, 0.65);
     g.lineBetween(0, 64, w, 64);
 
-    this.moneyTxt = this.add.text(16, 20, `💰 ${Storage.getMoney()} ₽`, {
+    this.moneyTxt = this.add.text(14, 20, `💰 ${Storage.getMoney()} ₽`, {
       fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '16px',
+      fontSize: '15px',
       fontWeight: '700',
       color: '#facc15'
     });
 
-    this.add.text(162, 20, `★ ${Storage.getReputation()}`, {
+    this.add.text(146, 20, `★ ${Storage.getReputation()}`, {
       fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '16px',
+      fontSize: '15px',
       fontWeight: '700',
       color: '#38bdf8'
     });
 
-    const topBtn = this.add.text(w - 134, 32, '🌐 ТОП', {
+    if (!this.isVisiting()) {
+      const tutBtn = this.add.text(w - 196, 32, '❓', {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '12px',
+        fontWeight: '700',
+        color: '#fef3c7',
+        backgroundColor: '#334155',
+        padding: { x: 7, y: 6 }
+      }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+
+      tutBtn.on('pointerdown', () => {
+        if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+        AudioManager.playClick();
+        TutorialManager.restart(this);
+      });
+    }
+
+    const topBtn = this.add.text(w - 130, 32, '🌐 ТОП', {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '11px',
       fontWeight: '700',
       color: '#0f172a',
       backgroundColor: '#38bdf8',
-      padding: { x: 8, y: 6 }
+      padding: { x: 7, y: 6 }
     }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
     topBtn.on('pointerdown', () => {
@@ -1450,7 +1514,7 @@ export class MenuScene extends Phaser.Scene {
 
     const achCount = Storage.getUnlockedAchievements().length;
     const achBtn = this.add.text(
-      w - 56,
+      w - 52,
       32,
       `🏆 ${achCount}/${ACHIEVEMENTS_CATALOG.length}`,
       {
@@ -1459,7 +1523,7 @@ export class MenuScene extends Phaser.Scene {
         fontWeight: '700',
         color: '#0f172a',
         backgroundColor: '#facc15',
-        padding: { x: 8, y: 6 }
+        padding: { x: 7, y: 6 }
       }
     ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
@@ -1470,8 +1534,8 @@ export class MenuScene extends Phaser.Scene {
       this.openAchievementsModal(tier);
     });
 
-    const soundBtn = this.add.text(w - 16, 18, Storage.isSoundEnabled() ? '🔊' : '🔇', {
-      fontSize: '22px'
+    const soundBtn = this.add.text(w - 14, 18, Storage.isSoundEnabled() ? '🔊' : '🔇', {
+      fontSize: '21px'
     }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
 
     soundBtn.on('pointerdown', () => {
