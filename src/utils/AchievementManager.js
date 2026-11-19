@@ -1,7 +1,7 @@
 import { Storage } from './Storage.js';
 import { AudioManager } from './AudioManager.js';
 import { RARE_INCLUSIONS, MEGA_PROJECTS } from '../data/contracts.js';
-import { TEST_UPGRADES } from '../data/upgrades.js';
+import { TEST_UPGRADES, RND_UPGRADES } from '../data/upgrades.js';
 
 export const ACHIEVEMENTS_CATALOG = [
   {
@@ -93,6 +93,30 @@ export const ACHIEVEMENTS_CATALOG = [
     rewardRep: 100
   },
   {
+    id: 'polar_driller',
+    icon: '🚁',
+    title: 'Полярный буровик',
+    desc: 'Профинансировать и выполнить буровую экспедицию',
+    rewardMoney: 6000,
+    rewardRep: 35
+  },
+  {
+    id: 'network_director',
+    icon: '🌐',
+    title: 'Федеральная сеть',
+    desc: 'Открыть все 3 региональных филиала лаборатории',
+    rewardMoney: 25000,
+    rewardRep: 90
+  },
+  {
+    id: 'academic_rnd',
+    icon: '🔬',
+    title: 'Академик геомеханики',
+    desc: 'Выкупить все исследования и лицензии в разделе НИОКР',
+    rewardMoney: 40000,
+    rewardRep: 150
+  },
+  {
     id: 'tycoon_50k',
     icon: '💰',
     title: 'Магнат недр',
@@ -147,6 +171,12 @@ class AchievementController {
     }
     if (Storage.getCompletedMegasCount() >= MEGA_PROJECTS.length) {
       this.unlock(scene, 'mega_builder');
+    }
+    if (Storage.getBranchesCount() >= 3) {
+      this.unlock(scene, 'network_director');
+    }
+    if (RND_UPGRADES.every((r) => Storage.hasRnd(r.key))) {
+      this.unlock(scene, 'academic_rnd');
     }
     if (Storage.getMoney() >= 50000) {
       this.unlock(scene, 'tycoon_50k');
