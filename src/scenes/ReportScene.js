@@ -33,17 +33,21 @@ export class ReportScene extends Phaser.Scene {
 
     const isAudit = Boolean(this.contract.isAudit);
     const isMega = Boolean(this.contract.isMegaProject);
+    const hasIsoCenter = Storage.hasRnd('rnd_iso_center');
+
     const sheet = this.add.graphics();
-    sheet.fillStyle(isAudit ? 0xe0f2fe : isMega ? 0xfef9c3 : 0xfef3c7, 1);
+    sheet.fillStyle(isAudit ? 0xe0f2fe : isMega || hasIsoCenter ? 0xfef9c3 : 0xfef3c7, 1);
     sheet.fillRoundedRect(padX, sheetY, sheetW, sheetH, 10);
-    sheet.lineStyle(3, isAudit ? 0x1d4ed8 : isMega ? 0x0284c9 : 0x78350f, 1);
+    sheet.lineStyle(3, isAudit ? 0x1d4ed8 : isMega ? 0x0284c9 : hasIsoCenter ? 0xd97706 : 0x78350f, 1);
     sheet.strokeRoundedRect(padX, sheetY, sheetW, sheetH, 10);
 
     const headerLabel = isAudit
       ? 'ПРОТОКОЛ КОНТРОЛЬНОГО АУДИТА'
       : isMega
         ? 'ГОСПРОТОКОЛ · СТРОЙКА ВЕКА'
-        : 'ПРОТОКОЛ ИСПЫТАНИЙ ГРУНТА';
+        : hasIsoCenter
+          ? 'ПРОТОКОЛ ISO/IEC 17025 · ЭТАЛОН'
+          : 'ПРОТОКОЛ ИСПЫТАНИЙ ГРУНТА';
 
     this.add.text(width / 2, sheetY + 28, headerLabel, {
       fontFamily: '"Rubik", sans-serif',
@@ -258,6 +262,10 @@ export class ReportScene extends Phaser.Scene {
       Storage.getPerkLevel('showcase') * 35;
     const perkRepBonus = Storage.getPerkLevel('decor');
 
+    // Пассивный доход от региональных филиалов и гранта ISO
+    const passiveBranchBonus = Storage.getPassiveBranchIncome();
+    const isoRepBonus = Storage.hasRnd('rnd_iso_center') ? 15 : 0;
+
     let moneyDelta = 0;
     let repDelta = 0;
     let outcomeType = 'success';
@@ -267,34 +275,34 @@ export class ReportScene extends Phaser.Scene {
       const withinErrorLimit = this.errorPct <= (this.contract.maxAllowedErrorPct || 9);
       if (isCorrectDecision && withinErrorLimit) {
         outcomeType = 'audit_pass';
-        moneyDelta = this.contract.reward;
-        repDelta = this.contract.repReward;
+        moneyDelta = this.contract.reward + passiveBranchBonus;
+        repDelta = this.contract.repReward + isoRepBonus;
         Storage.setAuditBonus(3);
         AchievementManager.unlock(this, 'clean_audit');
       } else {
         outcomeType = 'audit_fail';
-        moneyDelta = 0;
+        moneyDelta = passiveBranchBonus;
         repDelta = -4;
       }
     } else {
       Storage.consumeAuditBonus();
       if (isCorrectDecision && approvedByPlayer) {
         outcomeType = 'success';
-        moneyDelta = Math.round(this.contract.reward * bonusMult) + perkCashBonus;
-        repDelta = this.contract.repReward + perkRepBonus;
+        moneyDelta = Math.round(this.contract.reward * bonusMult) + perkCashBonus + passiveBranchBonus;
+        repDelta = this.contract.repReward + perkRepBonus + isoRepBonus;
       } else if (isCorrectDecision && !approvedByPlayer) {
         outcomeType = 'saved_lives';
-        moneyDelta = Math.round(this.contract.reward * 0.85 * bonusMult) + perkCashBonus;
-        repDelta = this.contract.repReward + 1 + perkRepBonus;
+        moneyDelta = Math.round(this.contract.reward * 0.85 * bonusMult) + perkCashBonus + passiveBranchBonus;
+        repDelta = this.contract.repReward + 1 + perkRepBonus + isoRepBonus;
       } else if (!isCorrectDecision && approvedByPlayer) {
         outcomeType = 'collapse';
-        moneyDelta = 0;
+        moneyDelta = passiveBranchBonus;
         repDelta = -Math.max(2, this.contract.tier * 2);
         this.cameras.main.shake(320, 0.018);
         AudioManager.playRockCrack();
       } else {
         outcomeType = 'false_alarm';
-        moneyDelta = Math.round(this.contract.reward * 0.35);
+        moneyDelta = Math.round(this.contract.reward * 0.35) + passiveBranchBonus;
         repDelta = -1;
       }
     }
@@ -423,16 +431,16 @@ export class ReportScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(25);
 
     const repSign = repDelta >= 0 ? `+${repDelta}` : `${repDelta}`;
-    this.add.text(width / 2, boxY + 378, `Гонорар: +${moneyDelta} ₽   |   Репутация: ${repSign} ★`, {
+    this.add.text(width / 2, boxY + 378, `Итоговый доход: +${moneyDelta} ₽   |   Репутация: ${repSign} ★`, {
       fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '15px',
+      fontSize: '14px',
       fontWeight: '700',
       color: '#facc15'
     }).setOrigin(0.5).setDepth(25);
 
     let nextBtnY = boxY + 486;
     if (moneyDelta > 0) {
-      const adBtn = this.add.text(width / 2, boxY + 430, `🎬 УДВОИТЬ ГОНОРАР (+${moneyDelta} ₽)`, {
+      const adBtn = this.add.text(width / 2, boxY + 430, `🎬 УДВОИТЬ ДОХОД (+${moneyDelta} ₽)`, {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '14px',
         fontWeight: '700',
