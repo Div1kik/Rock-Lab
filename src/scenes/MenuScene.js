@@ -1,5 +1,6 @@
 import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
+import { PlatformSDK } from '../utils/PlatformSDK.js';
 import { RARE_INCLUSIONS, MEGA_PROJECTS } from '../data/contracts.js';
 import { AchievementManager, ACHIEVEMENTS_CATALOG } from '../utils/AchievementManager.js';
 import { MineralRenderer } from '../utils/MineralRenderer.js';
@@ -70,13 +71,85 @@ export class MenuScene extends Phaser.Scene {
     this.showcaseModalOpen = false;
     this.staffActors = [];
     this.navNodes = [];
+    this.visitProfile = null;
+  }
+
+  init(data) {
+    this.visitProfile = data?.visitProfile || null;
+  }
+
+  isVisiting() {
+    return Boolean(this.visitProfile);
+  }
+
+  getLabConfig() {
+    if (this.isVisiting()) {
+      const snap = this.visitProfile.snapshot || {};
+      const labLvl = snap.labLevel || this.visitProfile.labLevel || 1;
+      const decorList = Array.isArray(snap.decor) ? snap.decor : [];
+      const rndList = Array.isArray(snap.rnd) ? snap.rnd : [];
+      const megaList = Array.isArray(snap.completedMegas) ? snap.completedMegas : [];
+      const gemIds = Array.isArray(snap.displayedGems) ? snap.displayedGems : [];
+      const displayedGems = gemIds
+        .map((id) => RARE_INCLUSIONS.find((g) => g.id === id))
+        .filter(Boolean);
+
+      return {
+        labLvl,
+        themeId: snap.theme || 'default',
+        skinId: snap.skin || 'default',
+        decorLvl: labLvl >= 3 ? 2 : 1,
+        showcaseLvl: displayedGems.length > 0 || labLvl >= 2 ? 1 : 0,
+        hasDecor: (k) => decorList.includes(k),
+        hasRnd: (k) => rndList.includes(k),
+        isMegaCompleted: (id) => megaList.includes(id),
+        branchesCount: ['branch_norilsk', 'branch_ural', 'branch_shelf'].filter((k) => rndList.includes(k)).length,
+        displayedGems,
+        totalGemsCount: displayedGems.length,
+        staffCount: snap.staffCount ?? Math.min(3, Math.max(0, labLvl - 2)),
+        hasCoffee: labLvl >= 2,
+        hasCryoBox: labLvl >= 2,
+        isTestUnlocked: (tKey) => {
+          if (labLvl >= 4) return true;
+          if (labLvl === 3) return ['shear_crack', 'water_sat', 'ultrasonic', 'frost_test', 'shear_load', 'triaxial'].includes(tKey);
+          if (labLvl === 2) return ['shear_crack', 'water_sat', 'ultrasonic', 'frost_test'].includes(tKey);
+          return false;
+        },
+        pressLvl: Math.min(6, labLvl + 1),
+        sawLvl: Math.min(6, labLvl + 1),
+        grinderLvl: Math.min(5, labLvl)
+      };
+    }
+
+    return {
+      labLvl: Storage.getLabLevel(),
+      themeId: Storage.getActiveLabTheme(),
+      skinId: Storage.getActiveSkin(),
+      decorLvl: Storage.getPerkLevel('decor'),
+      showcaseLvl: Storage.getPerkLevel('showcase'),
+      hasDecor: (k) => Storage.isDecorActive(k),
+      hasRnd: (k) => Storage.hasRnd(k),
+      isMegaCompleted: (id) => Storage.isMegaCompleted(id),
+      branchesCount: Storage.getBranchesCount(),
+      displayedGems: Storage.getDisplayedGems(),
+      totalGemsCount: Storage.getGems().length,
+      staffCount: Storage.getPerkLevel('assistant') > 0
+        ? Math.min(3, Math.floor((Storage.getPerkLevel('assistant') + 1) / 2))
+        : 0,
+      hasCoffee: Storage.getPerkLevel('coffee') > 0,
+      hasCryoBox: Storage.getPerkLevel('cryobox') > 0,
+      isTestUnlocked: (tKey) => Storage.isTestUnlocked(tKey),
+      pressLvl: Storage.getUpgradeLevel('press'),
+      sawLvl: Storage.getUpgradeLevel('saw'),
+      grinderLvl: Storage.getUpgradeLevel('grinder')
+    };
   }
 
   create() {
     const { width, height } = this.scale;
-    const labLvl = Storage.getLabLevel();
-    const baseTier = LAB_TIERS[labLvl] || LAB_TIERS[1];
-    const customTheme = LAB_THEMES[Storage.getActiveLabTheme()];
+    const cfg = this.getLabConfig();
+    const baseTier = LAB_TIERS[cfg.labLvl] || LAB_TIERS[1];
+    const customTheme = LAB_THEMES[cfg.themeId];
     const tier = customTheme ? { ...baseTier, ...customTheme } : baseTier;
 
     this.showcaseModalOpen = false;
@@ -90,9 +163,40 @@ export class MenuScene extends Phaser.Scene {
       emitting: false
     }).setDepth(30);
 
-    this.drawLabRoom(width, height, tier, labLvl);
+    this.drawLabRoom(width, height, tier, cfg);
     this.createTopBar(width, tier);
 
+    if (this.isVisiting()) {
+      // Режим визита в гости к коллеге
+      this.add.text(width / 2, 86, `👁️ В ГОСТЯХ: ${this.visitProfile.name}`, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '20px',
+        fontWeight: '700',
+        color: '#38bdf8',
+        stroke: '#0f172a',
+        strokeThickness: 5
+      }).setOrigin(0.5);
+
+      this.add.text(
+        width / 2,
+        116,
+        `Ур. ${cfg.labLvl} · ${tier.name} · Индекс: ${this.visitProfile.score} 🏆`,
+        {
+          fontFamily: '"Rubik", sans-serif',
+          fontSize: '11px',
+          fontWeight: '600',
+          color: '#fde68a',
+          backgroundColor: '#1c1917cc',
+          padding: { x: 10, y: 4 }
+        }
+      ).setOrigin(0.5);
+
+      this.createLiveMiniLab(width, height, tier, cfg);
+      this.createGuestBottomPanel(width, height);
+      return;
+    }
+
+    // Обычный режим своей лаборатории
     this.add.text(width / 2, 90, 'ROCK LAB', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '32px',
@@ -105,7 +209,7 @@ export class MenuScene extends Phaser.Scene {
     const auditLeft = Storage.getAuditBonus();
     const completedMegas = Storage.getCompletedMegasCount();
     const branchesCount = Storage.getBranchesCount();
-    let subLabel = `Ур. ${labLvl} · ${tier.name}`;
+    let subLabel = `Ур. ${cfg.labLvl} · ${tier.name}`;
     if (auditLeft > 0) {
       subLabel += ` · 🛡️ +15% (×${auditLeft})`;
     } else if (branchesCount > 0) {
@@ -123,7 +227,7 @@ export class MenuScene extends Phaser.Scene {
       padding: { x: 10, y: 4 }
     }).setOrigin(0.5);
 
-    this.createLiveMiniLab(width, height, tier, labLvl);
+    this.createLiveMiniLab(width, height, tier, cfg);
     this.createMaintenancePanel(width, height);
     this.createMiniPlayer(width, height, tier);
 
@@ -182,6 +286,86 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5).setAlpha(0.85);
 
     AchievementManager.evaluateAll(this);
+
+    // Синхронизируем актуальный профиль и снимок лаборатории с лидером-сервисом
+    const myProfile = Storage.buildPublicProfile(PlatformSDK.playerName);
+    PlatformSDK.submitLabProfile(myProfile);
+  }
+
+  createGuestBottomPanel(w, h) {
+    const panelY = h * 0.60;
+    const panelW = 356;
+    const panelH = 128;
+    const cx = w / 2;
+
+    const card = this.add.graphics().setDepth(18);
+    card.fillStyle(0x0f172a, 0.95);
+    card.fillRoundedRect(cx - panelW / 2, panelY, panelW, panelH, 14);
+    card.lineStyle(2, 0x38bdf8, 0.9);
+    card.strokeRoundedRect(cx - panelW / 2, panelY, panelW, panelH, 14);
+
+    const infoTxt = this.add.text(
+      cx,
+      panelY + 32,
+      `Тапай по приборам, витрине и роботам коллеги!\n★ Репутация: ${this.visitProfile.reputation}  ·  Строек века: ${this.visitProfile.completedMegas}/4`,
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
+        color: '#e2e8f0',
+        align: 'center',
+        lineSpacing: 5
+      }
+    ).setOrigin(0.5).setDepth(19);
+
+    const targetId = this.visitProfile.playerId;
+    const alreadyLiked = Storage.hasLikedGuestToday(targetId);
+    const likesLeft = Storage.getRemainingGuestLikes();
+
+    const likeLabel = alreadyLiked
+      ? '✅ ВЫ УЖЕ ОЦЕНИЛИ ЭТОТ ЦЕХ СЕГОДНЯ'
+      : likesLeft > 0
+        ? `👍 ОЦЕНИТЬ ЦЕХ (+150 ₽ · ост. ${likesLeft}/3)`
+        : '⏳ ЛИМИТ ОЦЕНОК НА СЕГОДНЯ ИСЧЕРПАН';
+
+    const canLike = !alreadyLiked && likesLeft > 0;
+    const likeBtn = this.add.text(cx, panelY + 88, likeLabel, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '12px',
+      fontWeight: '700',
+      color: canLike ? '#0f172a' : '#94a3b8',
+      backgroundColor: canLike ? '#4ade80' : '#334155',
+      padding: { x: 16, y: 10 }
+    }).setOrigin(0.5).setDepth(19).setInteractive({ useHandCursor: canLike });
+
+    if (canLike) {
+      likeBtn.on('pointerdown', () => {
+        if (Storage.recordGuestLike(targetId)) {
+          Storage.addMoney(150);
+          AudioManager.playStamp();
+          this.particles.emitParticleAt(cx, panelY + 88, 18);
+          if (this.moneyTxt) this.moneyTxt.setText(`💰 ${Storage.getMoney()} ₽`);
+          likeBtn.setText('✅ ОЦЕНКА ОТПРАВЛЕНА (+150 ₽)!');
+          likeBtn.setColor('#94a3b8');
+          likeBtn.setBackgroundColor('#334155');
+          likeBtn.disableInteractive();
+        }
+      });
+    }
+
+    this.createActionButton(
+      w / 2,
+      h - 110,
+      340,
+      54,
+      '🏠 ВЕРНУТЬСЯ В СВОЮ ЛАБОРАТОРИЮ',
+      0xd97706,
+      0xffffff,
+      () => {
+        AudioManager.playClick();
+        this.scene.start('MenuScene', { visitProfile: null });
+      },
+      14
+    );
   }
 
   showSpeechBubble(targetContainer, text, accentColor = 0xfacc15) {
@@ -241,16 +425,13 @@ export class MenuScene extends Phaser.Scene {
     });
   }
 
-  drawLabRoom(w, h, tier, labLvl) {
+  drawLabRoom(w, h, tier, cfg) {
     const g = this.add.graphics();
-    const decorLvl = Storage.getPerkLevel('decor');
-    const showcaseLvl = Storage.getPerkLevel('showcase');
-    const hasNeon = Storage.isDecorActive('neon');
-    const hasGeoMap = Storage.isDecorActive('geomap');
-    const hasCooler = Storage.isDecorActive('cooler');
-    const hasPlants = Storage.isDecorActive('plants');
-    const activeTheme = Storage.getActiveLabTheme();
-    const branchesCount = Storage.getBranchesCount();
+    const { labLvl, decorLvl, showcaseLvl, themeId, branchesCount, displayedGems, totalGemsCount } = cfg;
+    const hasNeon = cfg.hasDecor('neon');
+    const hasGeoMap = cfg.hasDecor('geomap');
+    const hasCooler = cfg.hasDecor('cooler');
+    const hasPlants = cfg.hasDecor('plants');
 
     const backWallY = 266;
     const frontBenchY = h * 0.545;
@@ -258,7 +439,7 @@ export class MenuScene extends Phaser.Scene {
     g.fillStyle(tier.wall, 1);
     g.fillRect(0, 64, w, backWallY - 64);
 
-    if (activeTheme === 'loft' || (activeTheme === 'default' && labLvl === 1)) {
+    if (themeId === 'loft' || (themeId === 'default' && labLvl === 1)) {
       g.lineStyle(1, 0x000000, 0.22);
       for (let by = 80; by < backWallY; by += 18) {
         g.lineBetween(0, by, w, by);
@@ -304,17 +485,14 @@ export class MenuScene extends Phaser.Scene {
       g.lineStyle(2.5, branchesCount > 0 ? 0x38bdf8 : 0x4b5563, 1);
       g.strokeRoundedRect(winX, 138, winW, 78, 8);
 
-      // Контуры материка на мониторе филиалов
       g.fillStyle(0x15803d, 0.6);
       g.fillRoundedRect(winX + 18, 152, 68, 36, 8);
       g.fillRoundedRect(winX + 94, 148, 102, 46, 10);
 
-      // Координаты 3 филиалов на карте
-      const bNorilsk = { x: winX + 128, y: 158, active: Storage.hasRnd('branch_norilsk') };
-      const bUral = { x: winX + 104, y: 174, active: Storage.hasRnd('branch_ural') };
-      const bShelf = { x: winX + 182, y: 182, active: Storage.hasRnd('branch_shelf') };
+      const bNorilsk = { x: winX + 128, y: 158, active: cfg.hasRnd('branch_norilsk') };
+      const bUral = { x: winX + 104, y: 174, active: cfg.hasRnd('branch_ural') };
+      const bShelf = { x: winX + 182, y: 182, active: cfg.hasRnd('branch_shelf') };
 
-      // Линии связи от главного штаба к активным филиалам
       g.lineStyle(1.5, 0x38bdf8, 0.8);
       [bNorilsk, bUral, bShelf].forEach((b) => {
         if (b.active) {
@@ -346,7 +524,7 @@ export class MenuScene extends Phaser.Scene {
         this.showSpeechBubble(
           mapAnchor,
           branchesCount > 0
-            ? `🌐 Филиалов: ${branchesCount}/3 · Пассив: +${passive} ₽/заказ`
+            ? `🌐 Филиалов в сети: ${branchesCount}/3${this.isVisiting() ? '' : ` · +${passive} ₽/заказ`}`
             : '🗺️ Геокарта месторождений активна!',
           0x38bdf8
         );
@@ -401,7 +579,7 @@ export class MenuScene extends Phaser.Scene {
     ];
 
     trophySlots.forEach((slot) => {
-      const unlocked = Storage.isMegaCompleted(slot.id);
+      const unlocked = cfg.isMegaCompleted(slot.id);
       if (!unlocked) {
         g.fillStyle(0x1e293b, 1);
         g.fillCircle(slot.x, slot.y, 6);
@@ -433,16 +611,18 @@ export class MenuScene extends Phaser.Scene {
     g.lineBetween(trophyX + 10, trophyY + 8, trophyX + 24, trophyY + 28);
     g.lineBetween(trophyX + 18, trophyY + 8, trophyX + 28, trophyY + 22);
 
-    const trophyHit = this.add.zone(trophyX + trophyW / 2, trophyY + trophyH / 2, trophyW + 8, trophyH + 8)
-      .setInteractive({ useHandCursor: true });
-    trophyHit.on('pointerdown', () => {
-      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
-      this.showcaseModalOpen = true;
-      AudioManager.playClick();
-      this.openAchievementsModal(tier);
-    });
+    if (!this.isVisiting()) {
+      const trophyHit = this.add.zone(trophyX + trophyW / 2, trophyY + trophyH / 2, trophyW + 8, trophyH + 8)
+        .setInteractive({ useHandCursor: true });
+      trophyHit.on('pointerdown', () => {
+        if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+        this.showcaseModalOpen = true;
+        AudioManager.playClick();
+        this.openAchievementsModal(tier);
+      });
+    }
 
-    const foundGems = Storage.getGems();
+    // Витрина минералов слева
     if (showcaseLvl > 0) {
       const shelfX = 14;
       const shelfY = 148;
@@ -454,16 +634,15 @@ export class MenuScene extends Phaser.Scene {
       g.lineStyle(2, tier.accent, 0.85);
       g.strokeRoundedRect(shelfX, shelfY, shelfW, shelfH, 6);
 
-      const displayed = Storage.getDisplayedGems();
       for (let i = 0; i < 4; i++) {
         const sy = shelfY + 20 + i * 31;
         g.fillStyle(0x3f3f46, 1);
         g.fillRect(shelfX + 7, sy + 13, 44, 4);
 
-        if (displayed[i]) {
+        if (displayedGems[i]) {
           const gx = shelfX + 29;
           const gy = sy + 4;
-          g.fillStyle(displayed[i].color, 1);
+          g.fillStyle(displayedGems[i].color, 1);
           g.beginPath();
           g.moveTo(gx, gy - 8);
           g.lineTo(gx + 7, gy);
@@ -486,7 +665,7 @@ export class MenuScene extends Phaser.Scene {
         .setOrigin(1, 0)
         .setStrokeStyle(1, 0x7dd3fc, 0.55);
 
-      this.add.text(shelfX + shelfW / 2, shelfY + shelfH + 10, `💎 ${foundGems.length}/${RARE_INCLUSIONS.length}`, {
+      this.add.text(shelfX + shelfW / 2, shelfY + shelfH + 10, `💎 ${totalGemsCount}/${RARE_INCLUSIONS.length}`, {
         fontFamily: '"JetBrains Mono", monospace',
         fontSize: '9px',
         fontWeight: '700',
@@ -509,11 +688,11 @@ export class MenuScene extends Phaser.Scene {
           duration: 240,
           ease: 'Cubic.easeOut',
           onComplete: () => {
-            this.openShowcaseModal(tier);
+            this.openShowcaseModal(tier, cfg);
           }
         });
       });
-    } else if (foundGems.length > 0) {
+    } else if (!this.isVisiting() && totalGemsCount > 0) {
       const boxX = 14;
       const boxY = 246;
       g.fillStyle(0x292524, 0.95);
@@ -528,7 +707,7 @@ export class MenuScene extends Phaser.Scene {
         color: '#fde68a'
       }).setOrigin(0.5);
 
-      this.add.text(boxX + 29, boxY + 32, `💎 ${foundGems.length} шт.`, {
+      this.add.text(boxX + 29, boxY + 32, `💎 ${totalGemsCount} шт.`, {
         fontFamily: '"JetBrains Mono", monospace',
         fontSize: '10px',
         fontWeight: '700',
@@ -540,11 +719,10 @@ export class MenuScene extends Phaser.Scene {
         if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
         this.showcaseModalOpen = true;
         AudioManager.playClick();
-        this.openShowcaseModal(tier);
+        this.openShowcaseModal(tier, cfg);
       });
     }
 
-    // Кулер с интерактивными пузырьками
     const floorLineY = backWallY + 28;
     if (hasCooler) {
       const cx = w - 34;
@@ -610,33 +788,702 @@ export class MenuScene extends Phaser.Scene {
     g.fillRect(0, frontBenchY, w, 3);
   }
 
-  createLiveMiniLab(w, h, tier, labLvl) {
+  // =========================================================================
+  // ТАБЛИЦА ЛИДЕРОВ И ВЫБОР ЛАБОРАТОРИИ ДЛЯ ВИЗИТА В ГОСТИ
+  // =========================================================================
+  async openLeaderboardModal(tier) {
+    const { width, height } = this.scale;
+    const modalContainer = this.add.container(0, 0).setDepth(68);
+
+    const blocker = this.add.zone(width / 2, height / 2, width, height).setInteractive();
+    const dimBg = this.add.graphics();
+    dimBg.fillStyle(0x090d16, 0.95);
+    dimBg.fillRect(0, 0, width, height);
+
+    const boxW = 408;
+    const boxH = 684;
+    const boxX = width / 2 - boxW / 2;
+    const boxY = height / 2 - boxH / 2;
+
+    const panel = this.add.graphics();
+    panel.fillStyle(0x181c26, 1);
+    panel.fillRoundedRect(boxX, boxY, boxW, boxH, 16);
+    panel.lineStyle(3, 0x38bdf8, 1);
+    panel.strokeRoundedRect(boxX, boxY, boxW, boxH, 16);
+
+    const title = this.add.text(width / 2, boxY + 24, '🌐 РЕЙТИНГ КОЛЛЕГИИ ГЕОЛОГОВ', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '15px',
+      fontWeight: '700',
+      color: '#38bdf8'
+    }).setOrigin(0.5);
+
+    const myProfile = Storage.buildPublicProfile(PlatformSDK.playerName);
+    const nameTxt = this.add.text(boxX + 18, boxY + 52, `Ваш позывной: ${myProfile.name}`, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '12px',
+      fontWeight: '700',
+      color: '#fef08a'
+    }).setOrigin(0, 0.5);
+
+    const renameBtn = this.add.text(boxX + boxW - 18, boxY + 52, '✏️ ИЗМЕНИТЬ НИК', {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '10px',
+      fontWeight: '700',
+      color: '#0f172a',
+      backgroundColor: '#facc15',
+      padding: { x: 8, y: 4 }
+    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+
+    renameBtn.on('pointerdown', () => {
+      AudioManager.playClick();
+      const entered = window.prompt('Введите название вашей лаборатории или никнейм (до 20 символов):', Storage.getPlayerName());
+      if (entered && entered.trim()) {
+        const updated = Storage.setPlayerName(entered);
+        PlatformSDK.playerName = updated;
+        const fresh = Storage.buildPublicProfile(updated);
+        PlatformSDK.submitLabProfile(fresh);
+        modalContainer.destroy();
+        this.openLeaderboardModal(tier);
+      }
+    });
+
+    const loadingTxt = this.add.text(width / 2, height / 2, '⏳ Загрузка рейтинга лабораторий...', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '13px',
+      color: '#94a3b8'
+    }).setOrigin(0.5);
+
+    const closeBtn = this.add.text(width / 2, boxY + boxH - 28, 'ЗАКРЫТЬ', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '13px',
+      fontWeight: '700',
+      color: '#ffffff',
+      backgroundColor: '#d97706',
+      padding: { x: 26, y: 9 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    closeBtn.on('pointerdown', () => {
+      AudioManager.playClick();
+      modalContainer.destroy();
+      this.showcaseModalOpen = false;
+    });
+
+    modalContainer.add([blocker, dimBg, panel, title, nameTxt, renameBtn, loadingTxt, closeBtn]);
+
+    const entries = await PlatformSDK.fetchLeaderboard(myProfile);
+    if (!modalContainer.active) return;
+    loadingTxt.destroy();
+
+    const listStartY = boxY + 76;
+    const listViewH = boxH - 134;
+    const scrollGroup = this.add.container(0, 0);
+    modalContainer.add(scrollGroup);
+
+    const maskG = this.make.graphics();
+    maskG.fillStyle(0xffffff);
+    maskG.fillRect(boxX + 8, listStartY, boxW - 16, listViewH);
+    scrollGroup.setMask(maskG.createGeometryMask());
+
+    const rowH = 64;
+    const rowGap = 8;
+    entries.forEach((entry, idx) => {
+      const ry = listStartY + idx * (rowH + rowGap);
+      const isSelf = Boolean(entry.isSelf || entry.playerId === myProfile.playerId);
+      const rank = idx + 1;
+
+      const rowG = this.add.graphics();
+      rowG.fillStyle(isSelf ? 0x1e3a8a : 0x1e293b, 1);
+      rowG.fillRoundedRect(boxX + 14, ry, boxW - 28, rowH, 10);
+      rowG.lineStyle(1.5, isSelf ? 0xfacc15 : rank <= 3 ? 0x38bdf8 : 0x334155, 0.9);
+      rowG.strokeRoundedRect(boxX + 14, ry, boxW - 28, rowH, 10);
+
+      const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+      const rankTxt = this.add.text(boxX + 34, ry + rowH / 2, medal, {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: rank <= 3 ? '18px' : '13px',
+        fontWeight: '700',
+        color: '#facc15'
+      }).setOrigin(0.5);
+
+      const pName = this.add.text(
+        boxX + 58,
+        ry + 18,
+        `${entry.name}${isSelf ? ' (ВЫ)' : ''}`,
+        {
+          fontFamily: '"Rubik", sans-serif',
+          fontSize: '12px',
+          fontWeight: '700',
+          color: isSelf ? '#fef08a' : '#f8fafc'
+        }
+      ).setOrigin(0, 0.5);
+
+      const pStats = this.add.text(
+        boxX + 58,
+        ry + 42,
+        `Индекс: ${entry.score} · Ур.${entry.labLevel} · ★${entry.reputation}`,
+        {
+          fontFamily: '"JetBrains Mono", monospace',
+          fontSize: '10px',
+          color: '#7dd3fc'
+        }
+      ).setOrigin(0, 0.5);
+
+      scrollGroup.add([rowG, rankTxt, pName, pStats]);
+
+      if (!isSelf && entry.snapshot) {
+        const visitBtn = this.add.text(boxX + boxW - 24, ry + rowH / 2, '👁️ В ГОСТИ', {
+          fontFamily: '"Rubik", sans-serif',
+          fontSize: '10px',
+          fontWeight: '700',
+          color: '#0f172a',
+          backgroundColor: '#4ade80',
+          padding: { x: 9, y: 6 }
+        }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+
+        visitBtn.on('pointerdown', () => {
+          AudioManager.playStamp();
+          maskG.destroy();
+          modalContainer.destroy();
+          this.showcaseModalOpen = false;
+          this.scene.restart({ visitProfile: entry });
+        });
+
+        scrollGroup.add(visitBtn);
+      }
+    });
+
+    const totalH = entries.length * (rowH + rowGap);
+    const maxScroll = Math.max(0, totalH - listViewH + 10);
+    let scrollY = 0;
+    let dragStart = 0;
+    let dragStartScroll = 0;
+    let dragging = false;
+
+    const dragZone = this.add.zone(width / 2, listStartY + listViewH / 2, boxW, listViewH)
+      .setInteractive();
+    dragZone.on('pointerdown', (ptr) => {
+      dragging = true;
+      dragStart = ptr.y;
+      dragStartScroll = scrollY;
+    });
+    dragZone.on('pointermove', (ptr) => {
+      if (!dragging || maxScroll <= 0) return;
+      scrollY = Phaser.Math.Clamp(dragStartScroll + (ptr.y - dragStart), -maxScroll, 0);
+      scrollGroup.y = scrollY;
+    });
+    dragZone.on('pointerup', () => { dragging = false; });
+    modalContainer.add(dragZone);
+
+    closeBtn.once('pointerdown', () => {
+      maskG.destroy();
+    });
+  }
+
+  openAchievementsModal(tier) {
+    const { width, height } = this.scale;
+    const modalContainer = this.add.container(0, 0).setDepth(65);
+
+    const blocker = this.add.zone(width / 2, height / 2, width, height).setInteractive();
+    const dimBg = this.add.graphics();
+    dimBg.fillStyle(0x090d16, 0.95);
+    dimBg.fillRect(0, 0, width, height);
+
+    const boxW = 408;
+    const boxH = 680;
+    const boxX = width / 2 - boxW / 2;
+    const boxY = height / 2 - boxH / 2;
+
+    const panel = this.add.graphics();
+    panel.fillStyle(0x181c26, 1);
+    panel.fillRoundedRect(boxX, boxY, boxW, boxH, 16);
+    panel.lineStyle(3, tier.accent, 1);
+    panel.strokeRoundedRect(boxX, boxY, boxW, boxH, 16);
+
+    const unlockedList = Storage.getUnlockedAchievements();
+    const title = this.add.text(
+      width / 2,
+      boxY + 24,
+      `🏆 ДОСТИЖЕНИЯ (${unlockedList.length}/${ACHIEVEMENTS_CATALOG.length})`,
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '16px',
+        fontWeight: '700',
+        color: '#facc15'
+      }
+    ).setOrigin(0.5);
+
+    const megasDone = Storage.getCompletedMegasCount();
+    const sub = this.add.text(
+      width / 2,
+      boxY + 46,
+      `Сдано строек века: ${megasDone}/${MEGA_PROJECTS.length} · Свайпай список вниз/вверх`,
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
+        color: '#94a3b8'
+      }
+    ).setOrigin(0.5);
+
+    modalContainer.add([blocker, dimBg, panel, title, sub]);
+
+    const listStartY = boxY + 66;
+    const listViewH = boxH - 122;
+    const scrollGroup = this.add.container(0, 0);
+    modalContainer.add(scrollGroup);
+
+    const maskG = this.make.graphics();
+    maskG.fillStyle(0xffffff);
+    maskG.fillRect(boxX + 8, listStartY, boxW - 16, listViewH);
+    scrollGroup.setMask(maskG.createGeometryMask());
+
+    const rowH = 66;
+    const rowGap = 8;
+    ACHIEVEMENTS_CATALOG.forEach((ach, idx) => {
+      const isDone = unlockedList.includes(ach.id);
+      const ry = listStartY + idx * (rowH + rowGap);
+
+      const rowG = this.add.graphics();
+      rowG.fillStyle(isDone ? 0x1e293b : 0x11151f, 1);
+      rowG.fillRoundedRect(boxX + 14, ry, boxW - 28, rowH, 10);
+      rowG.lineStyle(1.5, isDone ? 0xfacc15 : 0x334155, isDone ? 0.95 : 0.6);
+      rowG.strokeRoundedRect(boxX + 14, ry, boxW - 28, rowH, 10);
+
+      const iconTxt = this.add.text(boxX + 36, ry + rowH / 2, isDone ? ach.icon : '🔒', {
+        fontSize: '22px'
+      }).setOrigin(0.5).setAlpha(isDone ? 1 : 0.5);
+
+      const nameTxt = this.add.text(boxX + 60, ry + 16, ach.title, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '12px',
+        fontWeight: '700',
+        color: isDone ? '#fef08a' : '#94a3b8'
+      }).setOrigin(0, 0.5);
+
+      const rewardTxt = this.add.text(
+        boxX + boxW - 24,
+        ry + 16,
+        isDone ? '✅ ПОЛУЧЕНО' : `+${ach.rewardMoney}₽ ★${ach.rewardRep}`,
+        {
+          fontFamily: '"JetBrains Mono", monospace',
+          fontSize: '9px',
+          fontWeight: '700',
+          color: isDone ? '#4ade80' : '#38bdf8'
+        }
+      ).setOrigin(1, 0.5);
+
+      const descTxt = this.add.text(boxX + 60, ry + 42, ach.desc, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '10px',
+        color: isDone ? '#e2e8f0' : '#64748b',
+        wordWrap: { width: boxW - 84 }
+      }).setOrigin(0, 0.5);
+
+      scrollGroup.add([rowG, iconTxt, nameTxt, rewardTxt, descTxt]);
+    });
+
+    const totalH = ACHIEVEMENTS_CATALOG.length * (rowH + rowGap);
+    const maxScroll = Math.max(0, totalH - listViewH + 10);
+    let scrollY = 0;
+    let dragStart = 0;
+    let dragStartScroll = 0;
+    let dragging = false;
+
+    const dragZone = this.add.zone(width / 2, listStartY + listViewH / 2, boxW, listViewH)
+      .setInteractive();
+    dragZone.on('pointerdown', (ptr) => {
+      dragging = true;
+      dragStart = ptr.y;
+      dragStartScroll = scrollY;
+    });
+    dragZone.on('pointermove', (ptr) => {
+      if (!dragging || maxScroll <= 0) return;
+      scrollY = Phaser.Math.Clamp(dragStartScroll + (ptr.y - dragStart), -maxScroll, 0);
+      scrollGroup.y = scrollY;
+    });
+    dragZone.on('pointerup', () => { dragging = false; });
+    modalContainer.add(dragZone);
+
+    const closeBtn = this.add.text(width / 2, boxY + boxH - 28, 'ЗАКРЫТЬ', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '13px',
+      fontWeight: '700',
+      color: '#ffffff',
+      backgroundColor: '#d97706',
+      padding: { x: 26, y: 9 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    closeBtn.on('pointerdown', () => {
+      AudioManager.playClick();
+      maskG.destroy();
+      modalContainer.destroy();
+      this.showcaseModalOpen = false;
+    });
+
+    modalContainer.add(closeBtn);
+  }
+
+  openShowcaseModal(tier, cfg) {
+    const { width, height } = this.scale;
+    const modalContainer = this.add.container(0, 0).setDepth(60);
+    const isGuest = this.isVisiting();
+    const hasShowcase = cfg.showcaseLvl > 0;
+
+    const blocker = this.add.zone(width / 2, height / 2, width, height).setInteractive();
+    const dimBg = this.add.graphics();
+    dimBg.fillStyle(0x090d16, 0.94);
+    dimBg.fillRect(0, 0, width, height);
+
+    const boxW = 396;
+    const boxH = 656;
+    const boxX = width / 2 - boxW / 2;
+    const boxY = height / 2 - boxH / 2;
+
+    const panel = this.add.graphics();
+    panel.fillStyle(0x181c26, 1);
+    panel.fillRoundedRect(boxX, boxY, boxW, boxH, 16);
+    panel.lineStyle(3, tier.accent, 1);
+    panel.strokeRoundedRect(boxX, boxY, boxW, boxH, 16);
+
+    const titleText = isGuest
+      ? `💎 ВИТРИНА КОЛЛЕГИ: ${this.visitProfile.name}`
+      : hasShowcase
+        ? '💎 СКЛАД И ВИТРИНА МИНЕРАЛОВ'
+        : '📦 СКЛАД НАЙДЕННЫХ МИНЕРАЛОВ';
+
+    const title = this.add.text(width / 2, boxY + 24, titleText, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '14px',
+      fontWeight: '700',
+      color: '#fef3c7'
+    }).setOrigin(0.5);
+
+    const foundGems = isGuest ? cfg.displayedGems : Storage.getGems();
+    const subText = `Образцов: ${foundGems.length}/${RARE_INCLUSIONS.length} · Тапни по образцу для 3D-осмотра`;
+
+    const sub = this.add.text(width / 2, boxY + 46, subText, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '11px',
+      color: '#38bdf8'
+    }).setOrigin(0.5);
+
+    modalContainer.add([blocker, dimBg, panel, title, sub]);
+
+    RARE_INCLUSIONS.forEach((gem, idx) => {
+      const owned = foundGems.find((g) => g.id === gem.id);
+      const ry = boxY + 66 + idx * 57;
+      const rowH = 51;
+
+      const rowG = this.add.graphics();
+      rowG.fillStyle(owned ? 0x222938 : 0x131720, 1);
+      rowG.fillRoundedRect(boxX + 14, ry, boxW - 28, rowH, 8);
+      rowG.lineStyle(1.5, owned ? gem.color : 0x334155, owned ? 0.9 : 0.6);
+      rowG.strokeRoundedRect(boxX + 14, ry, boxW - 28, rowH, 8);
+
+      modalContainer.add(rowG);
+
+      if (owned) {
+        const miniGem = MineralRenderer.createMineralDisplay(this, boxX + 36, ry + rowH / 2, gem.id, 0.56, false);
+        modalContainer.add(miniGem);
+      } else {
+        const lockTxt = this.add.text(boxX + 36, ry + rowH / 2, '❓', {
+          fontSize: '18px'
+        }).setOrigin(0.5).setAlpha(0.45);
+        modalContainer.add(lockTxt);
+      }
+
+      const nameTxt = this.add.text(
+        boxX + 62,
+        ry + 15,
+        owned ? `${gem.name}${!isGuest && owned.count > 1 ? ` (×${owned.count})` : ''}` : 'Неизвестный образец',
+        {
+          fontFamily: '"Rubik", sans-serif',
+          fontSize: '11px',
+          fontWeight: '700',
+          color: owned ? '#f8fafc' : '#64748b'
+        }
+      ).setOrigin(0, 0.5);
+
+      const descTxt = this.add.text(
+        boxX + 62,
+        ry + 35,
+        owned ? `${gem.rarity} · 🔍 Осмотреть 3D` : `Редкость: ${gem.rarity}`,
+        {
+          fontFamily: '"Rubik", sans-serif',
+          fontSize: '10px',
+          color: owned ? '#38bdf8' : '#475569'
+        }
+      ).setOrigin(0, 0.5);
+
+      modalContainer.add([nameTxt, descTxt]);
+
+      if (owned) {
+        const inspectZone = this.add.zone(boxX + 145, ry + rowH / 2, 230, rowH)
+          .setInteractive({ useHandCursor: true });
+
+        inspectZone.on('pointerdown', () => {
+          AudioManager.playClick();
+          this.openMineralInspectorModal(gem, owned.count || 1);
+        });
+        modalContainer.add(inspectZone);
+
+        if (!isGuest && hasShowcase) {
+          const isShown = Storage.isGemDisplayed(gem.id);
+          const toggleBtn = this.add.text(
+            boxX + boxW - 22,
+            ry + rowH / 2,
+            isShown ? '✅ НА ПОЛКЕ' : '+ НА ПОЛКУ',
+            {
+              fontFamily: '"JetBrains Mono", monospace',
+              fontSize: '9px',
+              fontWeight: '700',
+              color: isShown ? '#0f172a' : '#fef3c7',
+              backgroundColor: isShown ? '#4ade80' : '#334155',
+              padding: { x: 7, y: 5 }
+            }
+          ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+
+          toggleBtn.on('pointerdown', () => {
+            AudioManager.playLatchSnap();
+            Storage.toggleGemDisplay(gem.id);
+            modalContainer.destroy();
+            this.openShowcaseModal(tier, cfg);
+          });
+
+          modalContainer.add(toggleBtn);
+        }
+      }
+    });
+
+    const closeBtn = this.add.text(
+      width / 2,
+      boxY + boxH - 28,
+      isGuest ? 'ЗАКРЫТЬ ВИТРИНУ' : 'ЗАКРЫТЬ И ОБНОВИТЬ ПОЛКУ',
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '12px',
+        fontWeight: '700',
+        color: '#ffffff',
+        backgroundColor: '#d97706',
+        padding: { x: 20, y: 9 }
+      }
+    ).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    closeBtn.on('pointerdown', () => {
+      AudioManager.playLatchSnap();
+      modalContainer.destroy();
+      this.scene.restart({ visitProfile: this.visitProfile });
+    });
+
+    modalContainer.add(closeBtn);
+  }
+
+  openMineralInspectorModal(gem, count = 1) {
+    const { width, height } = this.scale;
+    const inspContainer = this.add.container(0, 0).setDepth(75);
+
+    const MINERAL_NOTES = {
+      calcite: 'Формула: CaCO₃ · Твёрдость по Моосу: 3\nОбладает сильным двойным лучепреломлением и характерным стеклянным блеском.',
+      pyrite: 'Формула: FeS₂ · Твёрдость по Моосу: 6–6.5\n«Золото дураков» — образует идеальные кубические кристаллы с металлической штриховкой.',
+      agate: 'Формула: SiO₂ · Твёрдость по Моосу: 6.5–7\nСкрытокристаллический халцедон с тончайшими полосами природных пигментов.',
+      quartz: 'Формула: SiO₂ · Твёрдость по Моосу: 7\nПьезоэлектрический кристалл чистейшего кремнезёма в шестигранной призме.',
+      ammonite: 'Возраст: ~145 млн лет (Мезозой)\nОкаменелая раковина головоногого моллюска, замещённая кальцитом и пиритом.',
+      amethyst: 'Формула: SiO₂ (примеси Fe⁴⁺) · Твёрдость: 7\nДрагоценная фиолетовая разновидность кварца из скальных жеод Урала.',
+      malachite: 'Формула: Cu₂CO₃(OH)₂ · Твёрдость: 3.5–4\nЗнаменитый уральский карбонат меди с шелковистым ленточно-почковидным узором.',
+      native_gold: 'Формула: Au · Плотность: 19.3 г/см³\nБлагородный самородный металл, вплавленный в жильный молочно-белый кварц.',
+      diamond_kimberlite: 'Формула: C · Твёрдость по Моосу: 10\nСверхтвёрдый октаэдр природного алмаза в коренной кимберлитовой трубке.'
+    };
+
+    const blocker = this.add.zone(width / 2, height / 2, width, height).setInteractive();
+    const dim = this.add.graphics();
+    dim.fillStyle(0x050811, 0.96);
+    dim.fillRect(0, 0, width, height);
+
+    const cardW = 376;
+    const cardH = 490;
+    const cx = width / 2;
+    const cy = height / 2;
+
+    const panel = this.add.graphics();
+    panel.fillStyle(0x131926, 1);
+    panel.fillRoundedRect(cx - cardW / 2, cy - cardH / 2, cardW, cardH, 18);
+    panel.lineStyle(3, gem.color, 1);
+    panel.strokeRoundedRect(cx - cardW / 2, cy - cardH / 2, cardW, cardH, 18);
+
+    const header = this.add.text(cx, cy - cardH / 2 + 28, '🔬 3D-ОСМОТР ОБРАЗЦА', {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '12px',
+      fontWeight: '700',
+      color: '#7dd3fc'
+    }).setOrigin(0.5);
+
+    const title = this.add.text(cx, cy - cardH / 2 + 56, `${gem.name}${count > 1 ? ` (×${count})` : ''}`, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '16px',
+      fontWeight: '700',
+      color: '#fef3c7',
+      align: 'center',
+      wordWrap: { width: cardW - 36 }
+    }).setOrigin(0.5);
+
+    const stageY = cy - 30;
+    const stageBg = this.add.graphics();
+    stageBg.fillStyle(0x090d16, 1);
+    stageBg.fillRoundedRect(cx - 140, stageY - 96, 280, 192, 14);
+    stageBg.lineStyle(1.5, gem.color, 0.55);
+    stageBg.strokeRoundedRect(cx - 140, stageY - 96, 280, 192, 14);
+
+    const glow = this.add.circle(cx, stageY, 68, gem.color, 0.14);
+    const mineralObj = MineralRenderer.createMineralDisplay(this, cx, stageY, gem.id, 2.05, true);
+
+    const dragHint = this.add.text(cx, stageY + 80, '↔ ПРОВЕДИ ПАЛЬЦЕМ, ЧТОБЫ ПОКРУТИТЬ ОБРАЗЕЦ', {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '9px',
+      fontWeight: '700',
+      color: '#facc15'
+    }).setOrigin(0.5);
+
+    const statsBadge = this.add.text(
+      cx,
+      cy + 92,
+      `Класс: ${gem.rarity}  ·  Оценочная стоимость: ${gem.value} ₽`,
+      {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '10px',
+        fontWeight: '700',
+        color: '#4ade80',
+        backgroundColor: '#0f172a',
+        padding: { x: 10, y: 5 }
+      }
+    ).setOrigin(0.5);
+
+    const noteTxt = this.add.text(
+      cx,
+      cy + 146,
+      MINERAL_NOTES[gem.id] || 'Редкий геологический образец из керновой скважины.',
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
+        color: '#cbd5e1',
+        align: 'center',
+        lineSpacing: 5,
+        wordWrap: { width: cardW - 44 }
+      }
+    ).setOrigin(0.5);
+
+    const backBtn = this.add.text(cx, cy + cardH / 2 - 32, '← НАЗАД К ВИТРИНЕ', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '13px',
+      fontWeight: '700',
+      color: '#0f172a',
+      backgroundColor: '#facc15',
+      padding: { x: 20, y: 9 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    backBtn.on('pointerdown', () => {
+      AudioManager.playClick();
+      inspContainer.destroy();
+    });
+
+    inspContainer.add([
+      blocker, dim, panel, header, title, stageBg, glow, mineralObj, dragHint, statsBadge, noteTxt, backBtn
+    ]);
+  }
+
+  createTopBar(w, tier) {
+    const g = this.add.graphics();
+    g.fillStyle(0x14161b, 0.95);
+    g.fillRect(0, 0, w, 64);
+    g.lineStyle(2, tier.accent, 0.65);
+    g.lineBetween(0, 64, w, 64);
+
+    this.moneyTxt = this.add.text(16, 20, `💰 ${Storage.getMoney()} ₽`, {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '16px',
+      fontWeight: '700',
+      color: '#facc15'
+    });
+
+    this.add.text(162, 20, `★ ${Storage.getReputation()}`, {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '16px',
+      fontWeight: '700',
+      color: '#38bdf8'
+    });
+
+    // Кнопка Таблицы лидеров и Гостевого режима (🌐 ТОП)
+    const topBtn = this.add.text(w - 134, 32, '🌐 ТОП', {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '11px',
+      fontWeight: '700',
+      color: '#0f172a',
+      backgroundColor: '#38bdf8',
+      padding: { x: 8, y: 6 }
+    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+
+    topBtn.on('pointerdown', () => {
+      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+      this.showcaseModalOpen = true;
+      AudioManager.playClick();
+      this.openLeaderboardModal(tier);
+    });
+
+    // Кнопка Достижений (🏆)
+    const achCount = Storage.getUnlockedAchievements().length;
+    const achBtn = this.add.text(
+      w - 56,
+      32,
+      `🏆 ${achCount}/${ACHIEVEMENTS_CATALOG.length}`,
+      {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '11px',
+        fontWeight: '700',
+        color: '#0f172a',
+        backgroundColor: '#facc15',
+        padding: { x: 8, y: 6 }
+      }
+    ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+
+    achBtn.on('pointerdown', () => {
+      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+      this.showcaseModalOpen = true;
+      AudioManager.playClick();
+      this.openAchievementsModal(tier);
+    });
+
+    const soundBtn = this.add.text(w - 16, 18, Storage.isSoundEnabled() ? '🔊' : '🔇', {
+      fontSize: '22px'
+    }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
+
+    soundBtn.on('pointerdown', () => {
+      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+      const enabled = Storage.toggleSound();
+      soundBtn.setText(enabled ? '🔊' : '🔇');
+      if (enabled) AudioManager.playClick();
+    });
+  }
+
+  createLiveMiniLab(w, h, tier, cfg) {
     const backFloorY = 286;
     const midFloorY = 340;
     const frontBenchY = h * 0.545;
 
-    const pressLvl = Storage.getUpgradeLevel('press');
-    const sawLvl = Storage.getUpgradeLevel('saw');
-    const grinderLvl = Storage.getUpgradeLevel('grinder');
-    const hasGoldPress = Storage.hasRnd('rnd_gold_press');
+    const { labLvl, pressLvl, sawLvl, grinderLvl, staffCount } = cfg;
+    const hasGoldPress = cfg.hasRnd('rnd_gold_press');
 
-    const hasSplit = Storage.isTestUnlocked('shear_crack');
-    const hasWater = Storage.isTestUnlocked('water_sat');
-    const hasUltrasonic = Storage.isTestUnlocked('ultrasonic');
-    const hasFrost = Storage.isTestUnlocked('frost_test');
-    const hasShearLoad = Storage.isTestUnlocked('shear_load');
-    const hasTriaxial = Storage.isTestUnlocked('triaxial');
+    const hasSplit = cfg.isTestUnlocked('shear_crack');
+    const hasWater = cfg.isTestUnlocked('water_sat');
+    const hasUltrasonic = cfg.isTestUnlocked('ultrasonic');
+    const hasFrost = cfg.isTestUnlocked('frost_test');
+    const hasShearLoad = cfg.isTestUnlocked('shear_load');
+    const hasTriaxial = cfg.isTestUnlocked('triaxial');
 
-    const hasCryoBox = Storage.getPerkLevel('cryobox') > 0;
-    const coffeeLvl = Storage.getPerkLevel('coffee');
-    const assistantLvl = Storage.getPerkLevel('assistant');
-
-    const hasLoungeSofa = Storage.isDecorActive('lounge_sofa');
-    const hasArchiveDesk = Storage.isDecorActive('archive_desk');
-    const hasRoboArm = Storage.isDecorActive('robo_arm');
-    const hasRoboRover = Storage.isDecorActive('robo_rover');
-    const hasRoboDog = Storage.isDecorActive('robo_dog');
-    const hasRoboHumanoid = Storage.isDecorActive('robo_humanoid');
+    const hasLoungeSofa = cfg.hasDecor('lounge_sofa');
+    const hasArchiveDesk = cfg.hasDecor('archive_desk');
+    const hasRoboArm = cfg.hasDecor('robo_arm');
+    const hasRoboRover = cfg.hasDecor('robo_rover');
+    const hasRoboDog = cfg.hasDecor('robo_dog');
+    const hasRoboHumanoid = cfg.hasDecor('robo_humanoid');
 
     const backG = this.add.graphics().setDepth(4);
 
@@ -680,7 +1527,7 @@ export class MenuScene extends Phaser.Scene {
       backG.fillRect(rx + 4, backFloorY - 26, 14, 10);
     }
 
-    if (hasCryoBox) {
+    if (cfg.hasCryoBox) {
       const cbx = w - 122;
       backG.fillStyle(0x0284c9, 1);
       backG.fillRoundedRect(cbx - 16, backFloorY - 24, 32, 24, 4);
@@ -818,10 +1665,8 @@ export class MenuScene extends Phaser.Scene {
       });
     }
 
-    // --- 3. ПЕРЕДНИЙ ВЕРСТАК С ДЕТАЛИЗИРОВАННЫМИ ПРИБОРАМИ И АНИМАЦИЯМИ ---
     const eqG = this.add.graphics().setDepth(14);
 
-    // Отрезной станок (saw)
     const sawX = 50;
     eqG.fillStyle(0x334155, 1);
     eqG.fillRoundedRect(sawX - 20, frontBenchY - 20, 40, 20, 4);
@@ -839,7 +1684,6 @@ export class MenuScene extends Phaser.Scene {
       this.tweens.add({ targets: sawBlade, angle: 360, duration: 300 });
     });
 
-    // Торцешлифовальный станок (grinder)
     const grX = 100;
     eqG.fillStyle(0x1e293b, 1);
     eqG.fillRoundedRect(grX - 16, frontBenchY - 18, 32, 18, 3);
@@ -848,7 +1692,6 @@ export class MenuScene extends Phaser.Scene {
     eqG.fillStyle(grinderLvl >= 2 ? 0x38bdf8 : 0x94a3b8, 1);
     eqG.fillEllipse(grX, frontBenchY - 20, 28, 8);
 
-    // Гидроклин (shear_crack)
     if (hasSplit) {
       const spX = 146;
       eqG.fillStyle(0x475569, 1);
@@ -859,7 +1702,6 @@ export class MenuScene extends Phaser.Scene {
       eqG.fillTriangle(spX - 7, frontBenchY - 26, spX + 7, frontBenchY - 26, spX, frontBenchY - 12);
     }
 
-    // Главный гидропресс (с анимированным поршнем и золотой короной при покупке «Титан-Аурум»)
     const pressX = w / 2;
     const pressColors = [0xd97706, 0xca8a04, 0x059669, 0x0284c9, 0x4f46e5, 0xfacc15];
     const pCol = hasGoldPress ? 0xfacc15 : pressColors[Math.min(pressColors.length - 1, pressLvl - 1)];
@@ -906,7 +1748,6 @@ export class MenuScene extends Phaser.Scene {
       });
     });
 
-    // Сдвиговый прибор (shear_load)
     if (hasShearLoad) {
       const shX = pressX + 60;
       eqG.fillStyle(0x334155, 1);
@@ -917,7 +1758,6 @@ export class MenuScene extends Phaser.Scene {
       eqG.fillRect(shX - 12, frontBenchY - 36, 24, 8);
     }
 
-    // Ультразвуковой дефектоскоп УЗК (ultrasonic)
     if (hasUltrasonic) {
       const ux = pressX + 106;
       eqG.fillStyle(0x0f172a, 1);
@@ -929,7 +1769,6 @@ export class MenuScene extends Phaser.Scene {
       eqG.lineBetween(ux + 4, frontBenchY - 10, ux + 11, frontBenchY - 20);
     }
 
-    // Трёхосный стабилометр (triaxial)
     if (hasTriaxial) {
       const tx = w - 84;
       eqG.fillStyle(0x1e293b, 1);
@@ -940,8 +1779,7 @@ export class MenuScene extends Phaser.Scene {
       eqG.fillRect(tx - 10, frontBenchY - 46, 20, 34);
     }
 
-    // Кофемашина на отдельной высокой стойке-тумбе справа
-    if (coffeeLvl > 0) {
+    if (cfg.hasCoffee) {
       const cmX = w - 34;
       eqG.fillStyle(0x292524, 1);
       eqG.fillRoundedRect(cmX - 18, frontBenchY - 16, 36, 16, 3);
@@ -976,7 +1814,7 @@ export class MenuScene extends Phaser.Scene {
       });
     }
 
-    // --- 4. НАВИГАЦИОННЫЙ ГРАФ ПРОХОДОВ ---
+    // Навигационный граф проходов
     const topLaneY = 304;
     const botLaneY = frontBenchY - 6;
     const leftCorridorX = 62;
@@ -995,10 +1833,9 @@ export class MenuScene extends Phaser.Scene {
       { id: 7, x: rightCorridorX, y: botLaneY, neighbors: [3, 6] }
     ];
 
-    const skin = SKIN_PALETTES[Storage.getActiveSkin()] || SKIN_PALETTES.default;
+    const skin = SKIN_PALETTES[cfg.skinId] || SKIN_PALETTES.default;
     this.spawnLabWorker(4, skin, 'engineer', 0);
 
-    const extraStaffCount = assistantLvl > 0 ? Math.min(3, Math.floor((assistantLvl + 1) / 2)) : 0;
     const internPalettes = [
       { ...skin, coat: skin.style ? skin.coat : 0x38bdf8 },
       { ...skin, coat: skin.style ? skin.coat : 0x34d399 },
@@ -1006,7 +1843,7 @@ export class MenuScene extends Phaser.Scene {
     ];
 
     const startNodes = [7, 1, 2];
-    for (let i = 0; i < extraStaffCount; i++) {
+    for (let i = 0; i < staffCount; i++) {
       this.spawnLabWorker(startNodes[i % startNodes.length], internPalettes[i % internPalettes.length], 'intern', i + 1);
     }
 
@@ -1281,464 +2118,6 @@ export class MenuScene extends Phaser.Scene {
     bot.add(hitZone);
 
     this.staffActors.push(actor);
-  }
-
-  openAchievementsModal(tier) {
-    const { width, height } = this.scale;
-    const modalContainer = this.add.container(0, 0).setDepth(65);
-
-    const blocker = this.add.zone(width / 2, height / 2, width, height).setInteractive();
-    const dimBg = this.add.graphics();
-    dimBg.fillStyle(0x090d16, 0.95);
-    dimBg.fillRect(0, 0, width, height);
-
-    const boxW = 408;
-    const boxH = 680;
-    const boxX = width / 2 - boxW / 2;
-    const boxY = height / 2 - boxH / 2;
-
-    const panel = this.add.graphics();
-    panel.fillStyle(0x181c26, 1);
-    panel.fillRoundedRect(boxX, boxY, boxW, boxH, 16);
-    panel.lineStyle(3, tier.accent, 1);
-    panel.strokeRoundedRect(boxX, boxY, boxW, boxH, 16);
-
-    const unlockedList = Storage.getUnlockedAchievements();
-    const title = this.add.text(
-      width / 2,
-      boxY + 24,
-      `🏆 ДОСТИЖЕНИЯ (${unlockedList.length}/${ACHIEVEMENTS_CATALOG.length})`,
-      {
-        fontFamily: '"Rubik", sans-serif',
-        fontSize: '16px',
-        fontWeight: '700',
-        color: '#facc15'
-      }
-    ).setOrigin(0.5);
-
-    const megasDone = Storage.getCompletedMegasCount();
-    const sub = this.add.text(
-      width / 2,
-      boxY + 46,
-      `Сдано строек века: ${megasDone}/${MEGA_PROJECTS.length} · Свайпай список вниз/вверх`,
-      {
-        fontFamily: '"Rubik", sans-serif',
-        fontSize: '11px',
-        color: '#94a3b8'
-      }
-    ).setOrigin(0.5);
-
-    modalContainer.add([blocker, dimBg, panel, title, sub]);
-
-    const listStartY = boxY + 66;
-    const listViewH = boxH - 122;
-    const scrollGroup = this.add.container(0, 0);
-    modalContainer.add(scrollGroup);
-
-    const maskG = this.make.graphics();
-    maskG.fillStyle(0xffffff);
-    maskG.fillRect(boxX + 8, listStartY, boxW - 16, listViewH);
-    scrollGroup.setMask(maskG.createGeometryMask());
-
-    const rowH = 66;
-    const rowGap = 8;
-    ACHIEVEMENTS_CATALOG.forEach((ach, idx) => {
-      const isDone = unlockedList.includes(ach.id);
-      const ry = listStartY + idx * (rowH + rowGap);
-
-      const rowG = this.add.graphics();
-      rowG.fillStyle(isDone ? 0x1e293b : 0x11151f, 1);
-      rowG.fillRoundedRect(boxX + 14, ry, boxW - 28, rowH, 10);
-      rowG.lineStyle(1.5, isDone ? 0xfacc15 : 0x334155, isDone ? 0.95 : 0.6);
-      rowG.strokeRoundedRect(boxX + 14, ry, boxW - 28, rowH, 10);
-
-      const iconTxt = this.add.text(boxX + 36, ry + rowH / 2, isDone ? ach.icon : '🔒', {
-        fontSize: '22px'
-      }).setOrigin(0.5).setAlpha(isDone ? 1 : 0.5);
-
-      const nameTxt = this.add.text(boxX + 60, ry + 16, ach.title, {
-        fontFamily: '"Rubik", sans-serif',
-        fontSize: '12px',
-        fontWeight: '700',
-        color: isDone ? '#fef08a' : '#94a3b8'
-      }).setOrigin(0, 0.5);
-
-      const rewardTxt = this.add.text(
-        boxX + boxW - 24,
-        ry + 16,
-        isDone ? '✅ ПОЛУЧЕНО' : `+${ach.rewardMoney}₽ ★${ach.rewardRep}`,
-        {
-          fontFamily: '"JetBrains Mono", monospace',
-          fontSize: '9px',
-          fontWeight: '700',
-          color: isDone ? '#4ade80' : '#38bdf8'
-        }
-      ).setOrigin(1, 0.5);
-
-      const descTxt = this.add.text(boxX + 60, ry + 42, ach.desc, {
-        fontFamily: '"Rubik", sans-serif',
-        fontSize: '10px',
-        color: isDone ? '#e2e8f0' : '#64748b',
-        wordWrap: { width: boxW - 84 }
-      }).setOrigin(0, 0.5);
-
-      scrollGroup.add([rowG, iconTxt, nameTxt, rewardTxt, descTxt]);
-    });
-
-    const totalH = ACHIEVEMENTS_CATALOG.length * (rowH + rowGap);
-    const maxScroll = Math.max(0, totalH - listViewH + 10);
-    let scrollY = 0;
-    let dragStart = 0;
-    let dragStartScroll = 0;
-    let dragging = false;
-
-    const dragZone = this.add.zone(width / 2, listStartY + listViewH / 2, boxW, listViewH)
-      .setInteractive();
-    dragZone.on('pointerdown', (ptr) => {
-      dragging = true;
-      dragStart = ptr.y;
-      dragStartScroll = scrollY;
-    });
-    dragZone.on('pointermove', (ptr) => {
-      if (!dragging || maxScroll <= 0) return;
-      scrollY = Phaser.Math.Clamp(dragStartScroll + (ptr.y - dragStart), -maxScroll, 0);
-      scrollGroup.y = scrollY;
-    });
-    dragZone.on('pointerup', () => { dragging = false; });
-    modalContainer.add(dragZone);
-
-    const closeBtn = this.add.text(width / 2, boxY + boxH - 28, 'ЗАКРЫТЬ', {
-      fontFamily: '"Rubik", sans-serif',
-      fontSize: '13px',
-      fontWeight: '700',
-      color: '#ffffff',
-      backgroundColor: '#d97706',
-      padding: { x: 26, y: 9 }
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-
-    closeBtn.on('pointerdown', () => {
-      AudioManager.playClick();
-      maskG.destroy();
-      modalContainer.destroy();
-      this.showcaseModalOpen = false;
-    });
-
-    modalContainer.add(closeBtn);
-  }
-
-  openShowcaseModal(tier) {
-    const { width, height } = this.scale;
-    const modalContainer = this.add.container(0, 0).setDepth(60);
-    const hasShowcase = Storage.getPerkLevel('showcase') > 0;
-
-    const blocker = this.add.zone(width / 2, height / 2, width, height).setInteractive();
-    const dimBg = this.add.graphics();
-    dimBg.fillStyle(0x090d16, 0.94);
-    dimBg.fillRect(0, 0, width, height);
-
-    const boxW = 396;
-    const boxH = 656;
-    const boxX = width / 2 - boxW / 2;
-    const boxY = height / 2 - boxH / 2;
-
-    const panel = this.add.graphics();
-    panel.fillStyle(0x181c26, 1);
-    panel.fillRoundedRect(boxX, boxY, boxW, boxH, 16);
-    panel.lineStyle(3, tier.accent, 1);
-    panel.strokeRoundedRect(boxX, boxY, boxW, boxH, 16);
-
-    const title = this.add.text(
-      width / 2,
-      boxY + 24,
-      hasShowcase ? '💎 СКЛАД И ВИТРИНА МИНЕРАЛОВ' : '📦 СКЛАД НАЙДЕННЫХ МИНЕРАЛОВ',
-      {
-        fontFamily: '"Rubik", sans-serif',
-        fontSize: '15px',
-        fontWeight: '700',
-        color: '#fef3c7'
-      }
-    ).setOrigin(0.5);
-
-    const foundGems = Storage.getGems();
-    const subText = `Найдено: ${foundGems.length}/${RARE_INCLUSIONS.length} · Тапни по образцу для 3D-осмотра`;
-
-    const sub = this.add.text(width / 2, boxY + 46, subText, {
-      fontFamily: '"Rubik", sans-serif',
-      fontSize: '11px',
-      color: '#38bdf8'
-    }).setOrigin(0.5);
-
-    modalContainer.add([blocker, dimBg, panel, title, sub]);
-
-    RARE_INCLUSIONS.forEach((gem, idx) => {
-      const owned = foundGems.find((g) => g.id === gem.id);
-      const ry = boxY + 66 + idx * 57;
-      const rowH = 51;
-
-      const rowG = this.add.graphics();
-      rowG.fillStyle(owned ? 0x222938 : 0x131720, 1);
-      rowG.fillRoundedRect(boxX + 14, ry, boxW - 28, rowH, 8);
-      rowG.lineStyle(1.5, owned ? gem.color : 0x334155, owned ? 0.9 : 0.6);
-      rowG.strokeRoundedRect(boxX + 14, ry, boxW - 28, rowH, 8);
-
-      modalContainer.add(rowG);
-
-      if (owned) {
-        const miniGem = MineralRenderer.createMineralDisplay(this, boxX + 36, ry + rowH / 2, gem.id, 0.56, false);
-        modalContainer.add(miniGem);
-      } else {
-        const lockTxt = this.add.text(boxX + 36, ry + rowH / 2, '❓', {
-          fontSize: '18px'
-        }).setOrigin(0.5).setAlpha(0.45);
-        modalContainer.add(lockTxt);
-      }
-
-      const nameTxt = this.add.text(
-        boxX + 62,
-        ry + 15,
-        owned ? `${gem.name}${owned.count > 1 ? ` (×${owned.count})` : ''}` : 'Неизвестный образец',
-        {
-          fontFamily: '"Rubik", sans-serif',
-          fontSize: '11px',
-          fontWeight: '700',
-          color: owned ? '#f8fafc' : '#64748b'
-        }
-      ).setOrigin(0, 0.5);
-
-      const descTxt = this.add.text(
-        boxX + 62,
-        ry + 35,
-        owned ? `${gem.rarity} · 🔍 Осмотреть 3D` : `Редкость: ${gem.rarity}`,
-        {
-          fontFamily: '"Rubik", sans-serif',
-          fontSize: '10px',
-          color: owned ? '#38bdf8' : '#475569'
-        }
-      ).setOrigin(0, 0.5);
-
-      modalContainer.add([nameTxt, descTxt]);
-
-      if (owned) {
-        const inspectZone = this.add.zone(boxX + 145, ry + rowH / 2, 230, rowH)
-          .setInteractive({ useHandCursor: true });
-
-        inspectZone.on('pointerdown', () => {
-          AudioManager.playClick();
-          this.openMineralInspectorModal(gem, owned.count || 1);
-        });
-        modalContainer.add(inspectZone);
-
-        if (hasShowcase) {
-          const isShown = Storage.isGemDisplayed(gem.id);
-          const toggleBtn = this.add.text(
-            boxX + boxW - 22,
-            ry + rowH / 2,
-            isShown ? '✅ НА ПОЛКЕ' : '+ НА ПОЛКУ',
-            {
-              fontFamily: '"JetBrains Mono", monospace',
-              fontSize: '9px',
-              fontWeight: '700',
-              color: isShown ? '#0f172a' : '#fef3c7',
-              backgroundColor: isShown ? '#4ade80' : '#334155',
-              padding: { x: 7, y: 5 }
-            }
-          ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
-
-          toggleBtn.on('pointerdown', () => {
-            AudioManager.playLatchSnap();
-            Storage.toggleGemDisplay(gem.id);
-            modalContainer.destroy();
-            this.openShowcaseModal(tier);
-          });
-
-          modalContainer.add(toggleBtn);
-        }
-      }
-    });
-
-    const closeBtn = this.add.text(width / 2, boxY + boxH - 28, 'ЗАКРЫТЬ И ОБНОВИТЬ ПОЛКУ', {
-      fontFamily: '"Rubik", sans-serif',
-      fontSize: '12px',
-      fontWeight: '700',
-      color: '#ffffff',
-      backgroundColor: '#d97706',
-      padding: { x: 20, y: 9 }
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-
-    closeBtn.on('pointerdown', () => {
-      AudioManager.playLatchSnap();
-      modalContainer.destroy();
-      this.scene.restart();
-    });
-
-    modalContainer.add(closeBtn);
-  }
-
-  openMineralInspectorModal(gem, count = 1) {
-    const { width, height } = this.scale;
-    const inspContainer = this.add.container(0, 0).setDepth(75);
-
-    const MINERAL_NOTES = {
-      calcite: 'Формула: CaCO₃ · Твёрдость по Моосу: 3\nОбладает сильным двойным лучепреломлением и характерным стеклянным блеском.',
-      pyrite: 'Формула: FeS₂ · Твёрдость по Моосу: 6–6.5\n«Золото дураков» — образует идеальные кубические кристаллы с металлической штриховкой.',
-      agate: 'Формула: SiO₂ · Твёрдость по Моосу: 6.5–7\nСкрытокристаллический халцедон с тончайшими полосами природных пигментов.',
-      quartz: 'Формула: SiO₂ · Твёрдость по Моосу: 7\nПьезоэлектрический кристалл чистейшего кремнезёма в шестигранной призме.',
-      ammonite: 'Возраст: ~145 млн лет (Мезозой)\nОкаменелая раковина головоногого моллюска, замещённая кальцитом и пиритом.',
-      amethyst: 'Формула: SiO₂ (примеси Fe⁴⁺) · Твёрдость: 7\nДрагоценная фиолетовая разновидность кварца из скальных жеод Урала.',
-      malachite: 'Формула: Cu₂CO₃(OH)₂ · Твёрдость: 3.5–4\nЗнаменитый уральский карбонат меди с шелковистым ленточно-почковидным узором.',
-      native_gold: 'Формула: Au · Плотность: 19.3 г/см³\nБлагородный самородный металл, вплавленный в жильный молочно-белый кварц.',
-      diamond_kimberlite: 'Формула: C · Твёрдость по Моосу: 10\nСверхтвёрдый октаэдр природного алмаза в коренной кимберлитовой трубке.'
-    };
-
-    const blocker = this.add.zone(width / 2, height / 2, width, height).setInteractive();
-    const dim = this.add.graphics();
-    dim.fillStyle(0x050811, 0.96);
-    dim.fillRect(0, 0, width, height);
-
-    const cardW = 376;
-    const cardH = 490;
-    const cx = width / 2;
-    const cy = height / 2;
-
-    const panel = this.add.graphics();
-    panel.fillStyle(0x131926, 1);
-    panel.fillRoundedRect(cx - cardW / 2, cy - cardH / 2, cardW, cardH, 18);
-    panel.lineStyle(3, gem.color, 1);
-    panel.strokeRoundedRect(cx - cardW / 2, cy - cardH / 2, cardW, cardH, 18);
-
-    const header = this.add.text(cx, cy - cardH / 2 + 28, '🔬 3D-ОСМОТР ОБРАЗЦА', {
-      fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '12px',
-      fontWeight: '700',
-      color: '#7dd3fc'
-    }).setOrigin(0.5);
-
-    const title = this.add.text(cx, cy - cardH / 2 + 56, `${gem.name}${count > 1 ? ` (×${count})` : ''}`, {
-      fontFamily: '"Rubik", sans-serif',
-      fontSize: '16px',
-      fontWeight: '700',
-      color: '#fef3c7',
-      align: 'center',
-      wordWrap: { width: cardW - 36 }
-    }).setOrigin(0.5);
-
-    const stageY = cy - 30;
-    const stageBg = this.add.graphics();
-    stageBg.fillStyle(0x090d16, 1);
-    stageBg.fillRoundedRect(cx - 140, stageY - 96, 280, 192, 14);
-    stageBg.lineStyle(1.5, gem.color, 0.55);
-    stageBg.strokeRoundedRect(cx - 140, stageY - 96, 280, 192, 14);
-
-    const glow = this.add.circle(cx, stageY, 68, gem.color, 0.14);
-    const mineralObj = MineralRenderer.createMineralDisplay(this, cx, stageY, gem.id, 2.05, true);
-
-    const dragHint = this.add.text(cx, stageY + 80, '↔ ПРОВЕДИ ПАЛЬЦЕМ, ЧТОБЫ ПОКРУТИТЬ ОБРАЗЕЦ', {
-      fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '9px',
-      fontWeight: '700',
-      color: '#facc15'
-    }).setOrigin(0.5);
-
-    const statsBadge = this.add.text(
-      cx,
-      cy + 92,
-      `Класс: ${gem.rarity}  ·  Оценочная стоимость: ${gem.value} ₽`,
-      {
-        fontFamily: '"JetBrains Mono", monospace',
-        fontSize: '10px',
-        fontWeight: '700',
-        color: '#4ade80',
-        backgroundColor: '#0f172a',
-        padding: { x: 10, y: 5 }
-      }
-    ).setOrigin(0.5);
-
-    const noteTxt = this.add.text(
-      cx,
-      cy + 146,
-      MINERAL_NOTES[gem.id] || 'Редкий геологический образец из керновой скважины.',
-      {
-        fontFamily: '"Rubik", sans-serif',
-        fontSize: '11px',
-        color: '#cbd5e1',
-        align: 'center',
-        lineSpacing: 5,
-        wordWrap: { width: cardW - 44 }
-      }
-    ).setOrigin(0.5);
-
-    const backBtn = this.add.text(cx, cy + cardH / 2 - 32, '← НАЗАД К ВИТРИНЕ', {
-      fontFamily: '"Rubik", sans-serif',
-      fontSize: '13px',
-      fontWeight: '700',
-      color: '#0f172a',
-      backgroundColor: '#facc15',
-      padding: { x: 20, y: 9 }
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-
-    backBtn.on('pointerdown', () => {
-      AudioManager.playClick();
-      inspContainer.destroy();
-    });
-
-    inspContainer.add([
-      blocker, dim, panel, header, title, stageBg, glow, mineralObj, dragHint, statsBadge, noteTxt, backBtn
-    ]);
-  }
-
-  createTopBar(w, tier) {
-    const g = this.add.graphics();
-    g.fillStyle(0x14161b, 0.95);
-    g.fillRect(0, 0, w, 64);
-    g.lineStyle(2, tier.accent, 0.65);
-    g.lineBetween(0, 64, w, 64);
-
-    this.moneyTxt = this.add.text(18, 20, `💰 ${Storage.getMoney()} ₽`, {
-      fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '17px',
-      fontWeight: '700',
-      color: '#facc15'
-    });
-
-    this.add.text(178, 20, `★ ${Storage.getReputation()}`, {
-      fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '17px',
-      fontWeight: '700',
-      color: '#38bdf8'
-    });
-
-    const achCount = Storage.getUnlockedAchievements().length;
-    const achBtn = this.add.text(
-      w - 64,
-      32,
-      `🏆 ${achCount}/${ACHIEVEMENTS_CATALOG.length}`,
-      {
-        fontFamily: '"JetBrains Mono", monospace',
-        fontSize: '11px',
-        fontWeight: '700',
-        color: '#0f172a',
-        backgroundColor: '#facc15',
-        padding: { x: 8, y: 6 }
-      }
-    ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
-
-    achBtn.on('pointerdown', () => {
-      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
-      this.showcaseModalOpen = true;
-      AudioManager.playClick();
-      this.openAchievementsModal(tier);
-    });
-
-    const soundBtn = this.add.text(w - 18, 18, Storage.isSoundEnabled() ? '🔊' : '🔇', {
-      fontSize: '23px'
-    }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
-
-    soundBtn.on('pointerdown', () => {
-      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
-      const enabled = Storage.toggleSound();
-      soundBtn.setText(enabled ? '🔊' : '🔇');
-      if (enabled) AudioManager.playClick();
-    });
   }
 
   createMaintenancePanel(w, h) {
