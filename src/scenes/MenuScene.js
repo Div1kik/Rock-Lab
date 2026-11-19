@@ -299,38 +299,47 @@ export class MenuScene extends Phaser.Scene {
     if (step < 7) {
       TutorialManager.advanceTo(0);
       TutorialManager.showSpotlight(this, {
-        hole: { x: width / 2, y: height - 178, w: 352, h: 66 },
+        hole: { x: width / 2, y: height - 178, w: 350, h: 64 },
         cardY: 365,
         badge: 'ШАГ 1/8 · ДОБРО ПОЖАЛОВАТЬ В ROCK LAB',
         text: 'Ты — руководитель геотехнической лаборатории!\nЗдесь ты вскрываешь керны, готовишь образцы и давишь их под прессом.\nНажми «ДОСКА ЗАКАЗОВ», чтобы взять первый контракт!'
       });
     } else {
       TutorialManager.showSpotlight(this, {
-        hole: { x: width / 2, y: height * 0.585 + 31, w: 350, h: 72 },
-        cardY: 310,
-        badge: 'ФИНАЛ ИНСТРУКТАЖА · ОБСЛУЖИВАНИЕ И ТО',
-        text: 'Отличная работа! Следи за износом пилы, абразива и поверкой приборов\nна этой панели — иначе появится погрешность в протоколах!',
-        nextLabel: 'ДАЛЕЕ: ПРО МАГАЗИН И КАСТОМИЗАЦИЮ →',
+        hole: { x: width / 2, y: height * 0.585 + 31, w: 348, h: 70 },
+        cardY: 295,
+        badge: 'ОБЗОР 1/4 · ТО ПРИБОРОВ И СОТРУДНИКИ',
+        text: 'Следи за износом пилы, абразива и поверкой на панели ТО.\nНанимай сотрудников в цеху: часть сложных стендов (например, стабилометр)\nтребует допсотрудников в штате, а с ростом штата они помогают с тестами!',
+        nextLabel: 'ДАЛЕЕ: МАГАЗИН, МУЗЫКА И ПЛЕЕР →',
         onNext: () => {
           TutorialManager.showSpotlight(this, {
-            hole: { x: width / 2 - 87, y: height - 110, w: 176, h: 58 },
-            cardY: 360,
-            badge: 'МАГАЗИН · СТЕНДЫ, РОБОТЫ И СКИНЫ',
-            text: 'В «⚙️ МАГАЗИНЕ» покупаются новые стенды (УЗК, криокамера, стабилометр),\nнанимаются стажёры и роботы, открываются НИОКР, филиалы и скины команды!',
-            nextLabel: 'ДАЛЕЕ: ВИТРИНА И ГОСТИ →',
+            hole: { x: width / 2, y: height * 0.695, w: 348, h: 54 },
+            cardY: 295,
+            badge: 'ОБЗОР 2/4 · МАГАЗИН, МУЗЫКА И ПЛЕЕР',
+            text: 'В «⚙️ МАГАЗИНЕ» открываются стенды, скины, роботы и музыкальные паки.\nВ плеере тап по треку листает песни, а правая кнопка переключает\nповтор одного трека или проигрывание всех треков по кругу!',
+            nextLabel: 'ДАЛЕЕ: ВИТРИНА И ЭКСПЕДИЦИИ →',
             onNext: () => {
               TutorialManager.showSpotlight(this, {
-                hole: { x: width - 140, y: 32, w: 155, h: 40 },
-                cardY: 260,
-                badge: 'РЕЙТИНГ, ВИТРИНА И СТРОЙКИ ВЕКА',
-                text: 'В «🌐 ТОП» можно зайти в гости к другим лабораториям,\nа редкие минералы из кернов выставляются в витрину слева.\nДержи премию +200 ₽ за успешный инструктаж!',
-                nextLabel: '🎉 ЗАВЕРШИТЬ И ЗАБРАТЬ +200 ₽!',
+                hole: { x: 43, y: 220, w: 66, h: 156 },
+                cardY: 350,
+                badge: 'ОБЗОР 3/4 · ВИТРИНА И ЭКСПЕДИЦИИ',
+                text: 'Витрина минералов открывается со 2-го уровня лаборатории (купи её в магазине,\nчтобы ставить кристаллы на полку и крутить в 3D).\nБуровые экспедиции открываются после завершения 1-й «Стройки века»!',
+                nextLabel: 'ДАЛЕЕ: ДОСТИЖЕНИЯ И ФИНАЛ →',
                 onNext: () => {
-                  TutorialManager.complete(this);
-                  Storage.addMoney(200);
-                  AudioManager.playStamp();
-                  this.particles.emitParticleAt(width / 2, 260, 24);
-                  if (this.moneyTxt) this.moneyTxt.setText(`💰 ${Storage.getMoney()} ₽`);
+                  TutorialManager.showSpotlight(this, {
+                    hole: { x: width - 92, y: 32, w: 158, h: 42 },
+                    cardY: 290,
+                    badge: 'ОБЗОР 4/4 · ДОСТИЖЕНИЯ И ПОВТОР',
+                    text: 'За достижения (🏆) и рейтинг (🌐 ТОП) начисляются бонусы.\nОбучение можно в любой момент пройти повторно через кнопку «ГИД» вверху!\nЗабирай премию +200 ₽ за прохождение инструктажа!',
+                    nextLabel: '🎉 ЗАВЕРШИТЬ И ЗАБРАТЬ +200 ₽!',
+                    onNext: () => {
+                      TutorialManager.complete(this);
+                      Storage.addMoney(200);
+                      AudioManager.playStamp();
+                      this.particles.emitParticleAt(width / 2, 260, 24);
+                      if (this.moneyTxt) this.moneyTxt.setText(`💰 ${Storage.getMoney()} ₽`);
+                    }
+                  });
                 }
               });
             }
@@ -1458,85 +1467,105 @@ export class MenuScene extends Phaser.Scene {
     ]);
   }
 
+  // Единый аккуратный верхний бар со скруглёнными кнопками
   createTopBar(w, tier) {
+    const barH = 64;
     const g = this.add.graphics();
-    g.fillStyle(0x14161b, 0.95);
-    g.fillRect(0, 0, w, 64);
+    g.fillStyle(0x14161b, 0.96);
+    g.fillRect(0, 0, w, barH);
     g.lineStyle(2, tier.accent, 0.65);
-    g.lineBetween(0, 64, w, 64);
+    g.lineBetween(0, barH, w, barH);
 
-    this.moneyTxt = this.add.text(14, 20, `💰 ${Storage.getMoney()} ₽`, {
+    this.moneyTxt = this.add.text(14, 21, `💰 ${Storage.getMoney()} ₽`, {
       fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '15px',
+      fontSize: '14px',
       fontWeight: '700',
       color: '#facc15'
     });
 
-    this.add.text(146, 20, `★ ${Storage.getReputation()}`, {
+    this.add.text(142, 21, `★ ${Storage.getReputation()}`, {
       fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '15px',
+      fontSize: '14px',
       fontWeight: '700',
       color: '#38bdf8'
     });
 
-    if (!this.isVisiting()) {
-      const tutBtn = this.add.text(w - 196, 32, '❓', {
-        fontFamily: '"Rubik", sans-serif',
-        fontSize: '12px',
-        fontWeight: '700',
-        color: '#fef3c7',
-        backgroundColor: '#334155',
-        padding: { x: 7, y: 6 }
-      }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+    const makeTopPill = (cx, cy, pillW, pillH, label, fillCol, textCol, onClick) => {
+      const c = this.add.container(cx, cy);
+      const pillG = this.add.graphics();
+      const drawPill = (pressed) => {
+        pillG.clear();
+        const oy = pressed ? 1.5 : 0;
+        pillG.fillStyle(fillCol, 1);
+        pillG.fillRoundedRect(-pillW / 2, -pillH / 2 + oy, pillW, pillH, 9);
+        pillG.lineStyle(1.5, 0xffffff, 0.25);
+        pillG.strokeRoundedRect(-pillW / 2, -pillH / 2 + oy, pillW, pillH, 9);
+      };
+      drawPill(false);
 
-      tutBtn.on('pointerdown', () => {
+      const t = this.add.text(0, 0, label, {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '10px',
+        fontWeight: '700',
+        color: Phaser.Display.Color.IntegerToColor(textCol).rgba
+      }).setOrigin(0.5);
+
+      const z = this.add.zone(0, 0, pillW, pillH).setInteractive({ useHandCursor: true });
+      z.on('pointerdown', () => {
         if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+        drawPill(true);
+        t.y = 1.5;
+      });
+      z.on('pointerup', () => {
+        drawPill(false);
+        t.y = 0;
+        if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+        onClick();
+      });
+      z.on('pointerout', () => {
+        drawPill(false);
+        t.y = 0;
+      });
+
+      c.add([pillG, t, z]);
+      return c;
+    };
+
+    const btnH = 30;
+    const btnY = 32;
+
+    if (!this.isVisiting()) {
+      makeTopPill(w - 224, btnY, 54, btnH, '❓ ГИД', 0x334155, 0xfef3c7, () => {
         AudioManager.playClick();
         TutorialManager.restart(this);
       });
     }
 
-    const topBtn = this.add.text(w - 130, 32, '🌐 ТОП', {
-      fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '11px',
-      fontWeight: '700',
-      color: '#0f172a',
-      backgroundColor: '#38bdf8',
-      padding: { x: 7, y: 6 }
-    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
-
-    topBtn.on('pointerdown', () => {
-      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+    makeTopPill(w - 166, btnY, 54, btnH, '🌐 ТОП', 0x0284c7, 0xf0f9ff, () => {
       this.showcaseModalOpen = true;
       AudioManager.playClick();
       this.openLeaderboardModal(tier);
     });
 
     const achCount = Storage.getUnlockedAchievements().length;
-    const achBtn = this.add.text(
-      w - 52,
-      32,
+    makeTopPill(
+      w - 102,
+      btnY,
+      66,
+      btnH,
       `🏆 ${achCount}/${ACHIEVEMENTS_CATALOG.length}`,
-      {
-        fontFamily: '"JetBrains Mono", monospace',
-        fontSize: '11px',
-        fontWeight: '700',
-        color: '#0f172a',
-        backgroundColor: '#facc15',
-        padding: { x: 7, y: 6 }
+      0xd97706,
+      0xffffff,
+      () => {
+        this.showcaseModalOpen = true;
+        AudioManager.playClick();
+        this.openAchievementsModal(tier);
       }
-    ).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+    );
 
-    achBtn.on('pointerdown', () => {
-      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
-      this.showcaseModalOpen = true;
-      AudioManager.playClick();
-      this.openAchievementsModal(tier);
-    });
-
-    const soundBtn = this.add.text(w - 14, 18, Storage.isSoundEnabled() ? '🔊' : '🔇', {
-      fontSize: '21px'
-    }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
+    const soundBtn = this.add.text(w - 14, btnY, Storage.isSoundEnabled() ? '🔊' : '🔇', {
+      fontSize: '20px'
+    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
     soundBtn.on('pointerdown', () => {
       if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
