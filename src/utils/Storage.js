@@ -1,6 +1,8 @@
 const SAVE_KEY = 'rocklab_save_v1';
 
 const DEFAULT_STATE = {
+  playerId: null,
+  playerName: null,
   money: 150,
   reputation: 10,
   completedContracts: 0,
@@ -48,6 +50,8 @@ const DEFAULT_STATE = {
   megaCompleted: [],
   expeditionLastDay: {},
   unlockedAchievements: [],
+  guestLikesDate: '',
+  guestLikedIds: [],
   soundEnabled: true,
   musicTrack: 0,
   activeContract: null,
@@ -57,6 +61,21 @@ const DEFAULT_STATE = {
 class StorageManager {
   constructor() {
     this.state = this.load();
+    this.ensurePlayerIdentity();
+  }
+
+  ensurePlayerIdentity() {
+    let dirty = false;
+    if (!this.state.playerId) {
+      this.state.playerId = `gl_${Date.now().toString(36)}_${Math.floor(1000 + Math.random() * 9000)}`;
+      dirty = true;
+    }
+    if (!this.state.playerName) {
+      const code = Math.floor(1000 + Math.random() * 9000);
+      this.state.playerName = `Геолог #${code}`;
+      dirty = true;
+    }
+    if (dirty) this.save();
   }
 
   load() {
@@ -121,6 +140,8 @@ class StorageManager {
         megaCompleted: Array.isArray(parsed.megaCompleted) ? parsed.megaCompleted : [],
         expeditionLastDay: parsed.expeditionLastDay && typeof parsed.expeditionLastDay === 'object' ? parsed.expeditionLastDay : {},
         unlockedAchievements: Array.isArray(parsed.unlockedAchievements) ? parsed.unlockedAchievements : [],
+        guestLikesDate: parsed.guestLikesDate || '',
+        guestLikedIds: Array.isArray(parsed.guestLikedIds) ? parsed.guestLikedIds : [],
         pendingTender: parsed.pendingTender || null
       };
     } catch {
@@ -136,6 +157,88 @@ class StorageManager {
 
   getState() { return this.state; }
   getMoney() { return this.state.money; }
+
+  getPlayerId() {
+    this.ensurePlayerIdentity();
+    return this.state.playerId;
+  }
+
+  getPlayerName() {
+    this.ensurePlayerIdentity();
+    return this.state.playerName;
+  }
+
+  setPlayerName(newName) {
+    const clean = String(newName || '').trim().slice(0, 20);
+    if (!clean) return this.state.playerName;
+    this.state.playerName = clean;
+    this.save();
+    return this.state.playerName;
+  }
+
+  getLabIndexScore() {
+    const rep = this.getReputation();
+    const megas = this.getCompletedMegasCount();
+    const lvl = this.getLabLevel();
+    const achs = this.getUnlockedAchievements().length;
+    const branches = this.getBranchesCount();
+    return Math.round(rep * 10 + megas * 500 + lvl * 200 + achs * 50 + branches * 300);
+  }
+
+  buildPublicProfile(sdkName = null) {
+    const displayName = sdkName || this.getPlayerName();
+    const activeDecor = (this.state.decorOwned || []).filter(
+      (k) => !(this.state.decorDisabled || []).includes(k)
+    );
+    const assistantLvl = this.getPerkLevel('assistant');
+    const staffCount = assistantLvl > 0 ? Math.min(3, Math.floor((assistantLvl + 1) / 2)) : 0;
+
+    return {
+      playerId: this.getPlayerId(),
+      name: displayName,
+      score: this.getLabIndexScore(),
+      reputation: this.getReputation(),
+      labLevel: this.getLabLevel(),
+      completedMegas: this.getCompletedMegasCount(),
+      snapshot: {
+        labLevel: this.getLabLevel(),
+        theme: this.getActiveLabTheme(),
+        skin: this.getActiveSkin(),
+        decor: activeDecor,
+        rnd: [...(this.state.rndOwned || [])],
+        displayedGems: [...(this.state.displayedGems || [])],
+        completedMegas: [...(this.state.megaCompleted || [])],
+        staffCount
+      }
+    };
+  }
+
+  getTodayKey() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  getRemainingGuestLikes() {
+    const today = this.getTodayKey();
+    if (this.state.guestLikesDate !== today) {
+      this.state.guestLikesDate = today;
+      this.state.guestLikedIds = [];
+      this.save();
+    }
+    return Math.max(0, 3 - this.state.guestLikedIds.length);
+  }
+
+  hasLikedGuestToday(targetPlayerId) {
+    this.getRemainingGuestLikes();
+    return this.state.guestLikedIds.includes(targetPlayerId);
+  }
+
+  recordGuestLike(targetPlayerId) {
+    if (this.getRemainingGuestLikes() <= 0) return false;
+    if (this.state.guestLikedIds.includes(targetPlayerId)) return false;
+    this.state.guestLikedIds.push(targetPlayerId);
+    this.save();
+    return true;
+  }
 
   addMoney(amount) {
     this.state.money = Math.max(0, Math.round(this.state.money + amount));
