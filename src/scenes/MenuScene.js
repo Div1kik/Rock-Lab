@@ -146,32 +146,6 @@ export class MenuScene extends Phaser.Scene {
     };
   }
 
-  drawVectorLockIcon(x, y, color = 0x94a3b8) {
-    const g = this.add.graphics();
-    g.lineStyle(2.2, color, 1);
-    g.strokeCircle(x, y - 5, 5.5);
-    g.fillStyle(color, 1);
-    g.fillRoundedRect(x - 7.5, y - 2, 15, 11, 2.5);
-    g.fillStyle(0x11151f, 1);
-    g.fillCircle(x, y + 3, 1.8);
-    return g;
-  }
-
-  drawVectorQuestionIcon(x, y, color = 0x94a3b8) {
-    const g = this.add.graphics();
-    g.lineStyle(2, color, 0.75);
-    g.strokeCircle(x, y, 12);
-    g.lineStyle(2.6, color, 1);
-    g.beginPath();
-    g.arc(x, y - 2.5, 4.2, Phaser.Math.DegToRad(200), Phaser.Math.DegToRad(30), false);
-    g.strokePath();
-    g.lineBetween(x + 3.6, y - 0.5, x, y + 2.5);
-    g.lineBetween(x, y + 2.5, x, y + 4.5);
-    g.fillStyle(color, 1);
-    g.fillCircle(x, y + 8, 1.6);
-    return g;
-  }
-
   create() {
     const { width, height } = this.scale;
     const cfg = this.getLabConfig();
@@ -1152,15 +1126,10 @@ export class MenuScene extends Phaser.Scene {
       rowG.lineStyle(1.5, isDone ? 0xfacc15 : 0x334155, isDone ? 0.95 : 0.6);
       rowG.strokeRoundedRect(boxX + 14, ry, boxW - 28, rowH, 10);
 
-      if (isDone) {
-        const iconTxt = this.add.text(boxX + 36, ry + rowH / 2, ach.icon, {
-          fontSize: '22px'
-        }).setOrigin(0.5);
-        scrollGroup.add(iconTxt);
-      } else {
-        const lockIcon = this.drawVectorLockIcon(boxX + 36, ry + rowH / 2, 0x64748b);
-        scrollGroup.add(lockIcon);
-      }
+      const iconTxt = this.add.text(boxX + 36, ry + rowH / 2, isDone ? ach.icon : '🔒', {
+        fontSize: '20px',
+        padding: { x: 6, y: 6 }
+      }).setOrigin(0.5).setAlpha(isDone ? 1 : 0.55);
 
       const nameTxt = this.add.text(boxX + 60, ry + 16, ach.title, {
         fontFamily: '"Rubik", sans-serif',
@@ -1188,7 +1157,7 @@ export class MenuScene extends Phaser.Scene {
         wordWrap: { width: boxW - 84 }
       }).setOrigin(0, 0.5);
 
-      scrollGroup.add([rowG, nameTxt, rewardTxt, descTxt]);
+      scrollGroup.add([rowG, iconTxt, nameTxt, rewardTxt, descTxt]);
     });
 
     const totalH = ACHIEVEMENTS_CATALOG.length * (rowH + rowGap);
@@ -1295,8 +1264,18 @@ export class MenuScene extends Phaser.Scene {
         const miniGem = MineralRenderer.createMineralDisplay(this, boxX + 36, ry + rowH / 2, gem.id, 0.56, false);
         modalContainer.add(miniGem);
       } else {
-        const qIcon = this.drawVectorQuestionIcon(boxX + 36, ry + rowH / 2, 0x64748b);
-        modalContainer.add(qIcon);
+        const qBox = this.add.text(boxX + 36, ry + rowH / 2, '?', {
+          fontFamily: '"JetBrains Mono", monospace',
+          fontSize: '15px',
+          fontWeight: '700',
+          color: '#94a3b8',
+          backgroundColor: '#1e293b',
+          fixedWidth: 26,
+          fixedHeight: 26,
+          align: 'center',
+          padding: { x: 0, y: 4 }
+        }).setOrigin(0.5);
+        modalContainer.add(qBox);
       }
 
       const nameTxt = this.add.text(
