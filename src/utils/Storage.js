@@ -27,6 +27,7 @@ const DEFAULT_STATE = {
   rndOwned: [],
   decorOwned: [],
   decorDisabled: [],
+  decorAds: {},
   activeSkin: 'default',
   activeLabTheme: 'default',
   wear: {
@@ -45,6 +46,7 @@ const DEFAULT_STATE = {
   siteHistory: [],
   megaProgress: {},
   megaCompleted: [],
+  expeditionLastDay: {},
   unlockedAchievements: [],
   soundEnabled: true,
   musicTrack: 0,
@@ -98,6 +100,7 @@ class StorageManager {
         rndOwned: Array.isArray(parsed.rndOwned) ? parsed.rndOwned : [],
         decorOwned: Array.isArray(parsed.decorOwned) ? parsed.decorOwned : [],
         decorDisabled: Array.isArray(parsed.decorDisabled) ? parsed.decorDisabled : [],
+        decorAds: parsed.decorAds && typeof parsed.decorAds === 'object' ? parsed.decorAds : {},
         activeSkin: parsed.activeSkin || 'default',
         activeLabTheme: parsed.activeLabTheme || 'default',
         wear: {
@@ -116,6 +119,7 @@ class StorageManager {
         siteHistory: Array.isArray(parsed.siteHistory) ? parsed.siteHistory : [],
         megaProgress: parsed.megaProgress && typeof parsed.megaProgress === 'object' ? parsed.megaProgress : {},
         megaCompleted: Array.isArray(parsed.megaCompleted) ? parsed.megaCompleted : [],
+        expeditionLastDay: parsed.expeditionLastDay && typeof parsed.expeditionLastDay === 'object' ? parsed.expeditionLastDay : {},
         unlockedAchievements: Array.isArray(parsed.unlockedAchievements) ? parsed.unlockedAchievements : [],
         pendingTender: parsed.pendingTender || null
       };
@@ -263,6 +267,17 @@ class StorageManager {
     this.save();
   }
 
+  getDecorAds(key) {
+    return this.state.decorAds?.[key] || 0;
+  }
+
+  incrementDecorAds(key) {
+    if (!this.state.decorAds) this.state.decorAds = {};
+    this.state.decorAds[key] = (this.state.decorAds[key] || 0) + 1;
+    this.save();
+    return this.state.decorAds[key];
+  }
+
   getActiveSkin() {
     return this.state.activeSkin || 'default';
   }
@@ -308,6 +323,20 @@ class StorageManager {
     }
     this.save();
     return this.state.megaProgress[projectId];
+  }
+
+  getExpeditionCooldownLeft(expId, cooldownDays) {
+    const lastDay = this.state.expeditionLastDay?.[expId];
+    if (typeof lastDay !== 'number') return 0;
+    const currentDay = this.state.completedContracts || 0;
+    const passed = currentDay - lastDay;
+    return Math.max(0, cooldownDays - passed);
+  }
+
+  markExpeditionLaunched(expId) {
+    if (!this.state.expeditionLastDay) this.state.expeditionLastDay = {};
+    this.state.expeditionLastDay[expId] = this.state.completedContracts || 0;
+    this.save();
   }
 
   getUnlockedAchievements() {
