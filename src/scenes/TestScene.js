@@ -2,6 +2,7 @@ import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
 import { TEST_CATALOG } from '../data/contracts.js';
 import { AchievementManager } from '../utils/AchievementManager.js';
+import { TutorialManager } from '../utils/TutorialManager.js';
 
 export class TestScene extends Phaser.Scene {
   constructor() {
@@ -21,7 +22,6 @@ export class TestScene extends Phaser.Scene {
     this.coreTempC = -12.0;
     this.thawPenalty = 0;
 
-    // На 6-м уровне штата лаборанты выполняют 1 стенд (или 2 с НИОКР «Академия кадров»)
     const staffLvl = Storage.getPerkLevel('assistant');
     const maxAuto = Storage.hasRnd('rnd_double_staff') ? 2 : 1;
     this.autoTestsRemaining = staffLvl >= 6 && this.testsQueue.length >= 2 ? maxAuto : 0;
@@ -103,8 +103,7 @@ export class TestScene extends Phaser.Scene {
     this.stepTxt.setText(`ЭТАП 3 · СТЕНД ${this.currentTestIdx + 1} ИЗ ${this.testsQueue.length}`);
     this.titleTxt.setText(meta.name.toUpperCase());
 
-    // Автоматическое выполнение стендов старшими лаборантами (оставляя минимум 1 стенд игроку)
-    if (this.autoTestsRemaining > 0 && this.currentTestIdx < this.testsQueue.length - 1) {
+    if (testKey !== 'uniaxial' && this.autoTestsRemaining > 0 && this.currentTestIdx < this.testsQueue.length - 1) {
       this.autoTestsRemaining -= 1;
       AudioManager.playLatchSnap();
       this.scores.push(97);
@@ -214,9 +213,6 @@ export class TestScene extends Phaser.Scene {
     });
   }
 
-  // =========================================================================
-  // 1. ОДНООСНОЕ СЖАТИЕ
-  // =========================================================================
   buildUniaxialTest() {
     const { width, height } = this.scale;
     const pressLvl = Storage.getUpgradeLevel('press');
@@ -419,6 +415,16 @@ export class TestScene extends Phaser.Scene {
         }
       }
     };
+
+    if (TutorialManager.isActive()) {
+      TutorialManager.advanceTo(6);
+      TutorialManager.showSpotlight(this, {
+        hole: { x: width / 2, y: height - 110, w: 326, h: 88 },
+        cardY: 196,
+        badge: 'ШАГ 7/8 · ГИДРАВЛИЧЕСКИЙ ПРЕСС',
+        text: 'Зажми подачу давления и ОТПУСТИ кнопку, когда жёлтая\nстрелка на шкале справа попадёт в ЗЕЛЁНУЮ зону!'
+      });
+    }
   }
 
   buildShearTest({ withVerticalLoad, isCrack }) {
@@ -1346,6 +1352,8 @@ export class TestScene extends Phaser.Scene {
   }
 
   finishAllTests() {
+    TutorialManager.clear(this);
+
     if (this.isFrozenRock && this.coreTempC <= -9.5) {
       AchievementManager.unlock(this, 'ice_nerves');
     }
