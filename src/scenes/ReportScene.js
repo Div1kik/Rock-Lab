@@ -21,6 +21,7 @@ export class ReportScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.scale;
+    const safeTop = Math.max(window.__SAFE_TOP__ || 0, 28);
 
     const bg = this.add.graphics();
     bg.fillStyle(0x181e29, 1);
@@ -28,8 +29,8 @@ export class ReportScene extends Phaser.Scene {
 
     const padX = 24;
     const sheetW = width - padX * 2;
-    const sheetH = 470;
-    const sheetY = 36;
+    const sheetH = 446;
+    const sheetY = 24 + safeTop;
     this.sheetCenterY = sheetY + sheetH / 2;
 
     const isAudit = Boolean(this.contract.isAudit);
@@ -50,14 +51,14 @@ export class ReportScene extends Phaser.Scene {
           ? 'ПРОТОКОЛ ISO/IEC 17025 · ЭТАЛОН'
           : 'ПРОТОКОЛ ИСПЫТАНИЙ ГРУНТА';
 
-    this.add.text(width / 2, sheetY + 28, headerLabel, {
+    this.add.text(width / 2, sheetY + 26, headerLabel, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '16px',
       fontWeight: '700',
       color: '#1c1917'
     }).setOrigin(0.5);
 
-    this.add.text(width / 2, sheetY + 52, `Лаборатория ROCK LAB · Заказчик: ${this.contract.company}`, {
+    this.add.text(width / 2, sheetY + 50, `Лаборатория ROCK LAB · Заказчик: ${this.contract.company}`, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '11px',
       fontWeight: '600',
@@ -65,7 +66,7 @@ export class ReportScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     sheet.lineStyle(2, isAudit ? 0x2563eb : 0xb45309, 0.5);
-    sheet.lineBetween(padX + 16, sheetY + 70, padX + sheetW - 16, sheetY + 70);
+    sheet.lineBetween(padX + 16, sheetY + 66, padX + sheetW - 16, sheetY + 66);
 
     const infoLines = [
       `Объект: ${this.contract.title}`,
@@ -75,30 +76,30 @@ export class ReportScene extends Phaser.Scene {
         : `Требуемая норма объекта: ≥ ${this.contract.reqMpa} МПа`
     ];
 
-    this.add.text(padX + 20, sheetY + 86, infoLines.join('\n'), {
+    this.add.text(padX + 20, sheetY + 80, infoLines.join('\n'), {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '12px',
       fontWeight: '600',
       color: '#292524',
-      lineSpacing: 7,
+      lineSpacing: 6,
       wordWrap: { width: sheetW - 40 }
     });
 
     sheet.fillStyle(isAudit ? 0xbae6fd : 0xfde68a, 1);
-    sheet.fillRoundedRect(padX + 18, sheetY + 186, sheetW - 36, 126, 8);
+    sheet.fillRoundedRect(padX + 18, sheetY + 174, sheetW - 36, 122, 8);
     sheet.lineStyle(2, isAudit ? 0x0284c9 : 0xd97706, 0.8);
-    sheet.strokeRoundedRect(padX + 18, sheetY + 186, sheetW - 36, 126, 8);
+    sheet.strokeRoundedRect(padX + 18, sheetY + 174, sheetW - 36, 122, 8);
 
     const errColor = this.errorPct <= 9 ? '#15803d' : this.errorPct <= 18 ? '#b45309' : '#b91c1c';
 
-    this.add.text(width / 2, sheetY + 206, 'ЗАФИКСИРОВАННАЯ ПРОЧНОСТЬ:', {
+    this.add.text(width / 2, sheetY + 194, 'ЗАФИКСИРОВАННАЯ ПРОЧНОСТЬ:', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '12px',
       fontWeight: '700',
       color: '#57534e'
     }).setOrigin(0.5);
 
-    this.add.text(width / 2, sheetY + 240, `${this.measuredMpa} МПа  (±${this.errorPct}%)`, {
+    this.add.text(width / 2, sheetY + 228, `${this.measuredMpa} МПа  (±${this.errorPct}%)`, {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '26px',
       fontWeight: '700',
@@ -107,7 +108,7 @@ export class ReportScene extends Phaser.Scene {
 
     this.add.text(
       width / 2,
-      sheetY + 280,
+      sheetY + 266,
       `Точность работы: ${this.avgAccuracy}% (${this.errorPct > 12 ? 'НУЖНА ПОВЕРКА ПРИБОРОВ!' : 'Поверка в норме'})`,
       {
         fontFamily: '"Rubik", sans-serif',
@@ -119,7 +120,7 @@ export class ReportScene extends Phaser.Scene {
 
     this.add.text(
       width / 2,
-      sheetY + 365,
+      sheetY + 345,
       'Сопоставь показание прибора с нормой объекта\nи поставь итоговую печать лаборатории:',
       {
         fontFamily: '"Rubik", sans-serif',
@@ -132,9 +133,9 @@ export class ReportScene extends Phaser.Scene {
 
     this.createStampButton(
       width / 2,
-      height - 195,
+      height - 178,
       360,
-      64,
+      62,
       '✅ ОДОБРИТЬ (ОБРАЗЕЦ СООТВЕТСТВУЕТ)',
       0x15803d,
       () => this.playStampAnimationAndSubmit(true)
@@ -142,9 +143,9 @@ export class ReportScene extends Phaser.Scene {
 
     this.createStampButton(
       width / 2,
-      height - 115,
+      height - 102,
       360,
-      64,
+      62,
       '⛔ ЗАБРАКОВАТЬ (НИЖЕ НОРМЫ)',
       0xb91c1c,
       () => this.playStampAnimationAndSubmit(false)
@@ -153,8 +154,8 @@ export class ReportScene extends Phaser.Scene {
     if (TutorialManager.isActive()) {
       TutorialManager.advanceTo(7);
       TutorialManager.showSpotlight(this, {
-        hole: { x: width / 2, y: height - 155, w: 376, h: 156 },
-        cardY: 365,
+        hole: { x: width / 2, y: height - 140, w: 376, h: 152 },
+        cardY: 365 + safeTop,
         badge: 'ШАГ 8/8 · ИТОГОВЫЙ ВЕРДИКТ',
         text: `Сравни показание прибора (${this.measuredMpa} МПа) с нормой (${this.contract.reqMpa} МПа).\nЕсли больше или равно — жми «ОДОБРИТЬ», если меньше — «ЗАБРАКОВАТЬ»!`
       });
@@ -193,7 +194,7 @@ export class ReportScene extends Phaser.Scene {
 
     const { width } = this.scale;
     const stampX = width / 2 + 54;
-    const stampY = this.sheetCenterY + 132;
+    const stampY = this.sheetCenterY + 124;
     const stampColor = approvedByPlayer ? 0x15803d : 0xb91c1c;
     const stampHex = approvedByPlayer ? '#15803d' : '#b91c1c';
     const stampWord = approvedByPlayer ? 'ОДОБРЕНО' : 'ЗАБРАКОВАНО';
@@ -265,7 +266,6 @@ export class ReportScene extends Phaser.Scene {
     const isAudit = Boolean(this.contract.isAudit);
     const isMega = Boolean(this.contract.isMegaProject);
 
-    // Передаём полный объект контракта для расчёта износа от сложности породы/заказа
     Storage.applyContractWear(this.contract);
 
     const loaderLvl = Storage.getUpgradeLevel('loader');
