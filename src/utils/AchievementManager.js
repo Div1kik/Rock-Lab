@@ -193,6 +193,7 @@ class AchievementController {
     this.isShowingToast = true;
     const item = this.toastQueue.shift();
     const { width } = scene.scale;
+    const safeTop = Math.max(window.__SAFE_TOP__ || 0, 28);
 
     AudioManager.playStamp();
 
@@ -240,7 +241,7 @@ class AchievementController {
 
     scene.tweens.add({
       targets: toast,
-      y: 54,
+      y: 48 + safeTop,
       duration: 320,
       ease: 'Back.easeOut',
       onComplete: () => {
