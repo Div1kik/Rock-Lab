@@ -85,15 +85,17 @@ export class MenuScene extends Phaser.Scene {
 
   getLayout(h) {
     const safeTop = window.__SAFE_TOP__ || 0;
-    const bottomFooterY = h - 18;
-    const secondaryBtnY = h - 66;
-    const primaryBtnY = h - 130;
-    const playerY = h - 196;
-    const maintY = h - 306;
-    const frontBenchY = Math.max(380 + safeTop, maintY - 14);
-    const backWallY = Math.min(266 + safeTop, Math.round(frontBenchY * 0.62));
+    const topBarH = 92 + safeTop;
+    const bottomFooterY = h - 16;
+    const secondaryBtnY = h - 62;
+    const primaryBtnY = h - 124;
+    const playerY = h - 188;
+    const maintY = h - 294;
+    const frontBenchY = Math.max(400 + safeTop, maintY - 12);
+    const backWallY = Math.min(286 + safeTop, Math.round(frontBenchY * 0.64));
     return {
       safeTop,
+      topBarH,
       bottomFooterY,
       secondaryBtnY,
       primaryBtnY,
@@ -170,7 +172,7 @@ export class MenuScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
     const layout = this.getLayout(height);
-    const safeTop = layout.safeTop;
+    const topBarH = layout.topBarH;
     const cfg = this.getLabConfig();
     const baseTier = LAB_TIERS[cfg.labLvl] || LAB_TIERS[1];
     const customTheme = LAB_THEMES[cfg.themeId];
@@ -188,25 +190,24 @@ export class MenuScene extends Phaser.Scene {
     }).setDepth(30);
 
     this.drawLabRoom(width, height, tier, cfg, layout);
-    this.createTopBar(width, tier);
+    this.createTopBar(width, tier, layout);
 
     if (this.isVisiting()) {
-      this.add.text(width / 2, safeTop + 86, `👁️ В ГОСТЯХ: ${this.visitProfile.name}`, {
+      this.add.text(width / 2, topBarH + 22, `👁️ В ГОСТЯХ: ${this.visitProfile.name}`, {
         fontFamily: '"Rubik", sans-serif',
-        fontSize: '20px',
+        fontSize: '18px',
         fontWeight: '700',
         color: '#38bdf8',
-        stroke: '#0f172a',
-        strokeThickness: 5
+        shadow: { offsetX: 0, offsetY: 2, color: '#0f172a', blur: 4, fill: true }
       }).setOrigin(0.5);
 
       this.add.text(
         width / 2,
-        safeTop + 116,
+        topBarH + 48,
         `Ур. ${cfg.labLvl} · ${tier.name} · Индекс: ${this.visitProfile.score} 🏆`,
         {
           fontFamily: '"Rubik", sans-serif',
-          fontSize: '12px',
+          fontSize: '11px',
           fontWeight: '600',
           color: '#fde68a',
           backgroundColor: '#1c1917cc',
@@ -219,13 +220,12 @@ export class MenuScene extends Phaser.Scene {
       return;
     }
 
-    this.add.text(width / 2, safeTop + 90, 'ROCK LAB', {
+    this.add.text(width / 2, topBarH + 24, 'ROCK LAB', {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '32px',
+      fontSize: '28px',
       fontWeight: '700',
       color: '#fef3c7',
-      stroke: '#1c1917',
-      strokeThickness: 6
+      shadow: { offsetX: 0, offsetY: 2, color: '#1c1917', blur: 6, fill: true }
     }).setOrigin(0.5);
 
     const auditLeft = Storage.getAuditBonus();
@@ -242,9 +242,9 @@ export class MenuScene extends Phaser.Scene {
       subLabel += ` · 🏗️ Строек: ${completedMegas}/${MEGA_PROJECTS.length}`;
     }
 
-    this.add.text(width / 2, safeTop + 122, subLabel, {
+    this.add.text(width / 2, topBarH + 52, subLabel, {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '12px',
+      fontSize: '11px',
       fontWeight: '600',
       color: auditLeft > 0 ? '#4ade80' : repInfo.colorHex,
       backgroundColor: '#1c1917cc',
@@ -258,8 +258,8 @@ export class MenuScene extends Phaser.Scene {
     this.createActionButton(
       width / 2,
       layout.primaryBtnY,
-      340,
-      54,
+      344,
+      52,
       'ДОСКА ЗАКАЗОВ И СТРОЙКИ ВЕКА',
       0xd97706,
       0xffffff,
@@ -270,12 +270,12 @@ export class MenuScene extends Phaser.Scene {
       15
     );
 
-    const halfW = 165;
+    const halfW = 167;
     this.createActionButton(
       width / 2 - halfW / 2 - 5,
       layout.secondaryBtnY,
       halfW,
-      48,
+      46,
       '⚙️ МАГАЗИН',
       0x334155,
       0xf8fafc,
@@ -290,7 +290,7 @@ export class MenuScene extends Phaser.Scene {
       width / 2 + halfW / 2 + 5,
       layout.secondaryBtnY,
       halfW,
-      48,
+      46,
       '📖 ГОСТЫ',
       0x0369a1,
       0xf0f9ff,
@@ -303,11 +303,11 @@ export class MenuScene extends Phaser.Scene {
 
     this.add.text(width / 2, layout.bottomFooterY, 'EASY DOPAMINE GAMES', {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '11px',
-      fontWeight: '700',
+      fontSize: '10px',
+      fontWeight: '600',
       letterSpacing: 2,
       color: '#a8a29e'
-    }).setOrigin(0.5).setAlpha(0.85);
+    }).setOrigin(0.5).setAlpha(0.8);
 
     AchievementManager.evaluateAll(this);
 
@@ -333,45 +333,45 @@ export class MenuScene extends Phaser.Scene {
     if (step < 7) {
       TutorialManager.advanceTo(0);
       TutorialManager.showSpotlight(this, {
-        hole: { x: width / 2, y: layout.primaryBtnY, w: 350, h: 64 },
+        hole: { x: width / 2, y: layout.primaryBtnY, w: 354, h: 62 },
         cardY: Math.min(365, layout.maintY - 120),
         badge: 'ШАГ 1/8 · ДОБРО ПОЖАЛОВАТЬ В ROCK LAB',
         text: 'Ты — руководитель геотехнической лаборатории!\nЗдесь ты вскрываешь керны, готовишь образцы и давишь их под прессом.\nНажми «ДОСКА ЗАКАЗОВ», чтобы взять первый контракт!'
       });
     } else {
       TutorialManager.showSpotlight(this, {
-        hole: { x: width / 2, y: layout.maintY + 39, w: 364, h: 86 },
-        cardY: safeTop + 265,
+        hole: { x: width / 2, y: layout.maintY + 38, w: 364, h: 84 },
+        cardY: layout.topBarH + 225,
         badge: 'ОБЗОР 1/4 · РАСХОДНИКИ, ИЗНОС И РЕМОНТ',
         text: 'На простых заказах пила, абразив и поверка тратятся медленно (5–6%),\nно крепкие породы и «Стройки века» изнашивают станки быстрее!\nЦена ТО растёт с уровнем лабы — если денег жалко, жми «🎬» для ремонта за рекламу.',
         nextLabel: 'ДАЛЕЕ: МАГАЗИН, МУЗЫКА И ПЛЕЕР →',
         onNext: () => {
           TutorialManager.showSpotlight(this, {
             hole: { x: width / 2, y: layout.playerY, w: 348, h: 54 },
-            cardY: safeTop + 265,
+            cardY: layout.topBarH + 225,
             badge: 'ОБЗОР 2/4 · МАГАЗИН, МУЗЫКА И ПЛЕЕР',
             text: 'В «⚙️ МАГАЗИНЕ» открываются стенды, скины, роботы и музыкальные паки.\nКофемашина увеличивает запас энергии ⚡ на +10 за каждый уровень!\nВ плеере тап по треку листает песни, а правая кнопка меняет режим повтора.',
             nextLabel: 'ДАЛЕЕ: ВИТРИНА И ЭКСПЕДИЦИИ →',
             onNext: () => {
               TutorialManager.showSpotlight(this, {
-                hole: { x: 43, y: safeTop + 220, w: 66, h: 156 },
-                cardY: safeTop + 350,
+                hole: { x: 43, y: layout.topBarH + 148, w: 66, h: 156 },
+                cardY: layout.topBarH + 310,
                 badge: 'ОБЗОР 3/4 · ВИТРИНА И ЭКСПЕДИЦИИ',
                 text: 'Витрина минералов открывается со 2-го уровня лаборатории (купи её в магазине,\nчтобы ставить кристаллы на полку и крутить в 3D).\nБуровые экспедиции открываются после завершения 1-й «Стройки века»!',
                 nextLabel: 'ДАЛЕЕ: ЭНЕРГИЯ ⚡, ПОДАРКИ 🎁 И ТОП →',
                 onNext: () => {
                   TutorialManager.showSpotlight(this, {
-                    hole: { x: width / 2, y: safeTop + 32, w: width - 12, h: 52 },
-                    cardY: safeTop + 280,
+                    hole: { x: width / 2, y: safeTop + 46, w: width - 12, h: 84 },
+                    cardY: layout.topBarH + 230,
                     badge: 'ОБЗОР 4/4 · ЭНЕРГИЯ ⚡, ПОДАРКИ 🎁 И ТОП',
-                    text: 'Заказы тратят энергию ⚡ (+1 каждые 2 мин или кофе-брейк 🎬).\nЗвёзды ★ дают множитель дохода, а каждый день в 🎁 ждёт бонус (можно удвоить 🎬×2).\nГлобальный индекс в «ТОП» только растёт. Забирай премию +200 ₽!',
+                    text: 'Заказы тратят энергию ⚡ (полностью восстанавливается при апе уровня лабы!).\nЗвёзды ★ дают бонус к оплате, а каждый день в «🎁 БОНУС» ждёт подарок.\nГлобальный индекс в «🌐 ТОП» только растёт. Забирай премию +200 ₽!',
                     nextLabel: '🎉 ЗАВЕРШИТЬ И ЗАБРАТЬ +200 ₽!',
                     onNext: () => {
                       TutorialManager.complete(this);
                       Storage.addMoney(200);
                       AudioManager.playStamp();
-                      this.particles.emitParticleAt(width / 2, safeTop + 260, 24);
-                      if (this.moneyTxt) this.moneyTxt.setText(`💰 ${Storage.getMoney()} ₽`);
+                      this.particles.emitParticleAt(width / 2, layout.topBarH + 220, 24);
+                      this.refreshTopStats();
                     }
                   });
                 }
@@ -395,16 +395,16 @@ export class MenuScene extends Phaser.Scene {
     if (this.energyTxt) {
       const curE = Storage.getEnergy();
       const maxE = Storage.getMaxEnergy();
-      this.energyTxt.setText(`⚡${curE}/${maxE}`);
+      this.energyTxt.setText(`⚡ ${curE}/${maxE}`);
       this.energyTxt.setColor(curE < 15 ? '#f87171' : '#38bdf8');
     }
-    if (this.dailyBtnContainer && this.dailyBtnBg) {
+    if (this.dailyPillBg) {
       const canClaim = Storage.getDailyRewardStatus().canClaim;
-      this.dailyBtnBg.clear();
-      this.dailyBtnBg.fillStyle(canClaim ? 0x16a34a : 0x334155, 1);
-      this.dailyBtnBg.fillRoundedRect(-18, -16, 36, 32, 9);
-      this.dailyBtnBg.lineStyle(1.5, canClaim ? 0xfacc15 : 0x64748b, 0.8);
-      this.dailyBtnBg.strokeRoundedRect(-18, -16, 36, 32, 9);
+      this.dailyPillBg.clear();
+      this.dailyPillBg.fillStyle(canClaim ? 0x16a34a : 0x334155, 1);
+      this.dailyPillBg.fillRoundedRect(-50, -15, 100, 30, 8);
+      this.dailyPillBg.lineStyle(1.5, canClaim ? 0xfacc15 : 0xffffff, canClaim ? 0.85 : 0.2);
+      this.dailyPillBg.strokeRoundedRect(-50, -15, 100, 30, 8);
     }
   }
 
@@ -419,7 +419,7 @@ export class MenuScene extends Phaser.Scene {
     dim.fillRect(0, 0, width, height);
 
     const cardW = 368;
-    const cardH = 318;
+    const cardH = 330;
     const cx = width / 2;
     const cy = height / 2;
 
@@ -435,7 +435,7 @@ export class MenuScene extends Phaser.Scene {
     const refillCost = Storage.getEnergyRefillCost();
     const canPay = Storage.getMoney() >= refillCost && curE < maxE;
 
-    const title = this.add.text(cx, cy - 126, `⚡ ЭНЕРГИЯ СМЕНЫ: ${curE}/${maxE}`, {
+    const title = this.add.text(cx, cy - 130, `⚡ ЭНЕРГИЯ СМЕНЫ: ${curE}/${maxE}`, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '17px',
       fontWeight: '700',
@@ -448,19 +448,19 @@ export class MenuScene extends Phaser.Scene {
 
     const desc = this.add.text(
       cx,
-      cy - 74,
-      `${regenLine}\nОбычный заказ: 15 ⚡ · Стройка века: 25 ⚡ · Экспедиция: 30 ⚡`,
+      cy - 76,
+      `${regenLine}\nОбычный заказ: 15 ⚡ · Стройка: 25 ⚡ · Экспедиция: 30 ⚡\n✨ При повышении уровня лабы энергия восполняется на 100%!`,
       {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '11px',
         color: '#e2e8f0',
         align: 'center',
-        lineSpacing: 5,
+        lineSpacing: 4,
         wordWrap: { width: cardW - 34 }
       }
     ).setOrigin(0.5);
 
-    const adBtn = this.add.text(cx, cy - 8, '🎬 КОФЕ-БРЕЙК ЗА РЕКЛАМУ (+45 ⚡)', {
+    const adBtn = this.add.text(cx, cy - 4, '🎬 КОФЕ-БРЕЙК ЗА РЕКЛАМУ (+45 ⚡)', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '13px',
       fontWeight: '700',
@@ -482,7 +482,7 @@ export class MenuScene extends Phaser.Scene {
 
     const coinBtn = this.add.text(
       cx,
-      cy + 48,
+      cy + 52,
       curE >= maxE ? '✅ ЗАПАС ЭНЕРГИИ ПОЛОН' : `☕ ЭСПРЕССО-СЕТ: ПОЛНЫЙ БАК (${refillCost} ₽)`,
       {
         fontFamily: '"Rubik", sans-serif',
@@ -506,7 +506,7 @@ export class MenuScene extends Phaser.Scene {
       });
     }
 
-    const closeBtn = this.add.text(cx, cy + 118, 'ЗАКРЫТЬ', {
+    const closeBtn = this.add.text(cx, cy + 122, 'ЗАКРЫТЬ', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '12px',
       fontWeight: '700',
@@ -767,7 +767,7 @@ export class MenuScene extends Phaser.Scene {
     const label = this.add.text(0, 0, text, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '11px',
-      fontWeight: '700',
+      fontWeight: '600',
       color: '#0f172a',
       align: 'center',
       wordWrap: { width: 156 }
@@ -822,19 +822,18 @@ export class MenuScene extends Phaser.Scene {
     const hasCooler = cfg.hasDecor('cooler');
     const hasPlants = cfg.hasDecor('plants');
 
-    const safeTop = layout.safeTop;
-    const topWallStart = 64 + safeTop;
+    const topBarH = layout.topBarH;
     const backWallY = layout.backWallY;
     const frontBenchY = layout.frontBenchY;
 
     g.fillStyle(tier.wall, 1);
-    g.fillRect(0, topWallStart, w, backWallY - topWallStart);
+    g.fillRect(0, topBarH, w, backWallY - topBarH);
 
     if (themeId === 'loft' || (themeId === 'default' && labLvl === 1)) {
       g.lineStyle(1, 0x000000, 0.22);
-      for (let by = topWallStart + 16; by < backWallY; by += 18) {
+      for (let by = topBarH + 16; by < backWallY; by += 18) {
         g.lineBetween(0, by, w, by);
-        const shift = ((by - topWallStart) / 18) % 2 === 0 ? 0 : 20;
+        const shift = ((by - topBarH) / 18) % 2 === 0 ? 0 : 20;
         for (let bx = shift; bx < w; bx += 40) {
           g.lineBetween(bx, by, bx, by + 18);
         }
@@ -842,9 +841,9 @@ export class MenuScene extends Phaser.Scene {
     } else {
       g.lineStyle(1.5, 0x000000, 0.16);
       for (let x = 0; x < w; x += 48) {
-        g.lineBetween(x, topWallStart, x, backWallY);
+        g.lineBetween(x, topBarH, x, backWallY);
       }
-      g.lineBetween(0, topWallStart + 101, w, topWallStart + 101);
+      g.lineBetween(0, topBarH + 101, w, topBarH + 101);
     }
 
     g.fillStyle(tier.floor, 1);
@@ -860,16 +859,16 @@ export class MenuScene extends Phaser.Scene {
     g.lineBetween(0, (backWallY + frontBenchY) / 2, w, (backWallY + frontBenchY) / 2);
 
     g.fillStyle(hasNeon ? 0x38bdf8 : 0xfef3c7, 0.06 + decorLvl * 0.02);
-    g.fillTriangle(w / 2, topWallStart + 2, 20, frontBenchY, w - 20, frontBenchY);
+    g.fillTriangle(w / 2, topBarH + 2, 20, frontBenchY, w - 20, frontBenchY);
 
     g.fillStyle(0x27272a, 1);
-    g.fillRect(0, topWallStart + 2, w, 9);
+    g.fillRect(0, topBarH + 2, w, 9);
     g.fillStyle(hasNeon ? 0x38bdf8 : tier.accent, hasNeon ? 0.9 : 0.35 + decorLvl * 0.08);
-    g.fillRect(0, topWallStart + 11, w, 4);
+    g.fillRect(0, topBarH + 11, w, 4);
 
     const winX = w / 2 - 122;
     const winW = 216;
-    const winTopY = safeTop + 138;
+    const winTopY = topBarH + 72;
     if (branchesCount > 0 || hasGeoMap) {
       g.fillStyle(0x0f172a, 1);
       g.fillRoundedRect(winX, winTopY, winW, 78, 8);
@@ -946,7 +945,7 @@ export class MenuScene extends Phaser.Scene {
     }
 
     const trophyX = w - 134;
-    const trophyY = safeTop + 140;
+    const trophyY = topBarH + 74;
     const trophyW = 62;
     const trophyH = 76;
 
@@ -1014,7 +1013,7 @@ export class MenuScene extends Phaser.Scene {
 
     if (showcaseLvl > 0) {
       const shelfX = 14;
-      const shelfY = safeTop + 148;
+      const shelfY = topBarH + 82;
       const shelfW = 58;
       const shelfH = 144;
 
@@ -1057,7 +1056,7 @@ export class MenuScene extends Phaser.Scene {
       this.add.text(shelfX + shelfW / 2, shelfY + shelfH + 10, `💎 ${totalGemsCount}/${RARE_INCLUSIONS.length}`, {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '10px',
-        fontWeight: '700',
+        fontWeight: '600',
         color: '#fef3c7',
         backgroundColor: '#14161bdd',
         padding: { x: 4, y: 2 }
@@ -1083,7 +1082,7 @@ export class MenuScene extends Phaser.Scene {
       });
     } else if (!this.isVisiting() && totalGemsCount > 0) {
       const boxX = 14;
-      const boxY = safeTop + 246;
+      const boxY = topBarH + 180;
       g.fillStyle(0x292524, 0.95);
       g.fillRoundedRect(boxX, boxY, 58, 48, 6);
       g.lineStyle(1.5, 0x78716c, 0.8);
@@ -1092,14 +1091,14 @@ export class MenuScene extends Phaser.Scene {
       this.add.text(boxX + 29, boxY + 15, '📦 СКЛАД', {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '10px',
-        fontWeight: '700',
+        fontWeight: '600',
         color: '#fde68a'
       }).setOrigin(0.5);
 
       this.add.text(boxX + 29, boxY + 32, `💎 ${totalGemsCount} шт.`, {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '11px',
-        fontWeight: '700',
+        fontWeight: '600',
         color: '#38bdf8'
       }).setOrigin(0.5);
 
@@ -1156,7 +1155,7 @@ export class MenuScene extends Phaser.Scene {
       g.fillCircle(px + 8, floorLineY - 22, 8);
     }
 
-    const boardY = safeTop + 146;
+    const boardY = topBarH + 80;
     g.fillStyle(0xfef3c7, 0.92);
     g.fillRect(w - 62, boardY, 44, 56);
     g.lineStyle(2, 0x78350f, 1);
@@ -1893,70 +1892,105 @@ export class MenuScene extends Phaser.Scene {
     ]);
   }
 
-  createTopBar(w, tier) {
-    const safeTop = window.__SAFE_TOP__ || 0;
-    const barH = 64 + safeTop;
-    const contentY = safeTop + 32;
+  // Двухрядная, воздушная шапка: сверху ресурсы в капсулах, ниже — ровный ряд кнопок
+  createTopBar(w, tier, layout) {
+    const safeTop = layout.safeTop;
+    const barH = layout.topBarH;
+    const row1Y = safeTop + 24;
+    const row2Y = safeTop + 64;
 
     const g = this.add.graphics();
     g.fillStyle(0x14161b, 0.98);
     g.fillRect(0, 0, w, barH);
+    g.lineStyle(1, 0x27272a, 0.9);
+    g.lineBetween(12, safeTop + 44, w - 12, safeTop + 44);
     g.lineStyle(2, tier.accent, 0.65);
     g.lineBetween(0, barH, w, barH);
 
-    this.moneyTxt = this.add.text(10, contentY, `💰 ${Storage.getMoney()} ₽`, {
+    // Хелпер плашки-капсулы для верхнего ряда ресурсов
+    const makeResourceCapsule = (x, widthBox, borderCol) => {
+      const cap = this.add.graphics();
+      cap.fillStyle(0x1e222b, 1);
+      cap.fillRoundedRect(x, row1Y - 14, widthBox, 28, 8);
+      cap.lineStyle(1.2, borderCol, 0.45);
+      cap.strokeRoundedRect(x, row1Y - 14, widthBox, 28, 8);
+      return cap;
+    };
+
+    // 1) Деньги
+    makeResourceCapsule(12, 134, 0xfacc15);
+    this.moneyTxt = this.add.text(79, row1Y, `💰 ${Storage.getMoney()} ₽`, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '13px',
-      fontWeight: '700',
+      fontWeight: '600',
       color: '#facc15'
-    }).setOrigin(0, 0.5);
+    }).setOrigin(0.5);
 
+    // 2) Репутация ★
     const repInfo = Storage.getReputationTierInfo();
-    this.repTxt = this.add.text(104, contentY, `★ ${Storage.getReputation()}`, {
+    makeResourceCapsule(154, 114, 0x38bdf8);
+    this.repTxt = this.add.text(211, row1Y, `★ ${Storage.getReputation()}`, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '13px',
-      fontWeight: '700',
+      fontWeight: '600',
       color: repInfo.colorHex
-    }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
+    }).setOrigin(0.5);
 
-    this.repTxt.on('pointerdown', () => {
+    const repZone = this.add.zone(211, row1Y, 114, 30).setInteractive({ useHandCursor: true });
+    repZone.on('pointerdown', () => {
       if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
       AudioManager.playClick();
       this.openReputationInfoModal();
     });
 
+    // 3) Энергия ⚡
     const curE = Storage.getEnergy();
     const maxE = Storage.getMaxEnergy();
-    this.energyTxt = this.add.text(154, contentY, `⚡${curE}/${maxE}`, {
+    makeResourceCapsule(276, 136, 0x38bdf8);
+    this.energyTxt = this.add.text(344, row1Y, `⚡ ${curE}/${maxE}`, {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '12px',
-      fontWeight: '700',
+      fontSize: '13px',
+      fontWeight: '600',
       color: curE < 15 ? '#f87171' : '#38bdf8'
-    }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
+    }).setOrigin(0.5);
 
-    this.energyTxt.on('pointerdown', () => {
+    const energyZone = this.add.zone(344, row1Y, 136, 30).setInteractive({ useHandCursor: true });
+    energyZone.on('pointerdown', () => {
       if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
       AudioManager.playClick();
       this.openEnergyModal();
     });
 
-    const makeTopPill = (cx, cy, pillW, pillH, label, fillCol, textCol, onClick) => {
+    // 4) Кнопка звука справа вверху
+    const soundBtn = this.add.text(w - 14, row1Y, Storage.isSoundEnabled() ? '🔊' : '🔇', {
+      fontSize: '20px'
+    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+
+    soundBtn.on('pointerdown', () => {
+      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+      const enabled = Storage.toggleSound();
+      soundBtn.setText(enabled ? '🔊' : '🔇');
+      if (enabled) AudioManager.playClick();
+    });
+
+    // Второй ряд: 4 ровные кнопки навигации на всю ширину экрана
+    const makeNavPill = (cx, cy, pillW, pillH, label, fillCol, textCol, onClick, customBgRef = null) => {
       const c = this.add.container(cx, cy);
-      const pillG = this.add.graphics();
+      const pillG = customBgRef || this.add.graphics();
       const drawPill = (pressed) => {
         pillG.clear();
         const oy = pressed ? 1.5 : 0;
         pillG.fillStyle(fillCol, 1);
-        pillG.fillRoundedRect(-pillW / 2, -pillH / 2 + oy, pillW, pillH, 9);
-        pillG.lineStyle(1.5, 0xffffff, 0.25);
-        pillG.strokeRoundedRect(-pillW / 2, -pillH / 2 + oy, pillW, pillH, 9);
+        pillG.fillRoundedRect(-pillW / 2, -pillH / 2 + oy, pillW, pillH, 8);
+        pillG.lineStyle(1.5, 0xffffff, 0.22);
+        pillG.strokeRoundedRect(-pillW / 2, -pillH / 2 + oy, pillW, pillH, 8);
       };
       drawPill(false);
 
       const t = this.add.text(0, 0, label, {
         fontFamily: '"Rubik", sans-serif',
-        fontSize: '10px',
-        fontWeight: '700',
+        fontSize: '11px',
+        fontWeight: '600',
         color: Phaser.Display.Color.IntegerToColor(textCol).rgba
       }).setOrigin(0.5);
 
@@ -1981,46 +2015,66 @@ export class MenuScene extends Phaser.Scene {
       return c;
     };
 
-    const btnH = 32;
+    const btnW = 106;
+    const btnH = 30;
+    const gap = 10;
+    const startX = (w - (btnW * 4 + gap * 3)) / 2 + btnW / 2;
 
     if (!this.isVisiting()) {
-      // Кнопка ежедневного подарка 🎁
       const canClaim = Storage.getDailyRewardStatus().canClaim;
-      this.dailyBtnContainer = this.add.container(w - 234, contentY);
-      this.dailyBtnBg = this.add.graphics();
-      this.dailyBtnBg.fillStyle(canClaim ? 0x16a34a : 0x334155, 1);
-      this.dailyBtnBg.fillRoundedRect(-18, -16, 36, 32, 9);
-      this.dailyBtnBg.lineStyle(1.5, canClaim ? 0xfacc15 : 0x64748b, 0.8);
-      this.dailyBtnBg.strokeRoundedRect(-18, -16, 36, 32, 9);
+      this.dailyPillBg = this.add.graphics();
+      makeNavPill(
+        startX,
+        row2Y,
+        btnW,
+        btnH,
+        '🎁 БОНУС',
+        canClaim ? 0x16a34a : 0x334155,
+        0xffffff,
+        () => {
+          AudioManager.playClick();
+          this.openDailyRewardModal(null);
+        },
+        this.dailyPillBg
+      );
 
-      const dailyIcon = this.add.text(0, 0, '🎁', { fontSize: '15px' }).setOrigin(0.5);
-      const dailyZone = this.add.zone(0, 0, 36, 32).setInteractive({ useHandCursor: true });
-      dailyZone.on('pointerdown', () => {
-        if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
-        AudioManager.playClick();
-        this.openDailyRewardModal(null);
-      });
-      this.dailyBtnContainer.add([this.dailyBtnBg, dailyIcon, dailyZone]);
-
-      makeTopPill(w - 190, contentY, 44, btnH, 'ГИД', 0x334155, 0xfef3c7, () => {
-        AudioManager.playClick();
-        TutorialManager.restart(this);
-      });
+      makeNavPill(
+        startX + (btnW + gap),
+        row2Y,
+        btnW,
+        btnH,
+        '📖 ГИД',
+        0x334155,
+        0xfef3c7,
+        () => {
+          AudioManager.playClick();
+          TutorialManager.restart(this);
+        }
+      );
     }
 
-    makeTopPill(w - 139, contentY, 50, btnH, '🌐ТОП', 0x0284c7, 0xf0f9ff, () => {
-      this.showcaseModalOpen = true;
-      AudioManager.playClick();
-      this.openLeaderboardModal(tier);
-    });
+    makeNavPill(
+      startX + (btnW + gap) * 2,
+      row2Y,
+      btnW,
+      btnH,
+      '🌐 ТОП',
+      0x0284c7,
+      0xf0f9ff,
+      () => {
+        this.showcaseModalOpen = true;
+        AudioManager.playClick();
+        this.openLeaderboardModal(tier);
+      }
+    );
 
     const achCount = Storage.getUnlockedAchievements().length;
-    makeTopPill(
-      w - 82,
-      contentY,
-      58,
+    makeNavPill(
+      startX + (btnW + gap) * 3,
+      row2Y,
+      btnW,
       btnH,
-      `🏆${achCount}/${ACHIEVEMENTS_CATALOG.length}`,
+      `🏆 ${achCount}/${ACHIEVEMENTS_CATALOG.length}`,
       0xd97706,
       0xffffff,
       () => {
@@ -2029,17 +2083,6 @@ export class MenuScene extends Phaser.Scene {
         this.openAchievementsModal(tier);
       }
     );
-
-    const soundBtn = this.add.text(w - 10, contentY, Storage.isSoundEnabled() ? '🔊' : '🔇', {
-      fontSize: '20px'
-    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
-
-    soundBtn.on('pointerdown', () => {
-      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
-      const enabled = Storage.toggleSound();
-      soundBtn.setText(enabled ? '🔊' : '🔇');
-      if (enabled) AudioManager.playClick();
-    });
   }
 
   createLiveMiniLab(w, h, tier, cfg, layout) {
@@ -2731,14 +2774,14 @@ export class MenuScene extends Phaser.Scene {
       const t1 = this.add.text(x + colW / 2, panelY + 13, item.label, {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '11px',
-        fontWeight: '700',
+        fontWeight: '600',
         color: '#f1f5f9'
       }).setOrigin(0.5);
 
       const pctColor = pct >= 70 ? '#4ade80' : pct >= 40 ? '#facc15' : '#f87171';
       const t2 = this.add.text(x + colW / 2, panelY + 32, `${pct}%`, {
         fontFamily: '"Rubik", sans-serif',
-        fontSize: '15px',
+        fontSize: '14px',
         fontWeight: '700',
         color: pctColor
       }).setOrigin(0.5);
@@ -2748,8 +2791,8 @@ export class MenuScene extends Phaser.Scene {
       if (!needsService) {
         const okBadge = this.add.text(x + colW / 2, panelY + 57, 'В НОРМЕ', {
           fontFamily: '"Rubik", sans-serif',
-          fontSize: '11px',
-          fontWeight: '700',
+          fontSize: '10px',
+          fontWeight: '600',
           color: '#cbd5e1',
           backgroundColor: '#27272a',
           padding: { x: 10, y: 4 }
@@ -2760,7 +2803,7 @@ export class MenuScene extends Phaser.Scene {
 
         const payBtn = this.add.text(x + 5, panelY + 57, `${item.cost}₽`, {
           fontFamily: '"Rubik", sans-serif',
-          fontSize: '11px',
+          fontSize: '10px',
           fontWeight: '700',
           color: canPay ? '#0f172a' : '#94a3b8',
           backgroundColor: canPay ? '#facc15' : '#27272a',
@@ -2806,7 +2849,7 @@ export class MenuScene extends Phaser.Scene {
   createMiniPlayer(w, h, tier, layout) {
     const px = w / 2;
     const py = layout.playerY;
-    const pw = 340;
+    const pw = 344;
     const ph = 46;
 
     const container = this.add.container(px, py).setDepth(18);
@@ -2824,14 +2867,14 @@ export class MenuScene extends Phaser.Scene {
     this.trackTxt = this.add.text(-pw / 2 + 40, -7, curTrack.name, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '11px',
-      fontWeight: '700',
+      fontWeight: '600',
       color: '#fef3c7'
     }).setOrigin(0, 0.5);
 
     const defaultSub = 'ТАПНИ ЧТОБЫ СМЕНИТЬ ТРЕК ⏭';
     const subLabel = this.add.text(-pw / 2 + 40, 10, defaultSub, {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '10px',
+      fontSize: '9px',
       fontWeight: '600',
       color: '#94a3b8'
     }).setOrigin(0, 0.5);
@@ -2864,7 +2907,7 @@ export class MenuScene extends Phaser.Scene {
     const modeBg = this.add.graphics();
     const modeLabel = this.add.text(0, 0, '', {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '10px',
+      fontSize: '9px',
       fontWeight: '700',
       align: 'center'
     }).setOrigin(0.5);
