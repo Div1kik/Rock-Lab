@@ -41,13 +41,21 @@ jobs:
           if [ ! -f package.json ]; then
             npm init -y
           fi
-          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/assets
           if [ ! -f capacitor.config.json ] && [ ! -f capacitor.config.ts ]; then
             npx cap init "Rock Lab" "com.easydopamine.rocklab" --web-dir=www
           fi
           rm -rf android
           npx cap add android
+          if [ -f icon-512.png ]; then
+            mkdir -p assets
+            cp icon-512.png assets/icon-only.png
+            cp icon-512.png assets/icon-foreground.png
+            cp icon-512.png assets/splash.png
+            npx @capacitor/assets generate --android --iconBackgroundColor '#14161b' --splashBackgroundColor '#14161b'
+          fi
           npx cap sync android
+
 
       - name: Lock portrait orientation in AndroidManifest
         run: |
