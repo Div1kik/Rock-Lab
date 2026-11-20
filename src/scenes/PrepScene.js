@@ -1,3 +1,4 @@
+import { SceneHUD } from '../utils/SceneHUD.js';
 import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
 import { TutorialManager } from '../utils/TutorialManager.js';
@@ -82,7 +83,7 @@ export class PrepScene extends Phaser.Scene {
       .setTint(this.contract.rock.color);
   }
 
-  create() {
+    create() {
     const { width, height } = this.scale;
 
     const bg = this.add.graphics();
@@ -112,6 +113,10 @@ export class PrepScene extends Phaser.Scene {
       fontSize: '12px',
       color: '#cbd5e1'
     }).setOrigin(0.5);
+
+    SceneHUD.attachTestControls(this, {
+      onBeforeExit: () => AudioManager.stopPressHum()
+    });
 
     this.particles = this.add.particles(0, 0, 'dust_px', {
       speed: { min: 70, max: 190 },
