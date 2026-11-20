@@ -1,7 +1,7 @@
-import { Storage } from '../utils/Storage.js';
+import { Storage, DAILY_REWARDS_CATALOG } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
 import { PlatformSDK } from '../utils/PlatformSDK.js';
-import { RARE_INCLUSIONS, MEGA_PROJECTS } from '../data/contracts.js';
+import { RARE_INCLUSIONS, MEGA_PROJECTS, rollWeightedInclusion } from '../data/contracts.js';
 import { AchievementManager, ACHIEVEMENTS_CATALOG } from '../utils/AchievementManager.js';
 import { MineralRenderer } from '../utils/MineralRenderer.js';
 import { TutorialManager } from '../utils/TutorialManager.js';
@@ -314,7 +314,15 @@ export class MenuScene extends Phaser.Scene {
     const myProfile = Storage.buildPublicProfile(PlatformSDK.playerName);
     PlatformSDK.submitLabProfile(myProfile);
 
-    this.runMenuTutorialStep(width, height, layout);
+    if (TutorialManager.isActive()) {
+      this.runMenuTutorialStep(width, height, layout);
+    } else if (Storage.getDailyRewardStatus().canClaim) {
+      this.time.delayedCall(340, () => {
+        if (!this.showcaseModalOpen) {
+          this.openDailyRewardModal(layout);
+        }
+      });
+    }
   }
 
   runMenuTutorialStep(width, height, layout) {
@@ -342,7 +350,7 @@ export class MenuScene extends Phaser.Scene {
             hole: { x: width / 2, y: layout.playerY, w: 348, h: 54 },
             cardY: safeTop + 265,
             badge: 'ОБЗОР 2/4 · МАГАЗИН, МУЗЫКА И ПЛЕЕР',
-            text: 'В «⚙️ МАГАЗИНЕ» открываются стенды, скины, роботы и музыкальные паки.\nВ плеере тап по треку листает песни, а правая кнопка переключает\nповтор одного трека или проигрывание всех треков по кругу!',
+            text: 'В «⚙️ МАГАЗИНЕ» открываются стенды, скины, роботы и музыкальные паки.\nКофемашина увеличивает запас энергии ⚡ на +10 за каждый уровень!\nВ плеере тап по треку листает песни, а правая кнопка меняет режим повтора.',
             nextLabel: 'ДАЛЕЕ: ВИТРИНА И ЭКСПЕДИЦИИ →',
             onNext: () => {
               TutorialManager.showSpotlight(this, {
@@ -350,13 +358,13 @@ export class MenuScene extends Phaser.Scene {
                 cardY: safeTop + 350,
                 badge: 'ОБЗОР 3/4 · ВИТРИНА И ЭКСПЕДИЦИИ',
                 text: 'Витрина минералов открывается со 2-го уровня лаборатории (купи её в магазине,\nчтобы ставить кристаллы на полку и крутить в 3D).\nБуровые экспедиции открываются после завершения 1-й «Стройки века»!',
-                nextLabel: 'ДАЛЕЕ: РЕПУТАЦИЯ, ТОП И ФИНАЛ →',
+                nextLabel: 'ДАЛЕЕ: ЭНЕРГИЯ ⚡, ПОДАРКИ 🎁 И ТОП →',
                 onNext: () => {
                   TutorialManager.showSpotlight(this, {
                     hole: { x: width / 2, y: safeTop + 32, w: width - 12, h: 52 },
                     cardY: safeTop + 280,
-                    badge: 'ОБЗОР 4/4 · РЕПУТАЦИЯ ★ И РЕЙТИНГ ТОП',
-                    text: 'Звёздочки ★ в шапке влияют на доход: ниже 5★ штраф −15%, от 25★ бонус +15%!\nА глобальный индекс в «🌐 ТОП» только растёт — за заказы, точность и серию без брака.\nОбучение всегда доступно в «ГИД». Забирай премию +200 ₽!',
+                    badge: 'ОБЗОР 4/4 · ЭНЕРГИЯ ⚡, ПОДАРКИ 🎁 И ТОП',
+                    text: 'Заказы тратят энергию ⚡ (+1 каждые 2 мин или кофе-брейк 🎬).\nЗвёзды ★ дают множитель дохода, а каждый день в 🎁 ждёт бонус (можно удвоить 🎬×2).\nГлобальный индекс в «ТОП» только растёт. Забирай премию +200 ₽!',
                     nextLabel: '🎉 ЗАВЕРШИТЬ И ЗАБРАТЬ +200 ₽!',
                     onNext: () => {
                       TutorialManager.complete(this);
@@ -372,6 +380,304 @@ export class MenuScene extends Phaser.Scene {
           });
         }
       });
+    }
+  }
+
+  refreshTopStats() {
+    if (this.moneyTxt) {
+      this.moneyTxt.setText(`💰 ${Storage.getMoney()} ₽`);
+    }
+    if (this.repTxt) {
+      const repInfo = Storage.getReputationTierInfo();
+      this.repTxt.setText(`★ ${Storage.getReputation()}`);
+      this.repTxt.setColor(repInfo.colorHex);
+    }
+    if (this.energyTxt) {
+      const curE = Storage.getEnergy();
+      const maxE = Storage.getMaxEnergy();
+      this.energyTxt.setText(`⚡${curE}/${maxE}`);
+      this.energyTxt.setColor(curE < 15 ? '#f87171' : '#38bdf8');
+    }
+    if (this.dailyBtnContainer && this.dailyBtnBg) {
+      const canClaim = Storage.getDailyRewardStatus().canClaim;
+      this.dailyBtnBg.clear();
+      this.dailyBtnBg.fillStyle(canClaim ? 0x16a34a : 0x334155, 1);
+      this.dailyBtnBg.fillRoundedRect(-18, -16, 36, 32, 9);
+      this.dailyBtnBg.lineStyle(1.5, canClaim ? 0xfacc15 : 0x64748b, 0.8);
+      this.dailyBtnBg.strokeRoundedRect(-18, -16, 36, 32, 9);
+    }
+  }
+
+  openEnergyModal() {
+    const { width, height } = this.scale;
+    this.showcaseModalOpen = true;
+    const modal = this.add.container(0, 0).setDepth(72);
+
+    const blocker = this.add.zone(width / 2, height / 2, width, height).setInteractive();
+    const dim = this.add.graphics();
+    dim.fillStyle(0x090d16, 0.92);
+    dim.fillRect(0, 0, width, height);
+
+    const cardW = 368;
+    const cardH = 318;
+    const cx = width / 2;
+    const cy = height / 2;
+
+    const panel = this.add.graphics();
+    panel.fillStyle(0x1e293b, 1);
+    panel.fillRoundedRect(cx - cardW / 2, cy - cardH / 2, cardW, cardH, 16);
+    panel.lineStyle(2.5, 0x38bdf8, 1);
+    panel.strokeRoundedRect(cx - cardW / 2, cy - cardH / 2, cardW, cardH, 16);
+
+    const curE = Storage.getEnergy();
+    const maxE = Storage.getMaxEnergy();
+    const secLeft = Storage.getSecondsToNextEnergy();
+    const refillCost = Storage.getEnergyRefillCost();
+    const canPay = Storage.getMoney() >= refillCost && curE < maxE;
+
+    const title = this.add.text(cx, cy - 126, `⚡ ЭНЕРГИЯ СМЕНЫ: ${curE}/${maxE}`, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '17px',
+      fontWeight: '700',
+      color: '#38bdf8'
+    }).setOrigin(0.5);
+
+    const regenLine = curE >= maxE
+      ? 'Запас энергии полностью восстановлен!'
+      : `До +1 ⚡: ~${secLeft} сек · Автовосстановление даже офлайн`;
+
+    const desc = this.add.text(
+      cx,
+      cy - 74,
+      `${regenLine}\nОбычный заказ: 15 ⚡ · Стройка века: 25 ⚡ · Экспедиция: 30 ⚡`,
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
+        color: '#e2e8f0',
+        align: 'center',
+        lineSpacing: 5,
+        wordWrap: { width: cardW - 34 }
+      }
+    ).setOrigin(0.5);
+
+    const adBtn = this.add.text(cx, cy - 8, '🎬 КОФЕ-БРЕЙК ЗА РЕКЛАМУ (+45 ⚡)', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '13px',
+      fontWeight: '700',
+      color: '#0f172a',
+      backgroundColor: '#4ade80',
+      padding: { x: 16, y: 11 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    adBtn.on('pointerdown', () => {
+      adBtn.disableInteractive();
+      PlatformSDK.showRewarded(() => {
+        Storage.addEnergy(45);
+        AudioManager.playStamp();
+        this.refreshTopStats();
+        modal.destroy();
+        this.showcaseModalOpen = false;
+      });
+    });
+
+    const coinBtn = this.add.text(
+      cx,
+      cy + 48,
+      curE >= maxE ? '✅ ЗАПАС ЭНЕРГИИ ПОЛОН' : `☕ ЭСПРЕССО-СЕТ: ПОЛНЫЙ БАК (${refillCost} ₽)`,
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '12px',
+        fontWeight: '700',
+        color: canPay ? '#0f172a' : '#94a3b8',
+        backgroundColor: canPay ? '#facc15' : '#334155',
+        padding: { x: 16, y: 10 }
+      }
+    ).setOrigin(0.5).setInteractive({ useHandCursor: canPay });
+
+    if (canPay) {
+      coinBtn.on('pointerdown', () => {
+        if (Storage.spendMoney(refillCost)) {
+          Storage.addEnergy(maxE);
+          AudioManager.playLatchSnap();
+          this.refreshTopStats();
+          modal.destroy();
+          this.showcaseModalOpen = false;
+        }
+      });
+    }
+
+    const closeBtn = this.add.text(cx, cy + 118, 'ЗАКРЫТЬ', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '12px',
+      fontWeight: '700',
+      color: '#ffffff',
+      backgroundColor: '#475569',
+      padding: { x: 24, y: 9 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    closeBtn.on('pointerdown', () => {
+      AudioManager.playClick();
+      modal.destroy();
+      this.showcaseModalOpen = false;
+    });
+
+    modal.add([blocker, dim, panel, title, desc, adBtn, coinBtn, closeBtn]);
+  }
+
+  openDailyRewardModal(layout) {
+    const { width, height } = this.scale;
+    this.showcaseModalOpen = true;
+    const modal = this.add.container(0, 0).setDepth(74);
+
+    const blocker = this.add.zone(width / 2, height / 2, width, height).setInteractive();
+    const dim = this.add.graphics();
+    dim.fillStyle(0x090d16, 0.94);
+    dim.fillRect(0, 0, width, height);
+
+    const cardW = 392;
+    const cardH = 540;
+    const cx = width / 2;
+    const cy = height / 2;
+    const leftX = cx - cardW / 2;
+    const topY = cy - cardH / 2;
+
+    const panel = this.add.graphics();
+    panel.fillStyle(0x181c26, 1);
+    panel.fillRoundedRect(leftX, topY, cardW, cardH, 16);
+    panel.lineStyle(3, 0xfacc15, 1);
+    panel.strokeRoundedRect(leftX, topY, cardW, cardH, 16);
+
+    const status = Storage.getDailyRewardStatus();
+
+    const title = this.add.text(cx, topY + 26, '🎁 ЕЖЕДНЕВНЫЙ БОНУС СМЕНЫ', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '16px',
+      fontWeight: '700',
+      color: '#facc15'
+    }).setOrigin(0.5);
+
+    const sub = this.add.text(
+      cx,
+      topY + 50,
+      status.canClaim
+        ? `Доступна награда за День ${status.activeDayNumber} из 7! Удвой её за рекламу 🎬`
+        : `Сегодняшний бонус (День ${status.activeDayNumber}/7) уже получен! Возвращайся завтра`,
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
+        color: status.canClaim ? '#4ade80' : '#94a3b8',
+        align: 'center',
+        wordWrap: { width: cardW - 32 }
+      }
+    ).setOrigin(0.5);
+
+    modal.add([blocker, dim, panel, title, sub]);
+
+    DAILY_REWARDS_CATALOG.forEach((item, idx) => {
+      const ry = topY + 74 + idx * 50;
+      const rowH = 44;
+      const isCurrent = item.day === status.activeDayNumber;
+      const isPast = item.day < status.activeDayNumber || (!status.canClaim && item.day === status.activeDayNumber);
+
+      const rowG = this.add.graphics();
+      rowG.fillStyle(isCurrent && status.canClaim ? 0x1e3a8a : isPast ? 0x14532d : 0x1e293b, 1);
+      rowG.fillRoundedRect(leftX + 16, ry, cardW - 32, rowH, 8);
+      rowG.lineStyle(1.5, isCurrent && status.canClaim ? 0xfacc15 : isPast ? 0x4ade80 : 0x334155, 0.95);
+      rowG.strokeRoundedRect(leftX + 16, ry, cardW - 32, rowH, 8);
+
+      const dTxt = this.add.text(leftX + 28, ry + rowH / 2, `ДЕНЬ ${item.day}`, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
+        fontWeight: '700',
+        color: isCurrent && status.canClaim ? '#facc15' : '#94a3b8'
+      }).setOrigin(0, 0.5);
+
+      const descTxt = this.add.text(leftX + 86, ry + rowH / 2, item.desc, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
+        fontWeight: '600',
+        color: '#f8fafc',
+        wordWrap: { width: cardW - 156 }
+      }).setOrigin(0, 0.5);
+
+      const badgeStr = isPast ? '✅' : isCurrent && status.canClaim ? '🎁' : '🔒';
+      const badgeTxt = this.add.text(leftX + cardW - 26, ry + rowH / 2, badgeStr, {
+        fontSize: '15px'
+      }).setOrigin(1, 0.5);
+
+      modal.add([rowG, dTxt, descTxt, badgeTxt]);
+    });
+
+    const finalizeClaim = (mult) => {
+      const res = Storage.claimDailyReward(mult);
+      if (!res) return;
+
+      if (res.grantGem) {
+        const count = mult >= 2 ? 2 : 1;
+        for (let i = 0; i < count; i++) {
+          Storage.addGem(rollWeightedInclusion(2));
+        }
+      }
+
+      AudioManager.playStamp();
+      this.particles.emitParticleAt(cx, cy, 24);
+      this.refreshTopStats();
+      if (layout) this.createMaintenancePanel(width, height, layout);
+      modal.destroy();
+      this.showcaseModalOpen = false;
+    };
+
+    if (status.canClaim) {
+      const claimBaseBtn = this.add.text(cx - 84, topY + cardH - 42, 'ЗАБРАТЬ ×1', {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '13px',
+        fontWeight: '700',
+        color: '#ffffff',
+        backgroundColor: '#d97706',
+        padding: { x: 16, y: 11 }
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+      const claimDoubleBtn = this.add.text(cx + 80, topY + cardH - 42, '🎬 ЗАБРАТЬ ×2', {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '13px',
+        fontWeight: '700',
+        color: '#0f172a',
+        backgroundColor: '#4ade80',
+        padding: { x: 18, y: 11 }
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+      claimBaseBtn.on('pointerdown', () => {
+        claimBaseBtn.disableInteractive();
+        claimDoubleBtn.disableInteractive();
+        finalizeClaim(1);
+      });
+
+      claimDoubleBtn.on('pointerdown', () => {
+        claimBaseBtn.disableInteractive();
+        claimDoubleBtn.disableInteractive();
+        PlatformSDK.showRewarded(() => {
+          finalizeClaim(2);
+        });
+      });
+
+      modal.add([claimBaseBtn, claimDoubleBtn]);
+    } else {
+      const closeBtn = this.add.text(cx, topY + cardH - 42, 'ЗАКРЫТЬ', {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '13px',
+        fontWeight: '700',
+        color: '#ffffff',
+        backgroundColor: '#d97706',
+        padding: { x: 28, y: 10 }
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+      closeBtn.on('pointerdown', () => {
+        AudioManager.playClick();
+        modal.destroy();
+        this.showcaseModalOpen = false;
+      });
+
+      modal.add(closeBtn);
     }
   }
 
@@ -426,7 +732,7 @@ export class MenuScene extends Phaser.Scene {
           Storage.addMoney(150);
           AudioManager.playStamp();
           this.particles.emitParticleAt(cx, panelY + 88, 18);
-          if (this.moneyTxt) this.moneyTxt.setText(`💰 ${Storage.getMoney()} ₽`);
+          this.refreshTopStats();
           likeBtn.setText('✅ ОЦЕНКА ОТПРАВЛЕНА (+150 ₽)!');
           likeBtn.setColor('#94a3b8');
           likeBtn.setBackgroundColor('#334155');
@@ -1598,25 +1904,40 @@ export class MenuScene extends Phaser.Scene {
     g.lineStyle(2, tier.accent, 0.65);
     g.lineBetween(0, barH, w, barH);
 
-    this.moneyTxt = this.add.text(12, contentY, `💰 ${Storage.getMoney()} ₽`, {
+    this.moneyTxt = this.add.text(10, contentY, `💰 ${Storage.getMoney()} ₽`, {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '15px',
+      fontSize: '13px',
       fontWeight: '700',
       color: '#facc15'
     }).setOrigin(0, 0.5);
 
     const repInfo = Storage.getReputationTierInfo();
-    const repTxt = this.add.text(142, contentY, `★ ${Storage.getReputation()}`, {
+    this.repTxt = this.add.text(104, contentY, `★ ${Storage.getReputation()}`, {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '15px',
+      fontSize: '13px',
       fontWeight: '700',
       color: repInfo.colorHex
     }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
 
-    repTxt.on('pointerdown', () => {
+    this.repTxt.on('pointerdown', () => {
       if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
       AudioManager.playClick();
       this.openReputationInfoModal();
+    });
+
+    const curE = Storage.getEnergy();
+    const maxE = Storage.getMaxEnergy();
+    this.energyTxt = this.add.text(154, contentY, `⚡${curE}/${maxE}`, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '12px',
+      fontWeight: '700',
+      color: curE < 15 ? '#f87171' : '#38bdf8'
+    }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
+
+    this.energyTxt.on('pointerdown', () => {
+      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+      AudioManager.playClick();
+      this.openEnergyModal();
     });
 
     const makeTopPill = (cx, cy, pillW, pillH, label, fillCol, textCol, onClick) => {
@@ -1634,7 +1955,7 @@ export class MenuScene extends Phaser.Scene {
 
       const t = this.add.text(0, 0, label, {
         fontFamily: '"Rubik", sans-serif',
-        fontSize: '11px',
+        fontSize: '10px',
         fontWeight: '700',
         color: Phaser.Display.Color.IntegerToColor(textCol).rgba
       }).setOrigin(0.5);
@@ -1663,13 +1984,31 @@ export class MenuScene extends Phaser.Scene {
     const btnH = 32;
 
     if (!this.isVisiting()) {
-      makeTopPill(w - 224, contentY, 54, btnH, 'ГИД', 0x334155, 0xfef3c7, () => {
+      // Кнопка ежедневного подарка 🎁
+      const canClaim = Storage.getDailyRewardStatus().canClaim;
+      this.dailyBtnContainer = this.add.container(w - 234, contentY);
+      this.dailyBtnBg = this.add.graphics();
+      this.dailyBtnBg.fillStyle(canClaim ? 0x16a34a : 0x334155, 1);
+      this.dailyBtnBg.fillRoundedRect(-18, -16, 36, 32, 9);
+      this.dailyBtnBg.lineStyle(1.5, canClaim ? 0xfacc15 : 0x64748b, 0.8);
+      this.dailyBtnBg.strokeRoundedRect(-18, -16, 36, 32, 9);
+
+      const dailyIcon = this.add.text(0, 0, '🎁', { fontSize: '15px' }).setOrigin(0.5);
+      const dailyZone = this.add.zone(0, 0, 36, 32).setInteractive({ useHandCursor: true });
+      dailyZone.on('pointerdown', () => {
+        if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+        AudioManager.playClick();
+        this.openDailyRewardModal(null);
+      });
+      this.dailyBtnContainer.add([this.dailyBtnBg, dailyIcon, dailyZone]);
+
+      makeTopPill(w - 190, contentY, 44, btnH, 'ГИД', 0x334155, 0xfef3c7, () => {
         AudioManager.playClick();
         TutorialManager.restart(this);
       });
     }
 
-    makeTopPill(w - 165, contentY, 56, btnH, '🌐 ТОП', 0x0284c7, 0xf0f9ff, () => {
+    makeTopPill(w - 139, contentY, 50, btnH, '🌐ТОП', 0x0284c7, 0xf0f9ff, () => {
       this.showcaseModalOpen = true;
       AudioManager.playClick();
       this.openLeaderboardModal(tier);
@@ -1677,11 +2016,11 @@ export class MenuScene extends Phaser.Scene {
 
     const achCount = Storage.getUnlockedAchievements().length;
     makeTopPill(
-      w - 100,
+      w - 82,
       contentY,
-      66,
+      58,
       btnH,
-      `🏆 ${achCount}/${ACHIEVEMENTS_CATALOG.length}`,
+      `🏆${achCount}/${ACHIEVEMENTS_CATALOG.length}`,
       0xd97706,
       0xffffff,
       () => {
@@ -1691,8 +2030,8 @@ export class MenuScene extends Phaser.Scene {
       }
     );
 
-    const soundBtn = this.add.text(w - 12, contentY, Storage.isSoundEnabled() ? '🔊' : '🔇', {
-      fontSize: '21px'
+    const soundBtn = this.add.text(w - 10, contentY, Storage.isSoundEnabled() ? '🔊' : '🔇', {
+      fontSize: '20px'
     }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
     soundBtn.on('pointerdown', () => {
@@ -2434,7 +2773,7 @@ export class MenuScene extends Phaser.Scene {
             if (Storage.spendMoney(item.cost)) {
               Storage.restoreWear(item.key);
               AudioManager.playLatchSnap();
-              if (this.moneyTxt) this.moneyTxt.setText(`💰 ${Storage.getMoney()} ₽`);
+              this.refreshTopStats();
               this.createMaintenancePanel(w, h, layout);
             }
           });
@@ -2635,6 +2974,7 @@ export class MenuScene extends Phaser.Scene {
           this.trackTxt.setText(currentName);
         }
       }
+      this.refreshTopStats();
     }
   }
 
