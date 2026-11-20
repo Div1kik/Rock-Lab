@@ -83,16 +83,17 @@ export class MenuScene extends Phaser.Scene {
     return Boolean(this.visitProfile);
   }
 
-  // Единая раскладка по вертикали под любую высоту смартфона
   getLayout(h) {
+    const safeTop = window.__SAFE_TOP__ || 0;
     const bottomFooterY = h - 18;
     const secondaryBtnY = h - 66;
     const primaryBtnY = h - 130;
     const playerY = h - 196;
     const maintY = h - 306;
-    const frontBenchY = Math.max(380, maintY - 14);
-    const backWallY = Math.min(266, Math.round(frontBenchY * 0.62));
+    const frontBenchY = Math.max(380 + safeTop, maintY - 14);
+    const backWallY = Math.min(266 + safeTop, Math.round(frontBenchY * 0.62));
     return {
+      safeTop,
       bottomFooterY,
       secondaryBtnY,
       primaryBtnY,
@@ -169,6 +170,7 @@ export class MenuScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
     const layout = this.getLayout(height);
+    const safeTop = layout.safeTop;
     const cfg = this.getLabConfig();
     const baseTier = LAB_TIERS[cfg.labLvl] || LAB_TIERS[1];
     const customTheme = LAB_THEMES[cfg.themeId];
@@ -189,7 +191,7 @@ export class MenuScene extends Phaser.Scene {
     this.createTopBar(width, tier);
 
     if (this.isVisiting()) {
-      this.add.text(width / 2, 86, `👁️ В ГОСТЯХ: ${this.visitProfile.name}`, {
+      this.add.text(width / 2, safeTop + 86, `👁️ В ГОСТЯХ: ${this.visitProfile.name}`, {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '20px',
         fontWeight: '700',
@@ -200,11 +202,11 @@ export class MenuScene extends Phaser.Scene {
 
       this.add.text(
         width / 2,
-        116,
+        safeTop + 116,
         `Ур. ${cfg.labLvl} · ${tier.name} · Индекс: ${this.visitProfile.score} 🏆`,
         {
           fontFamily: '"Rubik", sans-serif',
-          fontSize: '11px',
+          fontSize: '12px',
           fontWeight: '600',
           color: '#fde68a',
           backgroundColor: '#1c1917cc',
@@ -217,7 +219,7 @@ export class MenuScene extends Phaser.Scene {
       return;
     }
 
-    this.add.text(width / 2, 90, 'ROCK LAB', {
+    this.add.text(width / 2, safeTop + 90, 'ROCK LAB', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '32px',
       fontWeight: '700',
@@ -240,9 +242,9 @@ export class MenuScene extends Phaser.Scene {
       subLabel += ` · 🏗️ Строек: ${completedMegas}/${MEGA_PROJECTS.length}`;
     }
 
-    this.add.text(width / 2, 122, subLabel, {
+    this.add.text(width / 2, safeTop + 122, subLabel, {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '11px',
+      fontSize: '12px',
       fontWeight: '600',
       color: auditLeft > 0 ? '#4ade80' : repInfo.colorHex,
       backgroundColor: '#1c1917cc',
@@ -300,7 +302,7 @@ export class MenuScene extends Phaser.Scene {
     );
 
     this.add.text(width / 2, layout.bottomFooterY, 'EASY DOPAMINE GAMES', {
-      fontFamily: '"JetBrains Mono", monospace',
+      fontFamily: '"Rubik", sans-serif',
       fontSize: '11px',
       fontWeight: '700',
       letterSpacing: 2,
@@ -318,6 +320,7 @@ export class MenuScene extends Phaser.Scene {
   runMenuTutorialStep(width, height, layout) {
     if (!TutorialManager.isActive()) return;
     const step = TutorialManager.getStep();
+    const safeTop = layout.safeTop;
 
     if (step < 7) {
       TutorialManager.advanceTo(0);
@@ -329,37 +332,37 @@ export class MenuScene extends Phaser.Scene {
       });
     } else {
       TutorialManager.showSpotlight(this, {
-        hole: { x: width / 2, y: layout.maintY + 38, w: 352, h: 84 },
-        cardY: 265,
+        hole: { x: width / 2, y: layout.maintY + 39, w: 364, h: 86 },
+        cardY: safeTop + 265,
         badge: 'ОБЗОР 1/4 · РАСХОДНИКИ, ИЗНОС И РЕМОНТ',
         text: 'На простых заказах пила, абразив и поверка тратятся медленно (5–6%),\nно крепкие породы и «Стройки века» изнашивают станки быстрее!\nЦена ТО растёт с уровнем лабы — если денег жалко, жми «🎬» для ремонта за рекламу.',
         nextLabel: 'ДАЛЕЕ: МАГАЗИН, МУЗЫКА И ПЛЕЕР →',
         onNext: () => {
           TutorialManager.showSpotlight(this, {
             hole: { x: width / 2, y: layout.playerY, w: 348, h: 54 },
-            cardY: 265,
+            cardY: safeTop + 265,
             badge: 'ОБЗОР 2/4 · МАГАЗИН, МУЗЫКА И ПЛЕЕР',
             text: 'В «⚙️ МАГАЗИНЕ» открываются стенды, скины, роботы и музыкальные паки.\nВ плеере тап по треку листает песни, а правая кнопка переключает\nповтор одного трека или проигрывание всех треков по кругу!',
             nextLabel: 'ДАЛЕЕ: ВИТРИНА И ЭКСПЕДИЦИИ →',
             onNext: () => {
               TutorialManager.showSpotlight(this, {
-                hole: { x: 43, y: 220, w: 66, h: 156 },
-                cardY: 350,
+                hole: { x: 43, y: safeTop + 220, w: 66, h: 156 },
+                cardY: safeTop + 350,
                 badge: 'ОБЗОР 3/4 · ВИТРИНА И ЭКСПЕДИЦИИ',
                 text: 'Витрина минералов открывается со 2-го уровня лаборатории (купи её в магазине,\nчтобы ставить кристаллы на полку и крутить в 3D).\nБуровые экспедиции открываются после завершения 1-й «Стройки века»!',
                 nextLabel: 'ДАЛЕЕ: РЕПУТАЦИЯ, ТОП И ФИНАЛ →',
                 onNext: () => {
                   TutorialManager.showSpotlight(this, {
-                    hole: { x: width - 140, y: 32, w: 268, h: 44 },
-                    cardY: 270,
+                    hole: { x: width / 2, y: safeTop + 32, w: width - 12, h: 52 },
+                    cardY: safeTop + 280,
                     badge: 'ОБЗОР 4/4 · РЕПУТАЦИЯ ★ И РЕЙТИНГ ТОП',
-                    text: 'Звёздочки ★ влияют на доход: ниже 5★ штраф −15%, от 25★ бонус +15%!\nА глобальный индекс в «🌐 ТОП» только растёт — за заказы, точность и серию без брака.\nОбучение всегда доступно в «ГИД». Забирай премию +200 ₽!',
+                    text: 'Звёздочки ★ в шапке влияют на доход: ниже 5★ штраф −15%, от 25★ бонус +15%!\nА глобальный индекс в «🌐 ТОП» только растёт — за заказы, точность и серию без брака.\nОбучение всегда доступно в «ГИД». Забирай премию +200 ₽!',
                     nextLabel: '🎉 ЗАВЕРШИТЬ И ЗАБРАТЬ +200 ₽!',
                     onNext: () => {
                       TutorialManager.complete(this);
                       Storage.addMoney(200);
                       AudioManager.playStamp();
-                      this.particles.emitParticleAt(width / 2, 260, 24);
+                      this.particles.emitParticleAt(width / 2, safeTop + 260, 24);
                       if (this.moneyTxt) this.moneyTxt.setText(`💰 ${Storage.getMoney()} ₽`);
                     }
                   });
@@ -390,7 +393,7 @@ export class MenuScene extends Phaser.Scene {
       `Тапай по приборам, витрине и роботам коллеги!\n★ Репутация: ${this.visitProfile.reputation}  ·  Строек века: ${this.visitProfile.completedMegas}/4`,
       {
         fontFamily: '"Rubik", sans-serif',
-        fontSize: '11px',
+        fontSize: '12px',
         color: '#e2e8f0',
         align: 'center',
         lineSpacing: 5
@@ -457,11 +460,11 @@ export class MenuScene extends Phaser.Scene {
     const bubble = this.add.container(targetContainer.x, targetContainer.y - 74).setDepth(28);
     const label = this.add.text(0, 0, text, {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '10px',
+      fontSize: '11px',
       fontWeight: '700',
       color: '#0f172a',
       align: 'center',
-      wordWrap: { width: 150 }
+      wordWrap: { width: 156 }
     }).setOrigin(0.5);
 
     const padX = 10;
@@ -513,17 +516,19 @@ export class MenuScene extends Phaser.Scene {
     const hasCooler = cfg.hasDecor('cooler');
     const hasPlants = cfg.hasDecor('plants');
 
+    const safeTop = layout.safeTop;
+    const topWallStart = 64 + safeTop;
     const backWallY = layout.backWallY;
     const frontBenchY = layout.frontBenchY;
 
     g.fillStyle(tier.wall, 1);
-    g.fillRect(0, 64, w, backWallY - 64);
+    g.fillRect(0, topWallStart, w, backWallY - topWallStart);
 
     if (themeId === 'loft' || (themeId === 'default' && labLvl === 1)) {
       g.lineStyle(1, 0x000000, 0.22);
-      for (let by = 80; by < backWallY; by += 18) {
+      for (let by = topWallStart + 16; by < backWallY; by += 18) {
         g.lineBetween(0, by, w, by);
-        const shift = (by / 18) % 2 === 0 ? 0 : 20;
+        const shift = ((by - topWallStart) / 18) % 2 === 0 ? 0 : 20;
         for (let bx = shift; bx < w; bx += 40) {
           g.lineBetween(bx, by, bx, by + 18);
         }
@@ -531,9 +536,9 @@ export class MenuScene extends Phaser.Scene {
     } else {
       g.lineStyle(1.5, 0x000000, 0.16);
       for (let x = 0; x < w; x += 48) {
-        g.lineBetween(x, 64, x, backWallY);
+        g.lineBetween(x, topWallStart, x, backWallY);
       }
-      g.lineBetween(0, 165, w, 165);
+      g.lineBetween(0, topWallStart + 101, w, topWallStart + 101);
     }
 
     g.fillStyle(tier.floor, 1);
@@ -549,33 +554,34 @@ export class MenuScene extends Phaser.Scene {
     g.lineBetween(0, (backWallY + frontBenchY) / 2, w, (backWallY + frontBenchY) / 2);
 
     g.fillStyle(hasNeon ? 0x38bdf8 : 0xfef3c7, 0.06 + decorLvl * 0.02);
-    g.fillTriangle(w / 2, 66, 20, frontBenchY, w - 20, frontBenchY);
+    g.fillTriangle(w / 2, topWallStart + 2, 20, frontBenchY, w - 20, frontBenchY);
 
     g.fillStyle(0x27272a, 1);
-    g.fillRect(0, 66, w, 9);
+    g.fillRect(0, topWallStart + 2, w, 9);
     g.fillStyle(hasNeon ? 0x38bdf8 : tier.accent, hasNeon ? 0.9 : 0.35 + decorLvl * 0.08);
-    g.fillRect(0, 75, w, 4);
+    g.fillRect(0, topWallStart + 11, w, 4);
 
     const winX = w / 2 - 122;
     const winW = 216;
+    const winTopY = safeTop + 138;
     if (branchesCount > 0 || hasGeoMap) {
       g.fillStyle(0x0f172a, 1);
-      g.fillRoundedRect(winX, 138, winW, 78, 8);
+      g.fillRoundedRect(winX, winTopY, winW, 78, 8);
       g.lineStyle(2.5, branchesCount > 0 ? 0x38bdf8 : 0x4b5563, 1);
-      g.strokeRoundedRect(winX, 138, winW, 78, 8);
+      g.strokeRoundedRect(winX, winTopY, winW, 78, 8);
 
       g.fillStyle(0x15803d, 0.6);
-      g.fillRoundedRect(winX + 18, 152, 68, 36, 8);
-      g.fillRoundedRect(winX + 94, 148, 102, 46, 10);
+      g.fillRoundedRect(winX + 18, winTopY + 14, 68, 36, 8);
+      g.fillRoundedRect(winX + 94, winTopY + 10, 102, 46, 10);
 
-      const bNorilsk = { x: winX + 128, y: 158, active: cfg.hasRnd('branch_norilsk') };
-      const bUral = { x: winX + 104, y: 174, active: cfg.hasRnd('branch_ural') };
-      const bShelf = { x: winX + 182, y: 182, active: cfg.hasRnd('branch_shelf') };
+      const bNorilsk = { x: winX + 128, y: winTopY + 20, active: cfg.hasRnd('branch_norilsk') };
+      const bUral = { x: winX + 104, y: winTopY + 36, active: cfg.hasRnd('branch_ural') };
+      const bShelf = { x: winX + 182, y: winTopY + 44, active: cfg.hasRnd('branch_shelf') };
 
       g.lineStyle(1.5, 0x38bdf8, 0.8);
       [bNorilsk, bUral, bShelf].forEach((b) => {
         if (b.active) {
-          g.lineBetween(winX + 54, 170, b.x, b.y);
+          g.lineBetween(winX + 54, winTopY + 32, b.x, b.y);
         }
       });
 
@@ -594,12 +600,12 @@ export class MenuScene extends Phaser.Scene {
         }
       });
 
-      const mapZone = this.add.zone(winX + winW / 2, 177, winW, 78).setInteractive({ useHandCursor: true });
+      const mapZone = this.add.zone(winX + winW / 2, winTopY + 39, winW, 78).setInteractive({ useHandCursor: true });
       mapZone.on('pointerdown', () => {
         if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
         AudioManager.playClick();
         const passive = Storage.getPassiveBranchIncome();
-        const mapAnchor = this.add.container(winX + winW / 2, 224).setDepth(28);
+        const mapAnchor = this.add.container(winX + winW / 2, winTopY + 86).setDepth(28);
         this.showSpeechBubble(
           mapAnchor,
           branchesCount > 0
@@ -610,31 +616,31 @@ export class MenuScene extends Phaser.Scene {
       });
     } else if (labLvl >= 5) {
       g.fillStyle(0x0284c9, 0.45);
-      g.fillRoundedRect(winX, 138, winW, 78, 8);
+      g.fillRoundedRect(winX, winTopY, winW, 78, 8);
       g.lineStyle(3, 0x94a3b8, 1);
-      g.strokeRoundedRect(winX, 138, winW, 78, 8);
+      g.strokeRoundedRect(winX, winTopY, winW, 78, 8);
       g.fillStyle(0x334155, 0.92);
-      g.fillTriangle(winX + 8, 214, winX + 64, 158, winX + 120, 214);
-      g.fillTriangle(winX + 94, 214, winX + 158, 152, winX + winW - 8, 214);
+      g.fillTriangle(winX + 8, winTopY + 76, winX + 64, winTopY + 20, winX + 120, winTopY + 76);
+      g.fillTriangle(winX + 94, winTopY + 76, winX + 158, winTopY + 14, winX + winW - 8, winTopY + 76);
     } else {
       g.fillStyle(0x14161b, 1);
-      g.fillRoundedRect(winX + 12, 140, 192, 74, 8);
+      g.fillRoundedRect(winX + 12, winTopY + 2, 192, 74, 8);
       g.lineStyle(2.5, 0x4b5563, 1);
-      g.strokeRoundedRect(winX + 12, 140, 192, 74, 8);
+      g.strokeRoundedRect(winX + 12, winTopY + 2, 192, 74, 8);
       g.fillStyle(0x0ea5e9, 0.12);
-      g.fillRect(winX + 18, 146, 180, 62);
+      g.fillRect(winX + 18, winTopY + 8, 180, 62);
       g.lineStyle(2, tier.accent, 0.9);
       g.beginPath();
-      g.moveTo(winX + 28, 198);
-      g.lineTo(winX + 70, 182);
-      g.lineTo(winX + 112, 160);
-      g.lineTo(winX + 148, 154);
-      g.lineTo(winX + 180, 194);
+      g.moveTo(winX + 28, winTopY + 60);
+      g.lineTo(winX + 70, winTopY + 44);
+      g.lineTo(winX + 112, winTopY + 22);
+      g.lineTo(winX + 148, winTopY + 16);
+      g.lineTo(winX + 180, winTopY + 56);
       g.strokePath();
     }
 
     const trophyX = w - 134;
-    const trophyY = 140;
+    const trophyY = safeTop + 140;
     const trophyW = 62;
     const trophyH = 76;
 
@@ -702,7 +708,7 @@ export class MenuScene extends Phaser.Scene {
 
     if (showcaseLvl > 0) {
       const shelfX = 14;
-      const shelfY = 148;
+      const shelfY = safeTop + 148;
       const shelfW = 58;
       const shelfH = 144;
 
@@ -743,8 +749,8 @@ export class MenuScene extends Phaser.Scene {
         .setStrokeStyle(1, 0x7dd3fc, 0.55);
 
       this.add.text(shelfX + shelfW / 2, shelfY + shelfH + 10, `💎 ${totalGemsCount}/${RARE_INCLUSIONS.length}`, {
-        fontFamily: '"JetBrains Mono", monospace',
-        fontSize: '9px',
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '10px',
         fontWeight: '700',
         color: '#fef3c7',
         backgroundColor: '#14161bdd',
@@ -771,22 +777,22 @@ export class MenuScene extends Phaser.Scene {
       });
     } else if (!this.isVisiting() && totalGemsCount > 0) {
       const boxX = 14;
-      const boxY = 246;
+      const boxY = safeTop + 246;
       g.fillStyle(0x292524, 0.95);
       g.fillRoundedRect(boxX, boxY, 58, 48, 6);
       g.lineStyle(1.5, 0x78716c, 0.8);
       g.strokeRoundedRect(boxX, boxY, 58, 48, 6);
 
       this.add.text(boxX + 29, boxY + 15, '📦 СКЛАД', {
-        fontFamily: '"JetBrains Mono", monospace',
-        fontSize: '9px',
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '10px',
         fontWeight: '700',
         color: '#fde68a'
       }).setOrigin(0.5);
 
       this.add.text(boxX + 29, boxY + 32, `💎 ${totalGemsCount} шт.`, {
-        fontFamily: '"JetBrains Mono", monospace',
-        fontSize: '10px',
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
         fontWeight: '700',
         color: '#38bdf8'
       }).setOrigin(0.5);
@@ -844,17 +850,18 @@ export class MenuScene extends Phaser.Scene {
       g.fillCircle(px + 8, floorLineY - 22, 8);
     }
 
+    const boardY = safeTop + 146;
     g.fillStyle(0xfef3c7, 0.92);
-    g.fillRect(w - 62, 146, 44, 56);
+    g.fillRect(w - 62, boardY, 44, 56);
     g.lineStyle(2, 0x78350f, 1);
-    g.strokeRect(w - 62, 146, 44, 56);
+    g.strokeRect(w - 62, boardY, 44, 56);
     g.fillStyle(0x78350f, 0.75);
-    g.fillRect(w - 55, 155, 30, 4);
-    g.fillRect(w - 55, 164, 22, 4);
-    g.fillRect(w - 55, 173, 26, 4);
+    g.fillRect(w - 55, boardY + 9, 30, 4);
+    g.fillRect(w - 55, boardY + 18, 22, 4);
+    g.fillRect(w - 55, boardY + 27, 26, 4);
     if (labLvl >= 3) {
       g.fillStyle(0xd97706, 1);
-      g.fillCircle(w - 40, 189, 6);
+      g.fillCircle(w - 40, boardY + 43, 6);
     }
 
     g.fillStyle(tier.table, 1);
@@ -876,7 +883,7 @@ export class MenuScene extends Phaser.Scene {
     dim.fillRect(0, 0, width, height);
 
     const cardW = 368;
-    const cardH = 340;
+    const cardH = 348;
     const cx = width / 2;
     const cy = height / 2;
 
@@ -890,15 +897,15 @@ export class MenuScene extends Phaser.Scene {
     const streak = Storage.getPerfectStreak();
     const globalIdx = Storage.getLabIndexScore();
 
-    const title = this.add.text(cx, cy - 134, `★ РЕПУТАЦИЯ: ${Storage.getReputation()}`, {
+    const title = this.add.text(cx, cy - 138, `★ РЕПУТАЦИЯ: ${Storage.getReputation()}`, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '18px',
       fontWeight: '700',
       color: '#38bdf8'
     }).setOrigin(0.5);
 
-    const rankBadge = this.add.text(cx, cy - 102, `${repInfo.tierName} (${repInfo.shortTag})`, {
-      fontFamily: '"JetBrains Mono", monospace',
+    const rankBadge = this.add.text(cx, cy - 104, `${repInfo.tierName} (${repInfo.shortTag})`, {
+      fontFamily: '"Rubik", sans-serif',
       fontSize: '12px',
       fontWeight: '700',
       color: repInfo.colorHex,
@@ -906,7 +913,7 @@ export class MenuScene extends Phaser.Scene {
       padding: { x: 10, y: 5 }
     }).setOrigin(0.5);
 
-    const desc = this.add.text(cx, cy - 42, repInfo.desc, {
+    const desc = this.add.text(cx, cy - 44, repInfo.desc, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '12px',
       color: '#e2e8f0',
@@ -917,18 +924,18 @@ export class MenuScene extends Phaser.Scene {
 
     const scaleInfo = this.add.text(
       cx,
-      cy + 42,
+      cy + 44,
       `Шкала лиг:\n• Ниже 5 ★ — штраф −15% к оплате\n• 5–24 ★ — стандартная оплата 100%\n• 25–49 ★ — бонус +15% · от 50 ★ — +25%\n\n🏆 Глобальный индекс ТОП: ${globalIdx}  |  🔥 Стрик без брака: ${streak}`,
       {
-        fontFamily: '"JetBrains Mono", monospace',
-        fontSize: '10px',
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
         color: '#fde68a',
         align: 'center',
         lineSpacing: 4
       }
     ).setOrigin(0.5);
 
-    const closeBtn = this.add.text(cx, cy + 132, 'ПОНЯТНО', {
+    const closeBtn = this.add.text(cx, cy + 136, 'ПОНЯТНО', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '13px',
       fontWeight: '700',
@@ -982,8 +989,8 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0, 0.5);
 
     const renameBtn = this.add.text(boxX + boxW - 18, boxY + 52, '✏️ ИЗМЕНИТЬ НИК', {
-      fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '10px',
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '11px',
       fontWeight: '700',
       color: '#0f172a',
       backgroundColor: '#facc15',
@@ -1057,7 +1064,7 @@ export class MenuScene extends Phaser.Scene {
 
       const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
       const rankTxt = this.add.text(boxX + 34, ry + rowH / 2, medal, {
-        fontFamily: '"JetBrains Mono", monospace',
+        fontFamily: '"Rubik", sans-serif',
         fontSize: rank <= 3 ? '18px' : '13px',
         fontWeight: '700',
         color: '#facc15'
@@ -1080,8 +1087,8 @@ export class MenuScene extends Phaser.Scene {
         ry + 42,
         `Индекс: ${entry.score} · Ур.${entry.labLevel} · ★${entry.reputation}`,
         {
-          fontFamily: '"JetBrains Mono", monospace',
-          fontSize: '10px',
+          fontFamily: '"Rubik", sans-serif',
+          fontSize: '11px',
           color: '#7dd3fc'
         }
       ).setOrigin(0, 0.5);
@@ -1093,7 +1100,7 @@ export class MenuScene extends Phaser.Scene {
         const btnY = ry + rowH / 2;
         const visitBtn = this.add.text(btnX, btnY, '👁️ В ГОСТИ', {
           fontFamily: '"Rubik", sans-serif',
-          fontSize: '10px',
+          fontSize: '11px',
           fontWeight: '700',
           color: '#0f172a',
           backgroundColor: '#4ade80',
@@ -1247,8 +1254,8 @@ export class MenuScene extends Phaser.Scene {
         ry + 16,
         isDone ? '✅ ПОЛУЧЕНО' : `+${ach.rewardMoney}₽ ★${ach.rewardRep}`,
         {
-          fontFamily: '"JetBrains Mono", monospace',
-          fontSize: '9px',
+          fontFamily: '"Rubik", sans-serif',
+          fontSize: '10px',
           fontWeight: '700',
           color: isDone ? '#4ade80' : '#38bdf8'
         }
@@ -1369,7 +1376,7 @@ export class MenuScene extends Phaser.Scene {
         modalContainer.add(miniGem);
       } else {
         const qBox = this.add.text(boxX + 36, ry + rowH / 2, '?', {
-          fontFamily: '"JetBrains Mono", monospace',
+          fontFamily: '"Rubik", sans-serif',
           fontSize: '15px',
           fontWeight: '700',
           color: '#94a3b8',
@@ -1424,8 +1431,8 @@ export class MenuScene extends Phaser.Scene {
             ry + rowH / 2,
             isShown ? '✅ НА ПОЛКЕ' : '+ НА ПОЛКУ',
             {
-              fontFamily: '"JetBrains Mono", monospace',
-              fontSize: '9px',
+              fontFamily: '"Rubik", sans-serif',
+              fontSize: '10px',
               fontWeight: '700',
               color: isShown ? '#0f172a' : '#fef3c7',
               backgroundColor: isShown ? '#4ade80' : '#334155',
@@ -1501,7 +1508,7 @@ export class MenuScene extends Phaser.Scene {
     panel.strokeRoundedRect(cx - cardW / 2, cy - cardH / 2, cardW, cardH, 18);
 
     const header = this.add.text(cx, cy - cardH / 2 + 28, '🔬 3D-ОСМОТР ОБРАЗЦА', {
-      fontFamily: '"JetBrains Mono", monospace',
+      fontFamily: '"Rubik", sans-serif',
       fontSize: '12px',
       fontWeight: '700',
       color: '#7dd3fc'
@@ -1527,8 +1534,8 @@ export class MenuScene extends Phaser.Scene {
     const mineralObj = MineralRenderer.createMineralDisplay(this, cx, stageY, gem.id, 2.05, true);
 
     const dragHint = this.add.text(cx, stageY + 80, '↔ ПРОВЕДИ ПАЛЬЦЕМ, ЧТОБЫ ПОКРУТИТЬ ОБРАЗЕЦ', {
-      fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '9px',
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '10px',
       fontWeight: '700',
       color: '#facc15'
     }).setOrigin(0.5);
@@ -1538,8 +1545,8 @@ export class MenuScene extends Phaser.Scene {
       cy + 92,
       `Класс: ${gem.rarity}  ·  Оценочная стоимость: ${gem.value} ₽`,
       {
-        fontFamily: '"JetBrains Mono", monospace',
-        fontSize: '10px',
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
         fontWeight: '700',
         color: '#4ade80',
         backgroundColor: '#0f172a',
@@ -1581,27 +1588,30 @@ export class MenuScene extends Phaser.Scene {
   }
 
   createTopBar(w, tier) {
-    const barH = 64;
+    const safeTop = window.__SAFE_TOP__ || 0;
+    const barH = 64 + safeTop;
+    const contentY = safeTop + 32;
+
     const g = this.add.graphics();
-    g.fillStyle(0x14161b, 0.96);
+    g.fillStyle(0x14161b, 0.98);
     g.fillRect(0, 0, w, barH);
     g.lineStyle(2, tier.accent, 0.65);
     g.lineBetween(0, barH, w, barH);
 
-    this.moneyTxt = this.add.text(14, 21, `💰 ${Storage.getMoney()} ₽`, {
-      fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '14px',
+    this.moneyTxt = this.add.text(12, contentY, `💰 ${Storage.getMoney()} ₽`, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '15px',
       fontWeight: '700',
       color: '#facc15'
-    });
+    }).setOrigin(0, 0.5);
 
     const repInfo = Storage.getReputationTierInfo();
-    const repTxt = this.add.text(140, 21, `★ ${Storage.getReputation()}`, {
-      fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '14px',
+    const repTxt = this.add.text(142, contentY, `★ ${Storage.getReputation()}`, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '15px',
       fontWeight: '700',
       color: repInfo.colorHex
-    }).setInteractive({ useHandCursor: true });
+    }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
 
     repTxt.on('pointerdown', () => {
       if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
@@ -1623,8 +1633,8 @@ export class MenuScene extends Phaser.Scene {
       drawPill(false);
 
       const t = this.add.text(0, 0, label, {
-        fontFamily: '"JetBrains Mono", monospace',
-        fontSize: '10px',
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '11px',
         fontWeight: '700',
         color: Phaser.Display.Color.IntegerToColor(textCol).rgba
       }).setOrigin(0.5);
@@ -1650,17 +1660,16 @@ export class MenuScene extends Phaser.Scene {
       return c;
     };
 
-    const btnH = 30;
-    const btnY = 32;
+    const btnH = 32;
 
     if (!this.isVisiting()) {
-      makeTopPill(w - 224, btnY, 54, btnH, 'ГИД', 0x334155, 0xfef3c7, () => {
+      makeTopPill(w - 224, contentY, 54, btnH, 'ГИД', 0x334155, 0xfef3c7, () => {
         AudioManager.playClick();
         TutorialManager.restart(this);
       });
     }
 
-    makeTopPill(w - 166, btnY, 54, btnH, '🌐 ТОП', 0x0284c7, 0xf0f9ff, () => {
+    makeTopPill(w - 165, contentY, 56, btnH, '🌐 ТОП', 0x0284c7, 0xf0f9ff, () => {
       this.showcaseModalOpen = true;
       AudioManager.playClick();
       this.openLeaderboardModal(tier);
@@ -1668,8 +1677,8 @@ export class MenuScene extends Phaser.Scene {
 
     const achCount = Storage.getUnlockedAchievements().length;
     makeTopPill(
-      w - 102,
-      btnY,
+      w - 100,
+      contentY,
       66,
       btnH,
       `🏆 ${achCount}/${ACHIEVEMENTS_CATALOG.length}`,
@@ -1682,8 +1691,8 @@ export class MenuScene extends Phaser.Scene {
       }
     );
 
-    const soundBtn = this.add.text(w - 14, btnY, Storage.isSoundEnabled() ? '🔊' : '🔇', {
-      fontSize: '20px'
+    const soundBtn = this.add.text(w - 12, contentY, Storage.isSoundEnabled() ? '🔊' : '🔇', {
+      fontSize: '21px'
     }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
     soundBtn.on('pointerdown', () => {
@@ -2352,8 +2361,8 @@ export class MenuScene extends Phaser.Scene {
 
   createMaintenancePanel(w, h, layout) {
     const panelY = layout.maintY;
-    const panelW = 340;
-    const panelH = 74;
+    const panelW = 354;
+    const panelH = 78;
     const startX = w / 2 - panelW / 2;
 
     if (this.maintContainer) {
@@ -2375,22 +2384,22 @@ export class MenuScene extends Phaser.Scene {
       const needsService = pct < 100;
 
       const card = this.add.graphics();
-      card.fillStyle(0x14161b, 0.95);
-      card.fillRoundedRect(x, panelY, colW, panelH, 8);
+      card.fillStyle(0x14161b, 0.96);
+      card.fillRoundedRect(x, panelY, colW, panelH, 9);
       card.lineStyle(1.5, isLow ? 0xf59e0b : 0x475569, 0.9);
-      card.strokeRoundedRect(x, panelY, colW, panelH, 8);
+      card.strokeRoundedRect(x, panelY, colW, panelH, 9);
 
-      const t1 = this.add.text(x + colW / 2, panelY + 12, item.label, {
+      const t1 = this.add.text(x + colW / 2, panelY + 13, item.label, {
         fontFamily: '"Rubik", sans-serif',
-        fontSize: '10px',
+        fontSize: '11px',
         fontWeight: '700',
-        color: '#e2e8f0'
+        color: '#f1f5f9'
       }).setOrigin(0.5);
 
       const pctColor = pct >= 70 ? '#4ade80' : pct >= 40 ? '#facc15' : '#f87171';
-      const t2 = this.add.text(x + colW / 2, panelY + 30, `${pct}%`, {
-        fontFamily: '"JetBrains Mono", monospace',
-        fontSize: '13px',
+      const t2 = this.add.text(x + colW / 2, panelY + 32, `${pct}%`, {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '15px',
         fontWeight: '700',
         color: pctColor
       }).setOrigin(0.5);
@@ -2398,26 +2407,25 @@ export class MenuScene extends Phaser.Scene {
       this.maintContainer.add([card, t1, t2]);
 
       if (!needsService) {
-        const okBadge = this.add.text(x + colW / 2, panelY + 54, 'В НОРМЕ', {
-          fontFamily: '"JetBrains Mono", monospace',
-          fontSize: '9px',
+        const okBadge = this.add.text(x + colW / 2, panelY + 57, 'В НОРМЕ', {
+          fontFamily: '"Rubik", sans-serif',
+          fontSize: '11px',
           fontWeight: '700',
-          color: '#94a3b8',
+          color: '#cbd5e1',
           backgroundColor: '#27272a',
-          padding: { x: 8, y: 3 }
+          padding: { x: 10, y: 4 }
         }).setOrigin(0.5);
         this.maintContainer.add(okBadge);
       } else {
         const canPay = Storage.getMoney() >= item.cost;
 
-        // Кнопка оплаты рублями (слева)
-        const payBtn = this.add.text(x + 6, panelY + 54, `${item.cost}₽`, {
-          fontFamily: '"JetBrains Mono", monospace',
-          fontSize: '9px',
+        const payBtn = this.add.text(x + 5, panelY + 57, `${item.cost}₽`, {
+          fontFamily: '"Rubik", sans-serif',
+          fontSize: '11px',
           fontWeight: '700',
           color: canPay ? '#0f172a' : '#94a3b8',
           backgroundColor: canPay ? '#facc15' : '#27272a',
-          padding: { x: 6, y: 3 }
+          padding: { x: 7, y: 4 }
         }).setOrigin(0, 0.5).setInteractive({ useHandCursor: canPay });
 
         if (canPay) {
@@ -2432,14 +2440,13 @@ export class MenuScene extends Phaser.Scene {
           });
         }
 
-        // Кнопка восстановления за рекламу (справа)
-        const adBtn = this.add.text(x + colW - 6, panelY + 54, '🎬 +55%', {
-          fontFamily: '"JetBrains Mono", monospace',
-          fontSize: '9px',
+        const adBtn = this.add.text(x + colW - 5, panelY + 57, '🎬+55%', {
+          fontFamily: '"Rubik", sans-serif',
+          fontSize: '10px',
           fontWeight: '700',
           color: '#0f172a',
           backgroundColor: '#38bdf8',
-          padding: { x: 5, y: 3 }
+          padding: { x: 6, y: 4 }
         }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
         adBtn.on('pointerdown', () => {
@@ -2476,7 +2483,7 @@ export class MenuScene extends Phaser.Scene {
 
     const curTrack = AudioManager.getCurrentTrack();
     this.trackTxt = this.add.text(-pw / 2 + 40, -7, curTrack.name, {
-      fontFamily: '"JetBrains Mono", monospace',
+      fontFamily: '"Rubik", sans-serif',
       fontSize: '11px',
       fontWeight: '700',
       color: '#fef3c7'
@@ -2485,7 +2492,7 @@ export class MenuScene extends Phaser.Scene {
     const defaultSub = 'ТАПНИ ЧТОБЫ СМЕНИТЬ ТРЕК ⏭';
     const subLabel = this.add.text(-pw / 2 + 40, 10, defaultSub, {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '9px',
+      fontSize: '10px',
       fontWeight: '600',
       color: '#94a3b8'
     }).setOrigin(0, 0.5);
@@ -2517,8 +2524,8 @@ export class MenuScene extends Phaser.Scene {
     const modeBtnContainer = this.add.container(modeX, 0);
     const modeBg = this.add.graphics();
     const modeLabel = this.add.text(0, 0, '', {
-      fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '9px',
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '10px',
       fontWeight: '700',
       align: 'center'
     }).setOrigin(0.5);
