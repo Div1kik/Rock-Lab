@@ -83,35 +83,39 @@ export class PrepScene extends Phaser.Scene {
       .setTint(this.contract.rock.color);
   }
 
-    create() {
+  create() {
     const { width, height } = this.scale;
+    this.safeTop = Math.max(window.__SAFE_TOP__ || 0, 28);
+    const st = this.safeTop;
 
     const bg = this.add.graphics();
     bg.fillStyle(0x181e29, 1);
     bg.fillRect(0, 0, width, height);
     bg.fillStyle(0x222a38, 1);
-    bg.fillRoundedRect(14, 92, width - 28, height - 110, 16);
+    bg.fillRoundedRect(14, 96 + st, width - 28, height - (112 + st), 16);
     bg.lineStyle(2, 0x334155, 1);
-    bg.strokeRoundedRect(14, 92, width - 28, height - 110, 16);
+    bg.strokeRoundedRect(14, 96 + st, width - 28, height - (112 + st), 16);
 
-    this.stepTxt = this.add.text(width / 2, 26, '', {
+    this.stepTxt = this.add.text(width / 2, 22 + st, '', {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '12px',
       fontWeight: '700',
       color: '#7dd3fc'
     }).setOrigin(0.5);
 
-    this.titleTxt = this.add.text(width / 2, 54, '', {
+    this.titleTxt = this.add.text(width / 2, 54 + st, '', {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '19px',
+      fontSize: '15px',
       fontWeight: '700',
-      color: '#f8fafc'
+      color: '#f8fafc',
+      align: 'center'
     }).setOrigin(0.5);
 
-    this.subTxt = this.add.text(width / 2, 78, '', {
+    this.subTxt = this.add.text(width / 2, 78 + st, '', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '12px',
-      color: '#cbd5e1'
+      color: '#cbd5e1',
+      align: 'center'
     }).setOrigin(0.5);
 
     SceneHUD.attachTestControls(this, {
@@ -164,6 +168,7 @@ export class PrepScene extends Phaser.Scene {
 
   startSawPhase(spec) {
     const { width, height } = this.scale;
+    const st = this.safeTop;
     this.stageContainer.removeAll(true);
     const sawLvl = Storage.getUpgradeLevel('saw');
     const sawWear = Storage.getWear('saw');
@@ -174,7 +179,7 @@ export class PrepScene extends Phaser.Scene {
 
     const hint = this.add.text(
       width / 2,
-      128,
+      128 + st,
       cutsNeeded === 2
         ? `Отрежь ДВЕ шайбы высотой H=${spec.targetH} мм (из керна Ø${spec.targetD} мм)\nЗажми подачу пилы для реза №1 и №2`
         : `Зажми подачу — отрежь цилиндр высотой H=${spec.targetH} мм (Ø${spec.targetD} мм)`,
@@ -187,7 +192,7 @@ export class PrepScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     const cx = width / 2;
-    const cy = 335;
+    const cy = 335 + st;
 
     const bed = this.add.graphics();
     bed.fillStyle(0x475569, 1);
@@ -310,7 +315,7 @@ export class PrepScene extends Phaser.Scene {
 
     const barW = 280;
     const barX = width / 2 - barW / 2;
-    const barY = 458;
+    const barY = 458 + st;
     const barBg = this.add.graphics();
     barBg.fillStyle(0x0f172a, 1);
     barBg.fillRoundedRect(barX, barY, barW, 22, 6);
@@ -318,7 +323,7 @@ export class PrepScene extends Phaser.Scene {
 
     const btn = this.createActionBtn(
       width / 2,
-      height - 110,
+      height - 96,
       310,
       74,
       cutsNeeded === 2 ? 'УДЕРЖИВАТЬ: ОТПИЛИТЬ ШАЙБУ №1' : 'УДЕРЖИВАТЬ: ОТРЕЗАТЬ КЕРН'
@@ -406,8 +411,8 @@ export class PrepScene extends Phaser.Scene {
     if (TutorialManager.isActive()) {
       TutorialManager.advanceTo(3);
       TutorialManager.showSpotlight(this, {
-        hole: { x: width / 2, y: height - 110, w: 326, h: 88 },
-        cardY: 204,
+        hole: { x: width / 2, y: height - 96, w: 326, h: 88 },
+        cardY: 204 + st,
         badge: 'ШАГ 4/8 · ОТРЕЗНОЙ СТАНОК',
         text: 'Удерживай кнопку подачи пилы, пока алмазный диск\nне отрежет цилиндр строго по зелёной разметке!'
       });
@@ -416,12 +421,13 @@ export class PrepScene extends Phaser.Scene {
 
   startSplitCrackPhase(spec) {
     const { width, height } = this.scale;
+    const st = this.safeTop;
     this.stageContainer.removeAll(true);
     this.titleTxt.setText('ГИДРАВЛИЧЕСКИЙ КОЛУН (СКОЛ)');
 
     const hint = this.add.text(
       width / 2,
-      128,
+      128 + st,
       'Зажми подачу клина, чтобы расколоть керн пополам\nдля испытания среза по неровной трещине!',
       {
         fontFamily: '"Rubik", sans-serif',
@@ -432,7 +438,7 @@ export class PrepScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     const cx = width / 2;
-    const cy = 345;
+    const cy = 345 + st;
 
     const anvil = this.add.rectangle(cx, cy + 56, 220, 26, 0x475569);
     const leftHalf = this.createRockBlock(cx - 46, cy + 8, 92, 70);
@@ -454,7 +460,7 @@ export class PrepScene extends Phaser.Scene {
     wedge.fillPath();
     wedge.strokePath();
 
-    const btn = this.createActionBtn(width / 2, height - 110, 310, 74, 'УДЕРЖИВАТЬ: РАСКОЛОТЬ КЕРН');
+    const btn = this.createActionBtn(width / 2, height - 96, 310, 74, 'УДЕРЖИВАТЬ: РАСКОЛОТЬ КЕРН');
 
     this.stageContainer.add([hint, anvil, leftHalf, rightHalf, ram, wedge, btn.container]);
 
@@ -496,13 +502,14 @@ export class PrepScene extends Phaser.Scene {
 
   startGrinderPhase(spec, grinderLvl) {
     const { width, height } = this.scale;
+    const st = this.safeTop;
     this.stageContainer.removeAll(true);
     const grinderWear = Storage.getWear('grinder');
-    this.titleTxt.setText(`ТОРЦЕШЛИФОВАЛЬНЫЙ СТАНОК [Ур. ${grinderLvl} · Круг ${grinderWear}%]`);
+    this.titleTxt.setText(`ТОРЦЕШЛИФОВАЛЬНЫЙ [Ур. ${grinderLvl} · Круг ${grinderWear}%]`);
 
     const hint = this.add.text(
       width / 2,
-      128,
+      128 + st,
       'Обязательная шлифовка торцов по ГОСТ 21153.2!\nЗажми круг, чтобы убрать заусенцы после пилы',
       {
         fontFamily: '"Rubik", sans-serif',
@@ -513,7 +520,7 @@ export class PrepScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     const cx = width / 2;
-    const cy = 325;
+    const cy = 325 + st;
 
     const wheelColors = [0x94a3b8, 0x38bdf8, 0x34d399, 0x818cf8, 0xfbbf24];
     const wColor = wheelColors[Math.min(wheelColors.length - 1, grinderLvl - 1)];
@@ -568,20 +575,20 @@ export class PrepScene extends Phaser.Scene {
 
     const barW = 280;
     const barX = width / 2 - barW / 2;
-    const barY = 462;
+    const barY = 462 + st;
     const barBg = this.add.graphics();
     barBg.fillStyle(0x0f172a, 1);
     barBg.fillRoundedRect(barX, barY, barW, 22, 6);
     const barFill = this.add.rectangle(barX + 3, barY + 3, 2, 16, wColor).setOrigin(0, 0);
 
-    const statusTxt = this.add.text(width / 2, 498, 'Неплоскостность торцов: 0.45 мм', {
+    const statusTxt = this.add.text(width / 2, 498 + st, 'Неплоскостность торцов: 0.45 мм', {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '13px',
       fontWeight: '700',
       color: '#fde68a'
     }).setOrigin(0.5);
 
-    const btn = this.createActionBtn(width / 2, height - 110, 310, 74, 'УДЕРЖИВАТЬ: ШЛИФОВКА ТОРЦОВ');
+    const btn = this.createActionBtn(width / 2, height - 96, 310, 74, 'УДЕРЖИВАТЬ: ШЛИФОВКА ТОРЦОВ');
 
     this.stageContainer.add([
       hint, guardG, wheelContainer, core, burrs, barBg, barFill, statusTxt, btn.container
@@ -637,8 +644,8 @@ export class PrepScene extends Phaser.Scene {
     if (TutorialManager.isActive()) {
       TutorialManager.advanceTo(4);
       TutorialManager.showSpotlight(this, {
-        hole: { x: width / 2, y: height - 110, w: 326, h: 88 },
-        cardY: 204,
+        hole: { x: width / 2, y: height - 96, w: 326, h: 88 },
+        cardY: 204 + st,
         badge: 'ШАГ 5/8 · ШЛИФОВКА ПО ГОСТу',
         text: 'Зажми шлифовальный круг — убери заусенцы с торцов\nдо допуска ≤ 0.05 мм, иначе пресс исказит результат!'
       });
@@ -647,6 +654,7 @@ export class PrepScene extends Phaser.Scene {
 
   startMeasurePhase(spec) {
     const { width, height } = this.scale;
+    const st = this.safeTop;
     this.stageContainer.removeAll(true);
     const calLvl = Storage.getUpgradeLevel('caliper');
     const hasAutoModule = Storage.hasCaliperAuto();
@@ -654,7 +662,7 @@ export class PrepScene extends Phaser.Scene {
 
     const hint = this.add.text(
       width / 2,
-      126,
+      126 + st,
       `1) Замерь высоту H (↔ норма ${spec.targetH} мм)\n2) Замерь диаметр D (↕ норма ${spec.targetD} мм)`,
       {
         fontFamily: '"Rubik", sans-serif',
@@ -665,7 +673,7 @@ export class PrepScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     const cx = width / 2;
-    const cy = 288;
+    const cy = 288 + st;
 
     const calThemes = [
       { bar: 0x94a3b8, slider: 0x334155, accent: 0x38bdf8 },
@@ -753,13 +761,13 @@ export class PrepScene extends Phaser.Scene {
 
     const lcdBg = this.add.graphics();
     lcdBg.fillStyle(0x0f172a, 1);
-    lcdBg.fillRoundedRect(cx - 165, 456, 330, 54, 10);
+    lcdBg.fillRoundedRect(cx - 165, 456 + st, 330, 54, 10);
     lcdBg.lineStyle(2, theme.accent, 0.75);
-    lcdBg.strokeRoundedRect(cx - 165, 456, 330, 54, 10);
+    lcdBg.strokeRoundedRect(cx - 165, 456 + st, 330, 54, 10);
 
     const lcdText = this.add.text(
       cx,
-      483,
+      483 + st,
       `ВЫСОТА H: ${(spec.targetH + 25).toFixed(1)} мм (норма ${spec.targetH})`,
       {
         fontFamily: '"JetBrains Mono", monospace',
@@ -769,14 +777,14 @@ export class PrepScene extends Phaser.Scene {
       }
     ).setOrigin(0.5);
 
-    const resultSummary = this.add.text(width / 2, 526, '', {
+    const resultSummary = this.add.text(width / 2, 526 + st, '', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '13px',
       fontWeight: '600',
       color: '#4ade80'
     }).setOrigin(0.5);
 
-    const btn = this.createActionBtn(width / 2, height - 110, 310, 74, '');
+    const btn = this.createActionBtn(width / 2, height - 96, 310, 74, '');
 
     const items = [
       hint, core, hCaliperGroup, vCaliperGroup, lcdBg, lcdText, resultSummary, btn.container
@@ -801,7 +809,7 @@ export class PrepScene extends Phaser.Scene {
     updateActionButtonLabel();
 
     if (hasAutoModule) {
-      const modeSwitchBtn = this.add.text(width / 2, 168, '', {
+      const modeSwitchBtn = this.add.text(width / 2, 168 + st, '', {
         fontFamily: '"JetBrains Mono", monospace',
         fontSize: '11px',
         fontWeight: '700',
@@ -947,8 +955,8 @@ export class PrepScene extends Phaser.Scene {
     if (TutorialManager.isActive()) {
       TutorialManager.advanceTo(5);
       TutorialManager.showSpotlight(this, {
-        hole: { x: width / 2, y: height - 110, w: 326, h: 88 },
-        cardY: 204,
+        hole: { x: width / 2, y: height - 96, w: 326, h: 88 },
+        cardY: 204 + st,
         badge: 'ШАГ 6/8 · ЗАМЕР ГЕОМЕТРИИ',
         text: 'Зажми кнопку и отпусти, когда губки штангенциркуля\nсомкнутся по краям керна (сначала высота H, затем диаметр D)!'
       });
