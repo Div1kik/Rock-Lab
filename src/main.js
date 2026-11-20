@@ -9,12 +9,35 @@ import { ReportScene } from './scenes/ReportScene.js';
 import { UpgradeScene } from './scenes/UpgradeScene.js';
 import { GuideScene } from './scenes/GuideScene.js';
 
-// Глобальное повышение чёткости всех шрифтов под HiDPI / Retina экраны смартфонов
+const getSafeAreaTopLogical = () => {
+  if (typeof window === 'undefined' || !document?.documentElement) return 0;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--sat') || '0px';
+  const px = parseFloat(raw) || 0;
+  const cw = window.innerWidth || 480;
+  const scale = 480 / Math.max(1, cw);
+  return Math.round(Phaser.Math.Clamp(px * scale, 0, 56));
+};
+
+// Глобальное улучшение читаемости и плавности шрифтов на всех экранах
 const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 3) : 1;
 const origTextFactory = Phaser.GameObjects.GameObjectFactory.prototype.text;
 Phaser.GameObjects.GameObjectFactory.prototype.text = function (x, y, text, style = {}) {
-  const mergedStyle = { resolution: dpr, ...style };
-  const txtObj = origTextFactory.call(this, x, y, text, mergedStyle);
+  const nextStyle = { resolution: dpr, ...style };
+
+  // Заменяем резкий моноширинный шрифт на гладкий Rubik
+  if (nextStyle.fontFamily && nextStyle.fontFamily.includes('JetBrains Mono')) {
+    nextStyle.fontFamily = '"Rubik", -apple-system, BlinkMacSystemFont, sans-serif';
+  }
+
+  // Чуть увеличиваем мелкие кегли для комфортного чтения на смартфоне
+  if (typeof nextStyle.fontSize === 'string' && nextStyle.fontSize.endsWith('px')) {
+    const num = parseFloat(nextStyle.fontSize);
+    if (!Number.isNaN(num) && num <= 14) {
+      nextStyle.fontSize = `${Math.round(num + 1.5)}px`;
+    }
+  }
+
+  const txtObj = origTextFactory.call(this, x, y, text, nextStyle);
   if (typeof txtObj.setResolution === 'function') {
     txtObj.setResolution(dpr);
   }
@@ -31,13 +54,14 @@ const computeLogicalHeight = () => {
 
 const initGame = async () => {
   await PlatformSDK.init();
+  window.__SAFE_TOP__ = getSafeAreaTopLogical();
 
   const config = {
     type: Phaser.AUTO,
     parent: 'game-container',
     width: 480,
     height: computeLogicalHeight(),
-    backgroundColor: '#161412',
+    backgroundColor: '#14161b',
     pixelArt: false,
     antialias: true,
     roundPixels: false,
@@ -61,6 +85,7 @@ const initGame = async () => {
   const game = new Phaser.Game(config);
 
   window.addEventListener('resize', () => {
+    window.__SAFE_TOP__ = getSafeAreaTopLogical();
     const newH = computeLogicalHeight();
     if (Math.abs(game.scale.height - newH) > 4) {
       game.scale.resize(480, newH);
