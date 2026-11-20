@@ -1,3 +1,4 @@
+import { SceneHUD } from '../utils/SceneHUD.js';
 import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
 import { TEST_CATALOG } from '../data/contracts.js';
@@ -32,7 +33,7 @@ export class TestScene extends Phaser.Scene {
       .setTint(this.contract.rock.color);
   }
 
-  create() {
+    create() {
     const { width, height } = this.scale;
 
     const bg = this.add.graphics();
@@ -62,6 +63,11 @@ export class TestScene extends Phaser.Scene {
       fontSize: '11px',
       color: this.isFrozenRock ? '#38bdf8' : '#cbd5e1'
     }).setOrigin(0.5);
+
+    SceneHUD.attachTestControls(this, {
+      onBeforeExit: () => AudioManager.stopPressHum()
+    });
+
 
     this.tempBadge = null;
     if (this.isFrozenRock) {
