@@ -33,45 +33,48 @@ export class TestScene extends Phaser.Scene {
       .setTint(this.contract.rock.color);
   }
 
-    create() {
+  create() {
     const { width, height } = this.scale;
+    this.safeTop = Math.max(window.__SAFE_TOP__ || 0, 28);
+    const st = this.safeTop;
 
     const bg = this.add.graphics();
     bg.fillStyle(0x181e29, 1);
     bg.fillRect(0, 0, width, height);
     bg.fillStyle(0x222a38, 1);
-    bg.fillRoundedRect(14, 96, width - 28, height - 114, 16);
+    bg.fillRoundedRect(14, 96 + st, width - 28, height - (112 + st), 16);
     bg.lineStyle(2, 0x334155, 1);
-    bg.strokeRoundedRect(14, 96, width - 28, height - 114, 16);
+    bg.strokeRoundedRect(14, 96 + st, width - 28, height - (112 + st), 16);
 
-    this.stepTxt = this.add.text(width / 2, 24, '', {
+    this.stepTxt = this.add.text(width / 2, 22 + st, '', {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '12px',
       fontWeight: '700',
       color: '#7dd3fc'
     }).setOrigin(0.5);
 
-    this.titleTxt = this.add.text(width / 2, 50, '', {
+    this.titleTxt = this.add.text(width / 2, 50 + st, '', {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '18px',
+      fontSize: '15px',
       fontWeight: '700',
-      color: '#f8fafc'
+      color: '#f8fafc',
+      align: 'center'
     }).setOrigin(0.5);
 
-    this.subTxt = this.add.text(width / 2, 74, `${this.contract.rock.name} · ${this.contract.rock.traitLabel}`, {
+    this.subTxt = this.add.text(width / 2, 74 + st, `${this.contract.rock.name} · ${this.contract.rock.traitLabel}`, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '11px',
-      color: this.isFrozenRock ? '#38bdf8' : '#cbd5e1'
+      color: this.isFrozenRock ? '#38bdf8' : '#cbd5e1',
+      align: 'center'
     }).setOrigin(0.5);
 
     SceneHUD.attachTestControls(this, {
       onBeforeExit: () => AudioManager.stopPressHum()
     });
 
-
     this.tempBadge = null;
     if (this.isFrozenRock) {
-      this.tempBadge = this.add.text(width - 24, 108, '❄️ -12.0°C', {
+      this.tempBadge = this.add.text(width - 24, 108 + st, '❄️ -12.0°C', {
         fontFamily: '"JetBrains Mono", monospace',
         fontSize: '12px',
         fontWeight: '700',
@@ -221,6 +224,7 @@ export class TestScene extends Phaser.Scene {
 
   buildUniaxialTest() {
     const { width, height } = this.scale;
+    const st = this.safeTop;
     const pressLvl = Storage.getUpgradeLevel('press');
     const sensorsLvl = Storage.getUpgradeLevel('sensors');
     const hasGoldPress = Storage.hasRnd('rnd_gold_press');
@@ -231,7 +235,7 @@ export class TestScene extends Phaser.Scene {
 
     const hint = this.add.text(
       width / 2,
-      134,
+      134 + st,
       isBrittle
         ? '⚠️ Хрупкий гранит! Узкий пик разрушения —\nотпусти пресс точно в зелёной зоне!'
         : 'Зажми пресс и отпусти в ЗЕЛЁНОЙ зоне\nпрямо перед разрушением цилиндра',
@@ -244,7 +248,7 @@ export class TestScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     const cx = width / 2 - 18;
-    const cy = 335;
+    const cy = 335 + st;
 
     const frame = this.add.graphics();
     const colW = pressLvl >= 3 || hasGoldPress ? 22 : 18;
@@ -291,7 +295,7 @@ export class TestScene extends Phaser.Scene {
     const cracks = this.add.graphics();
 
     const barX = width - 58;
-    const barY = 215;
+    const barY = 215 + st;
     const barH = 240;
     const barW = 26;
 
@@ -320,7 +324,7 @@ export class TestScene extends Phaser.Scene {
       color: '#facc15'
     }).setOrigin(0.5);
 
-    const btn = this.createHoldButton(width / 2, height - 110, 310, 74, 'УДЕРЖИВАТЬ: ПОДАЧА ПРЕССА');
+    const btn = this.createHoldButton(width / 2, height - 96, 310, 74, 'УДЕРЖИВАТЬ: ПОДАЧА ПРЕССА');
 
     this.stageContainer.add([
       hint, frame, lowerPlaten, core, cracks, rod, piston, gaugeBg, needle, mpaReadout, btn.container
@@ -425,8 +429,8 @@ export class TestScene extends Phaser.Scene {
     if (TutorialManager.isActive()) {
       TutorialManager.advanceTo(6);
       TutorialManager.showSpotlight(this, {
-        hole: { x: width / 2, y: height - 110, w: 326, h: 88 },
-        cardY: 196,
+        hole: { x: width / 2, y: height - 96, w: 326, h: 88 },
+        cardY: 196 + st,
         badge: 'ШАГ 7/8 · ГИДРАВЛИЧЕСКИЙ ПРЕСС',
         text: 'Зажми подачу давления и ОТПУСТИ кнопку, когда жёлтая\nстрелка на шкале справа попадёт в ЗЕЛЁНУЮ зону!'
       });
@@ -435,6 +439,7 @@ export class TestScene extends Phaser.Scene {
 
   buildShearTest({ withVerticalLoad, isCrack }) {
     const { width, height } = this.scale;
+    const st = this.safeTop;
     const pressLvl = Storage.getUpgradeLevel('press');
     const totalHitsNeeded = withVerticalLoad ? 2 : 3;
 
@@ -444,7 +449,7 @@ export class TestScene extends Phaser.Scene {
         ? 'Сначала зажми вертикальный прижим (σ),\nзатем поймай срез двух шайб в зелёной зоне (×2)'
         : 'Срез по гладкому распилу двух шайб:\nфиксируй сдвиг в зелёной зоне (×3)';
 
-    const hint = this.add.text(width / 2, 134, hintText, {
+    const hint = this.add.text(width / 2, 134 + st, hintText, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '13px',
       color: '#e2e8f0',
@@ -452,7 +457,7 @@ export class TestScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const cx = width / 2;
-    const cy = 310;
+    const cy = 310 + st;
 
     const lowerBox = this.add.rectangle(cx, cy + 24, 184, 42, 0x475569).setStrokeStyle(2, 0x0f172a);
     const lowerCore = this.createRockBlock(cx, cy + 12, 142, 24);
@@ -477,20 +482,20 @@ export class TestScene extends Phaser.Scene {
     const trackW = 330;
     const trackH = 34;
     const trackX = width / 2 - trackW / 2;
-    const trackY = 435;
+    const trackY = 435 + st;
 
     const trackBg = this.add.graphics();
     const zoneGraphic = this.add.graphics();
     const slider = this.add.rectangle(width / 2, trackY + trackH / 2, 10, trackH + 12, 0xfef3c7);
 
-    const statusTxt = this.add.text(width / 2, 495, '', {
+    const statusTxt = this.add.text(width / 2, 495 + st, '', {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '15px',
       fontWeight: '700',
       color: '#fde68a'
     }).setOrigin(0.5);
 
-    const btn = this.createHoldButton(width / 2, height - 110, 310, 74, '');
+    const btn = this.createHoldButton(width / 2, height - 96, 310, 74, '');
 
     this.stageContainer.add([
       hint, lowerBox, lowerCore, upperCore, upperBox, seamG, clampPlate,
@@ -632,11 +637,12 @@ export class TestScene extends Phaser.Scene {
 
   buildWaterSaturationTest() {
     const { width, height } = this.scale;
+    const st = this.safeTop;
     const sensorsLvl = Storage.getUpgradeLevel('sensors');
 
     const hint = this.add.text(
       width / 2,
-      134,
+      134 + st,
       'Зажми подачу воды в вакуумную ванну — насыть керн\nровно до отметки 100% на электронных весах!',
       {
         fontFamily: '"Rubik", sans-serif',
@@ -647,7 +653,7 @@ export class TestScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     const cx = width / 2;
-    const cy = 296;
+    const cy = 296 + st;
 
     const scaleBase = this.add.graphics();
     scaleBase.fillStyle(0x475569, 1);
@@ -705,7 +711,7 @@ export class TestScene extends Phaser.Scene {
 
     const barW = 320;
     const barX = width / 2 - barW / 2;
-    const barY = 445;
+    const barY = 445 + st;
     const barBg = this.add.graphics();
     barBg.fillStyle(0x0f172a, 1);
     barBg.fillRoundedRect(barX, barY, barW, 28, 8);
@@ -715,14 +721,14 @@ export class TestScene extends Phaser.Scene {
     barBg.fillRect(barX + barW * (0.78 - tol / 2), barY + 3, barW * tol, 22);
 
     const marker = this.add.rectangle(barX + 6, barY + 14, 10, 34, 0xfacc15);
-    const statusTxt = this.add.text(width / 2, 496, 'Водопоглощение W: 0.0%', {
+    const statusTxt = this.add.text(width / 2, 496 + st, 'Водопоглощение W: 0.0%', {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '15px',
       fontWeight: '700',
       color: '#fde68a'
     }).setOrigin(0.5);
 
-    const btn = this.createHoldButton(width / 2, height - 110, 310, 74, 'УДЕРЖИВАТЬ: НАСЫЩЕНИЕ ВОДОЙ');
+    const btn = this.createHoldButton(width / 2, height - 96, 310, 74, 'УДЕРЖИВАТЬ: НАСЫЩЕНИЕ ВОДОЙ');
 
     this.stageContainer.add([
       hint, scaleBase, tankBg, core, waterG, tankBorder, weightLcd, barBg, marker, statusTxt, btn.container
@@ -772,11 +778,12 @@ export class TestScene extends Phaser.Scene {
 
   buildFrostResistanceTest() {
     const { width, height } = this.scale;
+    const st = this.safeTop;
     const pressLvl = Storage.getUpgradeLevel('press');
 
     const hint = this.add.text(
       width / 2,
-      134,
+      134 + st,
       'Быстрыми тапами нагони холод в криокамере до -20°C,\nзатем удерживай режим заморозки 2.5 сек!',
       {
         fontFamily: '"Rubik", sans-serif',
@@ -787,7 +794,7 @@ export class TestScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     const cx = width / 2;
-    const cy = 305;
+    const cy = 305 + st;
 
     const chamber = this.add.graphics();
     chamber.fillStyle(0x082f49, 1);
@@ -800,7 +807,7 @@ export class TestScene extends Phaser.Scene {
 
     const barW = 320;
     const barX = width / 2 - barW / 2;
-    const barY = 445;
+    const barY = 445 + st;
     const barBg = this.add.graphics();
     barBg.fillStyle(0x0f172a, 1);
     barBg.fillRoundedRect(barX, barY, barW, 28, 8);
@@ -809,14 +816,14 @@ export class TestScene extends Phaser.Scene {
     barBg.fillRect(barX + barW * 0.68, barY + 3, barW * 0.24, 22);
 
     const marker = this.add.rectangle(barX + 6, barY + 14, 10, 34, 0xfacc15);
-    const tempTxt = this.add.text(width / 2, 496, 'Камера: +18.0°C', {
+    const tempTxt = this.add.text(width / 2, 496 + st, 'Камера: +18.0°C', {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '16px',
       fontWeight: '700',
       color: '#38bdf8'
     }).setOrigin(0.5);
 
-    const btn = this.createHoldButton(width / 2, height - 110, 310, 74, 'ТАПАЙ: ВКЛЮЧИТЬ КОМПРЕССОР!');
+    const btn = this.createHoldButton(width / 2, height - 96, 310, 74, 'ТАПАЙ: ВКЛЮЧИТЬ КОМПРЕССОР!');
 
     this.stageContainer.add([
       hint, chamber, core, iceFx, barBg, marker, tempTxt, btn.container
@@ -910,11 +917,12 @@ export class TestScene extends Phaser.Scene {
 
   buildUltrasonicTest() {
     const { width, height } = this.scale;
+    const st = this.safeTop;
     const sensorsLvl = Storage.getUpgradeLevel('sensors');
 
     const hint = this.add.text(
       width / 2,
-      134,
+      134 + st,
       'Зажми кнопку генератора импульсов — поймай\nрезонанс ультразвуковой волны на осциллографе!',
       {
         fontFamily: '"Rubik", sans-serif',
@@ -925,7 +933,7 @@ export class TestScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     const cx = width / 2;
-    const cy = 260;
+    const cy = 260 + st;
 
     const leftSensor = this.add.rectangle(cx - 95, cy, 26, 56, 0x38bdf8).setStrokeStyle(2, 0x0f172a);
     const rightSensor = this.add.rectangle(cx + 95, cy, 26, 56, 0x38bdf8).setStrokeStyle(2, 0x0f172a);
@@ -934,7 +942,7 @@ export class TestScene extends Phaser.Scene {
     const scopeW = 340;
     const scopeH = 130;
     const scopeX = cx - scopeW / 2;
-    const scopeY = 330;
+    const scopeY = 330 + st;
 
     const scopeBg = this.add.graphics();
     scopeBg.fillStyle(0x090d16, 1);
@@ -948,14 +956,14 @@ export class TestScene extends Phaser.Scene {
     scopeBg.fillRect(scopeX + 4, scopeY + scopeH * (1 - targetAmp - tol) / 2, scopeW - 8, scopeH * tol);
 
     const waveGraphics = this.add.graphics();
-    const vpReadout = this.add.text(cx, 482, 'Скорость волны Vp: 0 м/с', {
+    const vpReadout = this.add.text(cx, 482 + st, 'Скорость волны Vp: 0 м/с', {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '16px',
       fontWeight: '700',
       color: '#38bdf8'
     }).setOrigin(0.5);
 
-    const btn = this.createHoldButton(width / 2, height - 110, 310, 74, 'УДЕРЖИВАТЬ: ИМПУЛЬС УЗК');
+    const btn = this.createHoldButton(width / 2, height - 96, 310, 74, 'УДЕРЖИВАТЬ: ИМПУЛЬС УЗК');
 
     this.stageContainer.add([
       hint, leftSensor, rightSensor, core, scopeBg, waveGraphics, vpReadout, btn.container
@@ -1020,12 +1028,13 @@ export class TestScene extends Phaser.Scene {
 
   buildTriaxialTest() {
     const { width, height } = this.scale;
+    const st = this.safeTop;
     const pressLvl = Storage.getUpgradeLevel('press');
     const hasAiRnd = Storage.hasRnd('rnd_ai');
 
     const hint = this.add.text(
       width / 2,
-      130,
+      130 + st,
       'Фаза 1: Быстрыми тапами накачай боковой обжим (σ₃)\nот гидронасоса в камеру стабилометра!',
       {
         fontFamily: '"Rubik", sans-serif',
@@ -1036,7 +1045,7 @@ export class TestScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     const cx = width / 2 + 12;
-    const cy = 310;
+    const cy = 310 + st;
 
     const pressFrame = this.add.graphics();
     pressFrame.fillStyle(0x64748b, 1);
@@ -1114,18 +1123,18 @@ export class TestScene extends Phaser.Scene {
 
     const barW = 320;
     const barX = width / 2 - barW / 2;
-    const barY = 456;
+    const barY = 456 + st;
     const barBg = this.add.graphics();
     const marker = this.add.rectangle(barX + 6, barY + 14, 10, 34, 0xfacc15);
 
-    const statusTxt = this.add.text(width / 2, 504, 'Боковой обжим σ₃: 0 кПа', {
+    const statusTxt = this.add.text(width / 2, 504 + st, 'Боковой обжим σ₃: 0 кПа', {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '14px',
       fontWeight: '700',
       color: '#38bdf8'
     }).setOrigin(0.5);
 
-    const btn = this.createHoldButton(width / 2, height - 110, 310, 74, 'ТАПАЙ: НАКАЧАТЬ ОБЖИМ σ₃');
+    const btn = this.createHoldButton(width / 2, height - 96, 310, 74, 'ТАПАЙ: НАКАЧАТЬ ОБЖИМ σ₃');
 
     this.stageContainer.add([
       hint, pressFrame, pumpG, cellBg, fluidG, cellFrame, pedestal, core, membrane,
