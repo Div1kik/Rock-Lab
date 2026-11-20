@@ -4,7 +4,9 @@ import { AudioManager } from './AudioManager.js';
 export const SceneHUD = {
   attachTestControls(scene, { onBeforeExit = null } = {}) {
     const { width, height } = scene.scale;
-    const btnY = 26;
+        const safeTop = window.__SAFE_TOP__ || 0;
+    const btnY = safeTop + 26;
+
 
     // Кнопка возврата в меню (слева вверху)
     const menuBtn = scene.add.text(14, btnY, '🏠 МЕНЮ', {
