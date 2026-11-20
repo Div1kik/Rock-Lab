@@ -1,3 +1,4 @@
+import { SceneHUD } from '../utils/SceneHUD.js';
 import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
 import { rollWeightedInclusion } from '../data/contracts.js';
@@ -23,7 +24,7 @@ export class UnpackScene extends Phaser.Scene {
     this.isPrying = false;
   }
 
-  create() {
+    create() {
     const { width, height } = this.scale;
 
     const bg = this.add.graphics();
@@ -32,27 +33,29 @@ export class UnpackScene extends Phaser.Scene {
     bg.fillStyle(0x44403c, 1);
     bg.fillRect(0, 130, width, height - 130);
 
-    this.headerTxt = this.add.text(width / 2, 34, 'ЭТАП 1: ВСКРЫТИЕ КЕРНОВОГО ЯЩИКА', {
+    this.headerTxt = this.add.text(width / 2, 26, 'ЭТАП 1: ВСКРЫТИЕ', {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '16px',
+      fontSize: '15px',
       fontWeight: '700',
       color: '#fef3c7'
     }).setOrigin(0.5);
 
-    this.subTxt = this.add.text(width / 2, 64, '', {
+    this.subTxt = this.add.text(width / 2, 56, '', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '13px',
       fontWeight: '600',
       color: '#fde68a'
     }).setOrigin(0.5);
 
-    this.hintTxt = this.add.text(width / 2, 102, '', {
+    this.hintTxt = this.add.text(width / 2, 96, '', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '14px',
       fontWeight: '600',
       color: '#38bdf8',
       align: 'center'
     }).setOrigin(0.5);
+
+    SceneHUD.attachTestControls(this);
 
     this.particles = this.add.particles(0, 0, 'dust_px', {
       speed: { min: 40, max: 130 },
