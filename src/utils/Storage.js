@@ -191,7 +191,6 @@ class StorageManager {
     } catch {}
   }
 
-  // ==================== ЭНЕРГИЯ ЛАБОРАТОРИИ ====================
   getMaxEnergy() {
     return 100 + this.getPerkLevel('coffee') * 10;
   }
@@ -199,7 +198,7 @@ class StorageManager {
   syncEnergy() {
     const maxE = this.getMaxEnergy();
     const now = Date.now();
-    const regIntervalMs = 2 * 60 * 1000; // +1 энергия каждые 2 минуты
+    const regIntervalMs = 2 * 60 * 1000;
 
     if (typeof this.state.energy !== 'number') {
       this.state.energy = maxE;
@@ -267,7 +266,6 @@ class StorageManager {
     return Math.round((45 * (1 + (labLvl - 1) * 0.4)) / 5) * 5;
   }
 
-  // ==================== ЕЖЕДНЕВНЫЕ НАГРАДЫ ЗА ВХОД ====================
   getDailyRewardStatus() {
     const today = this.getTodayKey();
     const claimedToday = this.state.lastDailyClaimDate === today;
@@ -278,7 +276,7 @@ class StorageManager {
       const curDate = new Date(today + 'T00:00:00Z');
       const diffDays = Math.round((curDate - lastDate) / (24 * 60 * 60 * 1000));
       if (diffDays > 1) {
-        streak = 0; // Пропущен день — цикл начинается заново с Дня 1
+        streak = 0;
       }
     }
 
@@ -327,7 +325,6 @@ class StorageManager {
     };
   }
 
-  // ==================== ТУТОРИАЛ И ПРОФИЛЬ ====================
   isTutorialCompleted() {
     return Boolean(this.state.tutorialCompleted);
   }
@@ -528,7 +525,14 @@ class StorageManager {
   getLabLevel() { return this.state.labLevel; }
 
   setLabLevel(lvl) {
-    this.state.labLevel = Math.min(5, Math.max(1, lvl));
+    const prev = this.state.labLevel || 1;
+    const next = Math.min(5, Math.max(1, lvl));
+    this.state.labLevel = next;
+    // При каждом повышении уровня лаборатории энергия восстанавливается на 100%!
+    if (next > prev) {
+      this.state.energy = this.getMaxEnergy();
+      this.state.energyUpdatedAt = Date.now();
+    }
     this.save();
   }
 
@@ -570,6 +574,10 @@ class StorageManager {
   upgradePerk(key) {
     if (!this.state.perks) this.state.perks = {};
     this.state.perks[key] = (this.state.perks[key] || 0) + 1;
+    // При улучшении кофемашины сразу дарим +10 энергии к текущему запасу
+    if (key === 'coffee') {
+      this.addEnergy(10);
+    }
     this.save();
     return this.state.perks[key];
   }
