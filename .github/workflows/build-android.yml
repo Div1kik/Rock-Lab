@@ -49,12 +49,15 @@ jobs:
           npx cap add android
           if [ -f icon-512.png ]; then
             mkdir -p assets
+            cp icon-512.png assets/icon.png
             cp icon-512.png assets/icon-only.png
             cp icon-512.png assets/icon-foreground.png
+            cp icon-512.png assets/icon-background.png
             cp icon-512.png assets/splash.png
             npx @capacitor/assets generate --android --iconBackgroundColor '#14161b' --splashBackgroundColor '#14161b'
           fi
           npx cap sync android
+
 
 
       - name: Lock portrait orientation in AndroidManifest
