@@ -41,7 +41,8 @@ jobs:
           if [ ! -f package.json ]; then
             npm init -y
           fi
-          npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/assets
+          npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/assets npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/assets @capacitor/app
+
           if [ ! -f capacitor.config.json ] && [ ! -f capacitor.config.ts ]; then
             npx cap init "Rock Lab" "com.easydopamine.rocklab" --web-dir=www
           fi
