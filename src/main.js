@@ -18,23 +18,14 @@ const getSafeAreaTopLogical = () => {
   return Math.round(Phaser.Math.Clamp(px * scale, 0, 56));
 };
 
-// Глобальное улучшение читаемости и плавности шрифтов на всех экранах
+// Глобальное сглаживание шрифтов под HiDPI без искажения пропорций верстки
 const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 3) : 1;
 const origTextFactory = Phaser.GameObjects.GameObjectFactory.prototype.text;
 Phaser.GameObjects.GameObjectFactory.prototype.text = function (x, y, text, style = {}) {
   const nextStyle = { resolution: dpr, ...style };
 
-  // Заменяем резкий моноширинный шрифт на гладкий Rubik
   if (nextStyle.fontFamily && nextStyle.fontFamily.includes('JetBrains Mono')) {
     nextStyle.fontFamily = '"Rubik", -apple-system, BlinkMacSystemFont, sans-serif';
-  }
-
-  // Чуть увеличиваем мелкие кегли для комфортного чтения на смартфоне
-  if (typeof nextStyle.fontSize === 'string' && nextStyle.fontSize.endsWith('px')) {
-    const num = parseFloat(nextStyle.fontSize);
-    if (!Number.isNaN(num) && num <= 14) {
-      nextStyle.fontSize = `${Math.round(num + 1.5)}px`;
-    }
   }
 
   const txtObj = origTextFactory.call(this, x, y, text, nextStyle);
