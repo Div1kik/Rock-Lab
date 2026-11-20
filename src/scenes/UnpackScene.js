@@ -24,30 +24,31 @@ export class UnpackScene extends Phaser.Scene {
     this.isPrying = false;
   }
 
-    create() {
+  create() {
     const { width, height } = this.scale;
+    const safeTop = Math.max(window.__SAFE_TOP__ || 0, 28);
 
     const bg = this.add.graphics();
     bg.fillStyle(0x292524, 1);
     bg.fillRect(0, 0, width, height);
     bg.fillStyle(0x44403c, 1);
-    bg.fillRect(0, 130, width, height - 130);
+    bg.fillRect(0, 126 + safeTop, width, height - (126 + safeTop));
 
-    this.headerTxt = this.add.text(width / 2, 26, 'ЭТАП 1: ВСКРЫТИЕ', {
+    this.headerTxt = this.add.text(width / 2, 24 + safeTop, 'ЭТАП 1: ВСКРЫТИЕ', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '15px',
       fontWeight: '700',
       color: '#fef3c7'
     }).setOrigin(0.5);
 
-    this.subTxt = this.add.text(width / 2, 56, '', {
+    this.subTxt = this.add.text(width / 2, 52 + safeTop, '', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '13px',
       fontWeight: '600',
       color: '#fde68a'
     }).setOrigin(0.5);
 
-    this.hintTxt = this.add.text(width / 2, 96, '', {
+    this.hintTxt = this.add.text(width / 2, 92 + safeTop, '', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '14px',
       fontWeight: '600',
@@ -64,7 +65,7 @@ export class UnpackScene extends Phaser.Scene {
       emitting: false
     }).setDepth(30);
 
-    this.crateContainer = this.add.container(width / 2, height * 0.54);
+    this.crateContainer = this.add.container(width / 2, height * 0.56);
     this.buildDrillSprite();
     this.buildCrowbarSprite();
     this.buildCrate();
@@ -72,8 +73,8 @@ export class UnpackScene extends Phaser.Scene {
     if (TutorialManager.isActive()) {
       TutorialManager.advanceTo(2);
       TutorialManager.showSpotlight(this, {
-        hole: { x: width / 2, y: height * 0.54, w: 334, h: 404 },
-        cardY: 162,
+        hole: { x: width / 2, y: height * 0.56, w: 334, h: 404 },
+        cardY: 162 + safeTop,
         badge: 'ШАГ 3/8 · ВСКРЫТИЕ ЯЩИКА',
         text: this.boxMode === 'screws'
           ? 'Зажми по очереди 4 болта шуруповёртом,\nзатем сними крышку и кликни по каждому керну!'
