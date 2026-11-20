@@ -7,6 +7,10 @@ const DEFAULT_STATE = {
   tutorialStep: 0,
   money: 150,
   reputation: 10,
+  energy: 100,
+  energyUpdatedAt: Date.now(),
+  dailyStreakDay: 0,
+  lastDailyClaimDate: '',
   globalScore: 0,
   perfectStreak: 0,
   bestStreak: 0,
@@ -64,10 +68,21 @@ const DEFAULT_STATE = {
   pendingTender: null
 };
 
+export const DAILY_REWARDS_CATALOG = [
+  { day: 1, title: 'День 1 · Смена открыта', desc: '+250 ₽ на расходники', money: 250, rep: 0, score: 20 },
+  { day: 2, title: 'День 2 · Утренний замер', desc: '+400 ₽ и ★ +2 репутации', money: 400, rep: 2, score: 30 },
+  { day: 3, title: 'День 3 · Плановое ТО', desc: '+300 ₽ и полное ТО станков (100%)', money: 300, rep: 0, score: 40, fullRepair: true },
+  { day: 4, title: 'День 4 · Премия НИИ', desc: '+650 ₽ и +60 к индексу ТОП', money: 650, rep: 0, score: 60 },
+  { day: 5, title: 'День 5 · Признание ГОСТ', desc: '+800 ₽ и ★ +4 репутации', money: 800, rep: 4, score: 75 },
+  { day: 6, title: 'День 6 · Грант коллегии', desc: '+1200 ₽ и +100 к индексу ТОП', money: 1200, rep: 2, score: 100 },
+  { day: 7, title: 'День 7 · Главный трофей', desc: '+1500 ₽, ★ +5 и 💎 Редкий минерал!', money: 1500, rep: 5, score: 150, grantGem: true }
+];
+
 class StorageManager {
   constructor() {
     this.state = this.load();
     this.ensurePlayerIdentity();
+    this.syncEnergy();
   }
 
   ensurePlayerIdentity() {
@@ -121,6 +136,10 @@ class StorageManager {
       return {
         ...structuredClone(DEFAULT_STATE),
         ...parsed,
+        energy: typeof parsed.energy === 'number' ? parsed.energy : 100,
+        energyUpdatedAt: typeof parsed.energyUpdatedAt === 'number' ? parsed.energyUpdatedAt : Date.now(),
+        dailyStreakDay: typeof parsed.dailyStreakDay === 'number' ? parsed.dailyStreakDay : 0,
+        lastDailyClaimDate: parsed.lastDailyClaimDate || '',
         globalScore: migratedGlobalScore,
         perfectStreak: parsed.perfectStreak || 0,
         bestStreak: parsed.bestStreak || 0,
@@ -172,6 +191,143 @@ class StorageManager {
     } catch {}
   }
 
+  // ==================== ЭНЕРГИЯ ЛАБОРАТОРИИ ====================
+  getMaxEnergy() {
+    return 100 + this.getPerkLevel('coffee') * 10;
+  }
+
+  syncEnergy() {
+    const maxE = this.getMaxEnergy();
+    const now = Date.now();
+    const regIntervalMs = 2 * 60 * 1000; // +1 энергия каждые 2 минуты
+
+    if (typeof this.state.energy !== 'number') {
+      this.state.energy = maxE;
+      this.state.energyUpdatedAt = now;
+      this.save();
+      return this.state.energy;
+    }
+
+    if (this.state.energy >= maxE) {
+      this.state.energyUpdatedAt = now;
+      return this.state.energy;
+    }
+
+    const elapsed = Math.max(0, now - (this.state.energyUpdatedAt || now));
+    const gained = Math.floor(elapsed / regIntervalMs);
+    if (gained > 0) {
+      this.state.energy = Math.min(maxE, this.state.energy + gained);
+      this.state.energyUpdatedAt = (this.state.energyUpdatedAt || now) + gained * regIntervalMs;
+      if (this.state.energy >= maxE) {
+        this.state.energyUpdatedAt = now;
+      }
+      this.save();
+    }
+    return this.state.energy;
+  }
+
+  getEnergy() {
+    return this.syncEnergy();
+  }
+
+  getSecondsToNextEnergy() {
+    const maxE = this.getMaxEnergy();
+    if (this.getEnergy() >= maxE) return 0;
+    const regIntervalMs = 2 * 60 * 1000;
+    const elapsed = Math.max(0, Date.now() - (this.state.energyUpdatedAt || Date.now()));
+    return Math.max(1, Math.ceil((regIntervalMs - (elapsed % regIntervalMs)) / 1000));
+  }
+
+  spendEnergy(amount) {
+    if (amount <= 0) return true;
+    const cur = this.syncEnergy();
+    if (cur < amount) return false;
+    const maxE = this.getMaxEnergy();
+    if (cur >= maxE) {
+      this.state.energyUpdatedAt = Date.now();
+    }
+    this.state.energy = Math.max(0, cur - amount);
+    this.save();
+    return true;
+  }
+
+  addEnergy(amount) {
+    const cur = this.syncEnergy();
+    const maxE = this.getMaxEnergy();
+    this.state.energy = Math.min(maxE, cur + Math.max(0, Math.round(amount)));
+    if (this.state.energy >= maxE) {
+      this.state.energyUpdatedAt = Date.now();
+    }
+    this.save();
+    return this.state.energy;
+  }
+
+  getEnergyRefillCost() {
+    const labLvl = this.getLabLevel();
+    return Math.round((45 * (1 + (labLvl - 1) * 0.4)) / 5) * 5;
+  }
+
+  // ==================== ЕЖЕДНЕВНЫЕ НАГРАДЫ ЗА ВХОД ====================
+  getDailyRewardStatus() {
+    const today = this.getTodayKey();
+    const claimedToday = this.state.lastDailyClaimDate === today;
+    let streak = this.state.dailyStreakDay || 0;
+
+    if (!claimedToday && this.state.lastDailyClaimDate) {
+      const lastDate = new Date(this.state.lastDailyClaimDate + 'T00:00:00Z');
+      const curDate = new Date(today + 'T00:00:00Z');
+      const diffDays = Math.round((curDate - lastDate) / (24 * 60 * 60 * 1000));
+      if (diffDays > 1) {
+        streak = 0; // Пропущен день — цикл начинается заново с Дня 1
+      }
+    }
+
+    const activeDayIdx = claimedToday
+      ? Math.max(0, (streak - 1) % 7)
+      : streak % 7;
+
+    return {
+      canClaim: !claimedToday,
+      activeDayNumber: activeDayIdx + 1,
+      rewardObj: DAILY_REWARDS_CATALOG[activeDayIdx]
+    };
+  }
+
+  claimDailyReward(multiplier = 1) {
+    const status = this.getDailyRewardStatus();
+    if (!status.canClaim) return null;
+
+    const today = this.getTodayKey();
+    const r = status.rewardObj;
+    const mult = multiplier >= 2 ? 2 : 1;
+
+    this.state.lastDailyClaimDate = today;
+    this.state.dailyStreakDay = status.activeDayNumber;
+
+    const cash = r.money * mult;
+    const rep = r.rep * mult;
+    const pts = r.score * mult;
+
+    if (cash > 0) this.addMoney(cash);
+    if (rep > 0) this.addReputation(rep);
+    if (pts > 0) this.addGlobalScore(pts);
+    if (r.fullRepair) {
+      this.restoreWear('saw');
+      this.restoreWear('grinder');
+      this.restoreWear('calibration');
+    }
+
+    this.save();
+    return {
+      ...r,
+      multiplier: mult,
+      totalMoney: cash,
+      totalRep: rep,
+      totalScore: pts
+    };
+  }
+
+  // ==================== ТУТОРИАЛ И ПРОФИЛЬ ====================
   isTutorialCompleted() {
     return Boolean(this.state.tutorialCompleted);
   }
@@ -218,7 +374,6 @@ class StorageManager {
     return this.state.playerName;
   }
 
-  // Оперативная репутация и её влияние на экономику
   getReputationTierInfo() {
     const rep = this.getReputation();
     if (rep < 5) {
@@ -257,7 +412,6 @@ class StorageManager {
     };
   }
 
-  // Накопительный глобальный рейтинг для таблицы лидеров (никогда не снижается)
   addGlobalScore(points) {
     const add = Math.max(0, Math.round(points));
     this.state.globalScore = (this.state.globalScore || 0) + add;
@@ -574,7 +728,6 @@ class StorageManager {
     return Math.max(0, Math.min(100, this.state.wear?.[key] ?? 100));
   }
 
-  // Скаляция цены обслуживания расходников от уровня лаборатории
   getMaintenanceCost(key) {
     const basePrices = { saw: 35, grinder: 35, calibration: 45 };
     const base = basePrices[key] || 35;
@@ -583,7 +736,6 @@ class StorageManager {
     return Math.round((base * scale) / 5) * 5;
   }
 
-  // Медленный базовый износ + повышенный расход на тяжёлых породах и стройках века
   applyContractWear(contractOrTestsCount = 1) {
     if (!this.state.wear) this.state.wear = { saw: 100, grinder: 100, calibration: 100 };
 
