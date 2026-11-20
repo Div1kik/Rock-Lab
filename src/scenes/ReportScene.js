@@ -265,10 +265,12 @@ export class ReportScene extends Phaser.Scene {
     const isAudit = Boolean(this.contract.isAudit);
     const isMega = Boolean(this.contract.isMegaProject);
 
-    Storage.applyContractWear(this.contract.tests?.length || 1);
+    // Передаём полный объект контракта для расчёта износа от сложности породы/заказа
+    Storage.applyContractWear(this.contract);
 
     const loaderLvl = Storage.getUpgradeLevel('loader');
-    const bonusMult = 1 + (loaderLvl - 1) * 0.1;
+    const repInfo = Storage.getReputationTierInfo();
+    const bonusMult = (1 + (loaderLvl - 1) * 0.1) * repInfo.multiplier;
 
     const perkCashBonus =
       Storage.getPerkLevel('coffee') * 15 +
@@ -280,15 +282,20 @@ export class ReportScene extends Phaser.Scene {
 
     let moneyDelta = 0;
     let repDelta = 0;
+    let globalScoreDelta = 0;
     let outcomeType = 'success';
+
+    const isPerfectProtocol = isCorrectDecision && this.errorPct <= 4;
+    const streak = Storage.recordContractStreak(isCorrectDecision, isPerfectProtocol);
 
     if (isAudit) {
       Storage.resetAuditCounter();
       const withinErrorLimit = this.errorPct <= (this.contract.maxAllowedErrorPct || 9);
       if (isCorrectDecision && withinErrorLimit) {
         outcomeType = 'audit_pass';
-        moneyDelta = this.contract.reward + passiveBranchBonus;
+        moneyDelta = Math.round(this.contract.reward * repInfo.multiplier) + passiveBranchBonus;
         repDelta = this.contract.repReward + isoRepBonus;
+        globalScoreDelta = 65 + (isPerfectProtocol ? 25 : 0);
         Storage.setAuditBonus(3);
         AchievementManager.unlock(this, 'clean_audit');
       } else {
@@ -302,10 +309,16 @@ export class ReportScene extends Phaser.Scene {
         outcomeType = 'success';
         moneyDelta = Math.round(this.contract.reward * bonusMult) + perkCashBonus + passiveBranchBonus;
         repDelta = this.contract.repReward + perkRepBonus + isoRepBonus;
+        globalScoreDelta = (isMega ? 110 : 18 + (this.contract.tier || 1) * 6) +
+          (isPerfectProtocol ? 15 : 0) +
+          Math.min(30, streak * 3);
       } else if (isCorrectDecision && !approvedByPlayer) {
         outcomeType = 'saved_lives';
         moneyDelta = Math.round(this.contract.reward * 0.85 * bonusMult) + perkCashBonus + passiveBranchBonus;
         repDelta = this.contract.repReward + 1 + perkRepBonus + isoRepBonus;
+        globalScoreDelta = (isMega ? 110 : 22 + (this.contract.tier || 1) * 6) +
+          (isPerfectProtocol ? 15 : 0) +
+          Math.min(30, streak * 3);
       } else if (!isCorrectDecision && approvedByPlayer) {
         outcomeType = 'collapse';
         moneyDelta = passiveBranchBonus;
@@ -324,6 +337,7 @@ export class ReportScene extends Phaser.Scene {
     }
 
     if (moneyDelta > 0) Storage.addMoney(moneyDelta);
+    if (globalScoreDelta > 0) Storage.addGlobalScore(globalScoreDelta);
     Storage.addReputation(repDelta);
     Storage.setActiveContract(null);
     if (!isAudit && isCorrectDecision) Storage.incrementCompleted();
@@ -341,7 +355,7 @@ export class ReportScene extends Phaser.Scene {
     });
 
     PlatformSDK.onContractFinished();
-    this.showAnimatedCutsceneModal(outcomeType, moneyDelta, repDelta, isCorrectDecision);
+    this.showAnimatedCutsceneModal(outcomeType, moneyDelta, repDelta, globalScoreDelta, isCorrectDecision);
   }
 
   getSiteType() {
@@ -356,7 +370,7 @@ export class ReportScene extends Phaser.Scene {
     return 'highrise';
   }
 
-  showAnimatedCutsceneModal(outcomeType, moneyDelta, repDelta, isCorrectDecision = true) {
+  showAnimatedCutsceneModal(outcomeType, moneyDelta, repDelta, globalScoreDelta = 0, isCorrectDecision = true) {
     const { width, height } = this.scale;
     const modalReadyAt = performance.now() + 300;
     const isMega = Boolean(this.contract.isMegaProject);
@@ -370,7 +384,7 @@ export class ReportScene extends Phaser.Scene {
     overlay.fillRect(0, 0, width, height);
 
     const boxW = 396;
-    const boxH = 556;
+    const boxH = 568;
     const boxX = width / 2 - boxW / 2;
     const boxY = height / 2 - boxH / 2;
 
@@ -433,7 +447,7 @@ export class ReportScene extends Phaser.Scene {
       align: 'center'
     }).setOrigin(0.5).setDepth(25);
 
-    this.add.text(width / 2, boxY + 312, descriptions[outcomeType], {
+    this.add.text(width / 2, boxY + 310, descriptions[outcomeType], {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '12px',
       color: '#e2e8f0',
@@ -443,16 +457,17 @@ export class ReportScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(25);
 
     const repSign = repDelta >= 0 ? `+${repDelta}` : `${repDelta}`;
-    this.add.text(width / 2, boxY + 378, `Итоговый доход: +${moneyDelta} ₽   |   Репутация: ${repSign} ★`, {
+    const idxPart = globalScoreDelta > 0 ? `  |  ТОП: +${globalScoreDelta} 🏆` : '';
+    this.add.text(width / 2, boxY + 378, `Доход: +${moneyDelta} ₽  |  Реп: ${repSign} ★${idxPart}`, {
       fontFamily: '"JetBrains Mono", monospace',
-      fontSize: '14px',
+      fontSize: '12px',
       fontWeight: '700',
       color: '#facc15'
     }).setOrigin(0.5).setDepth(25);
 
-    let nextBtnY = boxY + 486;
+    let nextBtnY = boxY + 494;
     if (moneyDelta > 0) {
-      const adBtn = this.add.text(width / 2, boxY + 430, `🎬 УДВОИТЬ ДОХОД (+${moneyDelta} ₽)`, {
+      const adBtn = this.add.text(width / 2, boxY + 434, `🎬 УДВОИТЬ ДОХОД (+${moneyDelta} ₽)`, {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '14px',
         fontWeight: '700',
@@ -474,7 +489,7 @@ export class ReportScene extends Phaser.Scene {
         });
       });
     } else {
-      nextBtnY = boxY + 462;
+      nextBtnY = boxY + 468;
     }
 
     const continueLabel = isMega ? 'К СТРОЙКАМ ВЕКА →' : 'ВЕРНУТЬСЯ В ЛАБОРАТОРИЮ →';
