@@ -7,6 +7,10 @@ const DEFAULT_STATE = {
   tutorialStep: 0,
   money: 150,
   reputation: 10,
+  globalScore: 0,
+  perfectStreak: 0,
+  bestStreak: 0,
+  perfectProtocols: 0,
   completedContracts: 0,
   contractsSinceAudit: 0,
   labLevel: 1,
@@ -109,12 +113,18 @@ class StorageManager {
         : [...unlockedPacks];
       if (!enabledPacks.length) enabledPacks.push('base');
 
-      // Если игрок уже выполнял заказы до этого обновления — не навязываем стартовый туториал принудительно
       const alreadyExperienced = (parsed.completedContracts || 0) > 0;
+      const migratedGlobalScore = typeof parsed.globalScore === 'number'
+        ? parsed.globalScore
+        : Math.max(0, (parsed.completedContracts || 0) * 15 + (parsed.reputation || 0) * 10);
 
       return {
         ...structuredClone(DEFAULT_STATE),
         ...parsed,
+        globalScore: migratedGlobalScore,
+        perfectStreak: parsed.perfectStreak || 0,
+        bestStreak: parsed.bestStreak || 0,
+        perfectProtocols: parsed.perfectProtocols || 0,
         tutorialCompleted: typeof parsed.tutorialCompleted === 'boolean' ? parsed.tutorialCompleted : alreadyExperienced,
         tutorialStep: typeof parsed.tutorialStep === 'number' ? parsed.tutorialStep : 0,
         upgrades: mergedUpgrades,
@@ -208,13 +218,81 @@ class StorageManager {
     return this.state.playerName;
   }
 
-  getLabIndexScore() {
+  // Оперативная репутация и её влияние на экономику
+  getReputationTierInfo() {
     const rep = this.getReputation();
+    if (rep < 5) {
+      return {
+        tierName: 'Сомнительная репутация',
+        shortTag: '−15% оплата',
+        multiplier: 0.85,
+        colorHex: '#f87171',
+        desc: 'Низкий рейтинг доверия: заказчики урезают гонорар на 15%. Сдавай заказы без брака, чтобы вернуть доверие!'
+      };
+    }
+    if (rep < 25) {
+      return {
+        tierName: 'Надёжная лаборатория',
+        shortTag: 'База 100%',
+        multiplier: 1.0,
+        colorHex: '#38bdf8',
+        desc: 'Стабильный статус: стандартные ставки по контрактам. Накопи 25 ★ для перехода в высшую лигу!'
+      };
+    }
+    if (rep < 50) {
+      return {
+        tierName: 'Эталонный центр',
+        shortTag: '+15% оплата',
+        multiplier: 1.15,
+        colorHex: '#4ade80',
+        desc: 'Высокая репутация: заказчики доплачивают +15% за безупречную точность протоколов!'
+      };
+    }
+    return {
+      tierName: 'Академия геомеханики',
+      shortTag: '+25% оплата',
+      multiplier: 1.25,
+      colorHex: '#facc15',
+      desc: 'Элитный статус отрасли: максимальная надбавка +25% ко всем контрактам!'
+    };
+  }
+
+  // Накопительный глобальный рейтинг для таблицы лидеров (никогда не снижается)
+  addGlobalScore(points) {
+    const add = Math.max(0, Math.round(points));
+    this.state.globalScore = (this.state.globalScore || 0) + add;
+    this.save();
+    return this.state.globalScore;
+  }
+
+  recordContractStreak(isSuccess, isPerfectProtocol = false) {
+    if (isSuccess) {
+      this.state.perfectStreak = (this.state.perfectStreak || 0) + 1;
+      if (this.state.perfectStreak > (this.state.bestStreak || 0)) {
+        this.state.bestStreak = this.state.perfectStreak;
+      }
+      if (isPerfectProtocol) {
+        this.state.perfectProtocols = (this.state.perfectProtocols || 0) + 1;
+      }
+    } else {
+      this.state.perfectStreak = 0;
+    }
+    this.save();
+    return this.state.perfectStreak;
+  }
+
+  getPerfectStreak() {
+    return this.state.perfectStreak || 0;
+  }
+
+  getLabIndexScore() {
+    const baseAccumulated = this.state.globalScore || 0;
     const megas = this.getCompletedMegasCount();
     const lvl = this.getLabLevel();
     const achs = this.getUnlockedAchievements().length;
     const branches = this.getBranchesCount();
-    return Math.round(rep * 10 + megas * 500 + lvl * 200 + achs * 50 + branches * 300);
+    const gems = this.getGems().length;
+    return Math.round(baseAccumulated + megas * 450 + (lvl - 1) * 250 + achs * 60 + branches * 300 + gems * 40);
   }
 
   buildPublicProfile(sdkName = null) {
@@ -496,12 +574,40 @@ class StorageManager {
     return Math.max(0, Math.min(100, this.state.wear?.[key] ?? 100));
   }
 
-  applyContractWear(testsCount = 1) {
+  // Скаляция цены обслуживания расходников от уровня лаборатории
+  getMaintenanceCost(key) {
+    const basePrices = { saw: 35, grinder: 35, calibration: 45 };
+    const base = basePrices[key] || 35;
+    const labLvl = this.getLabLevel();
+    const scale = 1 + (labLvl - 1) * 0.45;
+    return Math.round((base * scale) / 5) * 5;
+  }
+
+  // Медленный базовый износ + повышенный расход на тяжёлых породах и стройках века
+  applyContractWear(contractOrTestsCount = 1) {
     if (!this.state.wear) this.state.wear = { saw: 100, grinder: 100, calibration: 100 };
-    const factor = 1 + (testsCount - 1) * 0.2;
-    this.state.wear.saw = Math.max(10, Math.round(this.state.wear.saw - 11 * factor));
-    this.state.wear.grinder = Math.max(10, Math.round(this.state.wear.grinder - 12 * factor));
-    this.state.wear.calibration = Math.max(10, Math.round(this.state.wear.calibration - 10 * factor));
+
+    let testsCount = 1;
+    let heavyFactor = 1.0;
+
+    if (typeof contractOrTestsCount === 'object' && contractOrTestsCount !== null) {
+      const c = contractOrTestsCount;
+      testsCount = c.tests?.length || 1;
+      const tier = c.tier || 1;
+      const isMega = Boolean(c.isMegaProject);
+      const isHardRock = (c.trueStrengthMpa || 40) >= 85 || ['brittle', 'frozen'].includes(c.rock?.trait);
+
+      if (isMega) heavyFactor += 0.65;
+      if (tier >= 3) heavyFactor += (tier - 2) * 0.28;
+      if (isHardRock) heavyFactor += 0.35;
+    } else {
+      testsCount = Number(contractOrTestsCount) || 1;
+    }
+
+    const factor = (1 + (testsCount - 1) * 0.18) * heavyFactor;
+    this.state.wear.saw = Math.max(5, Math.round(this.state.wear.saw - 5.5 * factor));
+    this.state.wear.grinder = Math.max(5, Math.round(this.state.wear.grinder - 6.0 * factor));
+    this.state.wear.calibration = Math.max(5, Math.round(this.state.wear.calibration - 5.0 * factor));
     this.save();
   }
 
@@ -509,6 +615,13 @@ class StorageManager {
     if (!this.state.wear) this.state.wear = { saw: 100, grinder: 100, calibration: 100 };
     this.state.wear[key] = 100;
     this.save();
+  }
+
+  restoreWearPartial(key, bonusPct = 55) {
+    if (!this.state.wear) this.state.wear = { saw: 100, grinder: 100, calibration: 100 };
+    this.state.wear[key] = Math.min(100, (this.state.wear[key] ?? 100) + bonusPct);
+    this.save();
+    return this.state.wear[key];
   }
 
   shouldTriggerAudit() {
