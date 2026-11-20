@@ -220,7 +220,7 @@ export class MenuScene extends Phaser.Scene {
       return;
     }
 
-    this.add.text(width / 2, topBarH + 24, 'ROCK LAB', {
+    this.add.text(width / 2, topBarH + 34, 'ROCK LAB', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '28px',
       fontWeight: '700',
