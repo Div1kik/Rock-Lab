@@ -140,7 +140,7 @@ export class UpgradeScene extends Phaser.Scene {
 
     if (nextLab) {
       const canBuyLab = money >= nextLab.cost && rep >= nextLab.reqRep;
-      const t1 = this.add.text(28, 70, `ЛАБОРАТОРИЯ → Ур. ${nextLab.level}: ${nextLab.name}`, {
+      const t1 = this.add.text(28, 70, `ЛАБОРАТОРИЯ → Ур. ${nextLab.level}: ${nextLab.name} (⚡ 100%)`, {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '12px',
         fontWeight: '700',
