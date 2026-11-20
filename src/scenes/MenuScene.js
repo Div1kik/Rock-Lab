@@ -220,7 +220,7 @@ export class MenuScene extends Phaser.Scene {
       return;
     }
 
-    this.add.text(width / 2, topBarH + 34, 'ROCK LAB', {
+        this.add.text(width / 2, topBarH + 34, 'ROCK LAB', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '28px',
       fontWeight: '700',
@@ -242,7 +242,7 @@ export class MenuScene extends Phaser.Scene {
       subLabel += ` · 🏗️ Строек: ${completedMegas}/${MEGA_PROJECTS.length}`;
     }
 
-    this.add.text(width / 2, topBarH + 52, subLabel, {
+     this.add.text(width / 2, topBarH + 62, subLabel, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '11px',
       fontWeight: '600',
@@ -250,6 +250,7 @@ export class MenuScene extends Phaser.Scene {
       backgroundColor: '#1c1917cc',
       padding: { x: 10, y: 4 }
     }).setOrigin(0.5);
+
 
     this.createLiveMiniLab(width, height, tier, cfg, layout);
     this.createMaintenancePanel(width, height, layout);
