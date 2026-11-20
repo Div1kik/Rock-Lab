@@ -25,6 +25,8 @@ export class UpgradeScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.scale;
+    this.safeTop = Math.max(window.__SAFE_TOP__ || 0, 28);
+    this.listStartY = 224 + this.safeTop;
 
     const bg = this.add.graphics();
     bg.fillStyle(0x1c1917, 1);
@@ -32,9 +34,9 @@ export class UpgradeScene extends Phaser.Scene {
 
     const header = this.add.graphics().setDepth(20);
     header.fillStyle(0x141210, 1);
-    header.fillRect(0, 0, width, 58);
+    header.fillRect(0, 0, width, 58 + this.safeTop);
 
-    const backBtn = this.add.text(18, 16, '← В ЛАБУ', {
+    const backBtn = this.add.text(18, 16 + this.safeTop, '← В ЛАБУ', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '14px',
       fontWeight: '700',
@@ -48,7 +50,7 @@ export class UpgradeScene extends Phaser.Scene {
       this.scene.start('MenuScene');
     });
 
-    this.balanceTxt = this.add.text(width - 18, 19, '', {
+    this.balanceTxt = this.add.text(width - 18, 19 + this.safeTop, '', {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '15px',
       fontWeight: '700',
@@ -60,7 +62,7 @@ export class UpgradeScene extends Phaser.Scene {
 
     const maskShape = this.make.graphics();
     maskShape.fillStyle(0xffffff);
-    maskShape.fillRect(0, 224, width, height - 224);
+    maskShape.fillRect(0, this.listStartY, width, height - this.listStartY);
     this.listContainer.setMask(maskShape.createGeometryMask());
 
     this.setupScrollInput();
@@ -74,7 +76,7 @@ export class UpgradeScene extends Phaser.Scene {
 
     this.input.on('pointerdown', (ptr) => {
       this.wasDragging = false;
-      if (ptr.y >= 224) {
+      if (ptr.y >= this.listStartY) {
         isDragging = true;
         dragStartY = ptr.y;
         startOffset = this.scrollOffset;
@@ -113,6 +115,7 @@ export class UpgradeScene extends Phaser.Scene {
 
   refreshUI(preserveScroll = true) {
     const prevScroll = preserveScroll ? this.scrollOffset : 0;
+    const st = this.safeTop || 0;
 
     this.topFixedContainer.removeAll(true);
     this.listContainer.removeAll(true);
@@ -127,20 +130,20 @@ export class UpgradeScene extends Phaser.Scene {
 
     const topBg = this.add.graphics();
     topBg.fillStyle(0x1c1917, 1);
-    topBg.fillRect(0, 58, width, 166);
+    topBg.fillRect(0, 58 + st, width, 166);
     this.topFixedContainer.add(topBg);
 
     const nextLab = LAB_UPGRADES.find((l) => l.level === labLvl + 1);
     const labCard = this.add.graphics();
     labCard.fillStyle(0x292524, 1);
-    labCard.fillRoundedRect(18, 62, width - 36, 62, 10);
+    labCard.fillRoundedRect(18, 62 + st, width - 36, 62, 10);
     labCard.lineStyle(2, 0x38bdf8, 0.85);
-    labCard.strokeRoundedRect(18, 62, width - 36, 62, 10);
+    labCard.strokeRoundedRect(18, 62 + st, width - 36, 62, 10);
     this.topFixedContainer.add(labCard);
 
     if (nextLab) {
       const canBuyLab = money >= nextLab.cost && rep >= nextLab.reqRep;
-      const t1 = this.add.text(28, 70, `ЛАБОРАТОРИЯ → Ур. ${nextLab.level}: ${nextLab.name} (⚡ 100%)`, {
+      const t1 = this.add.text(28, 70 + st, `ЛАБОРАТОРИЯ → Ур. ${nextLab.level}: ${nextLab.name} (⚡ 100%)`, {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '12px',
         fontWeight: '700',
@@ -148,7 +151,7 @@ export class UpgradeScene extends Phaser.Scene {
       });
       const buyLabBtn = this.add.text(
         width - 28,
-        104,
+        104 + st,
         `РАСШИРИТЬ: ${nextLab.cost} ₽ (★${nextLab.reqRep})`,
         {
           fontFamily: '"JetBrains Mono", monospace',
@@ -175,7 +178,7 @@ export class UpgradeScene extends Phaser.Scene {
       const passiveSum = Storage.getPassiveBranchIncome();
       const maxTxt = this.add.text(
         width / 2,
-        93,
+        93 + st,
         passiveSum > 0
           ? `🏆 Ур. 5 «Атлант» · Пассив филиалов: +${passiveSum} ₽/заказ`
           : '🏆 МАКСИМАЛЬНЫЙ УРОВЕНЬ ЛАБОРАТОРИИ (Ур. 5)',
@@ -191,24 +194,24 @@ export class UpgradeScene extends Phaser.Scene {
 
     const adBanner = this.add.graphics();
     adBanner.fillStyle(0x1e293b, 1);
-    adBanner.fillRoundedRect(18, 130, width - 36, 46, 10);
+    adBanner.fillRoundedRect(18, 130 + st, width - 36, 46, 10);
     adBanner.lineStyle(1.5, 0xfacc15, 0.85);
-    adBanner.strokeRoundedRect(18, 130, width - 36, 46, 10);
+    adBanner.strokeRoundedRect(18, 130 + st, width - 36, 46, 10);
 
-    const adTitle = this.add.text(28, 144, '🎬 СРОЧНЫЙ ТЕНДЕР (×2.5 ОПЛАТА)', {
+    const adTitle = this.add.text(28, 144 + st, '🎬 СРОЧНЫЙ ТЕНДЕР (×2.5 ОПЛАТА)', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '11px',
       fontWeight: '700',
       color: '#fef08a'
     }).setOrigin(0, 0.5);
 
-    const adSub = this.add.text(28, 162, 'Редкий шанс выбить декор или муз-пак!', {
+    const adSub = this.add.text(28, 162 + st, 'Редкий шанс выбить декор или муз-пак!', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '9px',
       color: '#94a3b8'
     }).setOrigin(0, 0.5);
 
-    const adActionBtn = this.add.text(width - 28, 153, 'СМОТРЕТЬ 🎬', {
+    const adActionBtn = this.add.text(width - 28, 153 + st, 'СМОТРЕТЬ 🎬', {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '10px',
       fontWeight: '700',
@@ -226,7 +229,7 @@ export class UpgradeScene extends Phaser.Scene {
 
     this.topFixedContainer.add([adBanner, adTitle, adSub, adActionBtn]);
 
-    const tabY = 198;
+    const tabY = 198 + st;
     const gap = 3;
     const tabW = (width - 36 - gap * 5) / 6;
 
@@ -261,7 +264,7 @@ export class UpgradeScene extends Phaser.Scene {
     makeTab(4, 'ДЕКОР', 'decor');
     makeTab(5, 'МУЗЫКА', 'music');
 
-    const startY = 230;
+    const startY = 230 + st;
     let totalContentH = 0;
 
     if (this.activeTab === 'tests') {
