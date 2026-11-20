@@ -83,6 +83,26 @@ export class MenuScene extends Phaser.Scene {
     return Boolean(this.visitProfile);
   }
 
+  // Единая раскладка по вертикали под любую высоту смартфона
+  getLayout(h) {
+    const bottomFooterY = h - 18;
+    const secondaryBtnY = h - 66;
+    const primaryBtnY = h - 130;
+    const playerY = h - 196;
+    const maintY = h - 306;
+    const frontBenchY = Math.max(380, maintY - 14);
+    const backWallY = Math.min(266, Math.round(frontBenchY * 0.62));
+    return {
+      bottomFooterY,
+      secondaryBtnY,
+      primaryBtnY,
+      playerY,
+      maintY,
+      frontBenchY,
+      backWallY
+    };
+  }
+
   getLabConfig() {
     if (this.isVisiting()) {
       const snap = this.visitProfile.snapshot || {};
@@ -148,6 +168,7 @@ export class MenuScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.scale;
+    const layout = this.getLayout(height);
     const cfg = this.getLabConfig();
     const baseTier = LAB_TIERS[cfg.labLvl] || LAB_TIERS[1];
     const customTheme = LAB_THEMES[cfg.themeId];
@@ -164,7 +185,7 @@ export class MenuScene extends Phaser.Scene {
       emitting: false
     }).setDepth(30);
 
-    this.drawLabRoom(width, height, tier, cfg);
+    this.drawLabRoom(width, height, tier, cfg, layout);
     this.createTopBar(width, tier);
 
     if (this.isVisiting()) {
@@ -191,7 +212,7 @@ export class MenuScene extends Phaser.Scene {
         }
       ).setOrigin(0.5);
 
-      this.createLiveMiniLab(width, height, tier, cfg);
+      this.createLiveMiniLab(width, height, tier, cfg, layout);
       this.createGuestBottomPanel(width, height);
       return;
     }
@@ -208,31 +229,33 @@ export class MenuScene extends Phaser.Scene {
     const auditLeft = Storage.getAuditBonus();
     const completedMegas = Storage.getCompletedMegasCount();
     const branchesCount = Storage.getBranchesCount();
-    let subLabel = `Ур. ${cfg.labLvl} · ${tier.name}`;
+    const repInfo = Storage.getReputationTierInfo();
+
+    let subLabel = `Ур. ${cfg.labLvl} · ${tier.name} · ${repInfo.shortTag}`;
     if (auditLeft > 0) {
-      subLabel += ` · 🛡️ +15% (×${auditLeft})`;
+      subLabel = `Ур. ${cfg.labLvl} · ${tier.name} · 🛡️ +15% (×${auditLeft})`;
     } else if (branchesCount > 0) {
       subLabel += ` · 🌐 Филиалов: ${branchesCount}/3`;
     } else if (completedMegas > 0) {
-      subLabel += ` · 🏗️ Строек века: ${completedMegas}/${MEGA_PROJECTS.length}`;
+      subLabel += ` · 🏗️ Строек: ${completedMegas}/${MEGA_PROJECTS.length}`;
     }
 
     this.add.text(width / 2, 122, subLabel, {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '11px',
       fontWeight: '600',
-      color: auditLeft > 0 ? '#4ade80' : '#fde68a',
+      color: auditLeft > 0 ? '#4ade80' : repInfo.colorHex,
       backgroundColor: '#1c1917cc',
       padding: { x: 10, y: 4 }
     }).setOrigin(0.5);
 
-    this.createLiveMiniLab(width, height, tier, cfg);
-    this.createMaintenancePanel(width, height);
-    this.createMiniPlayer(width, height, tier);
+    this.createLiveMiniLab(width, height, tier, cfg, layout);
+    this.createMaintenancePanel(width, height, layout);
+    this.createMiniPlayer(width, height, tier, layout);
 
     this.createActionButton(
       width / 2,
-      height - 178,
+      layout.primaryBtnY,
       340,
       54,
       'ДОСКА ЗАКАЗОВ И СТРОЙКИ ВЕКА',
@@ -248,7 +271,7 @@ export class MenuScene extends Phaser.Scene {
     const halfW = 165;
     this.createActionButton(
       width / 2 - halfW / 2 - 5,
-      height - 110,
+      layout.secondaryBtnY,
       halfW,
       48,
       '⚙️ МАГАЗИН',
@@ -263,7 +286,7 @@ export class MenuScene extends Phaser.Scene {
 
     this.createActionButton(
       width / 2 + halfW / 2 + 5,
-      height - 110,
+      layout.secondaryBtnY,
       halfW,
       48,
       '📖 ГОСТЫ',
@@ -276,7 +299,7 @@ export class MenuScene extends Phaser.Scene {
       14
     );
 
-    this.add.text(width / 2, height - 18, 'EASY DOPAMINE GAMES', {
+    this.add.text(width / 2, layout.bottomFooterY, 'EASY DOPAMINE GAMES', {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '11px',
       fontWeight: '700',
@@ -289,32 +312,32 @@ export class MenuScene extends Phaser.Scene {
     const myProfile = Storage.buildPublicProfile(PlatformSDK.playerName);
     PlatformSDK.submitLabProfile(myProfile);
 
-    this.runMenuTutorialStep(width, height);
+    this.runMenuTutorialStep(width, height, layout);
   }
 
-  runMenuTutorialStep(width, height) {
+  runMenuTutorialStep(width, height, layout) {
     if (!TutorialManager.isActive()) return;
     const step = TutorialManager.getStep();
 
     if (step < 7) {
       TutorialManager.advanceTo(0);
       TutorialManager.showSpotlight(this, {
-        hole: { x: width / 2, y: height - 178, w: 350, h: 64 },
-        cardY: 365,
+        hole: { x: width / 2, y: layout.primaryBtnY, w: 350, h: 64 },
+        cardY: Math.min(365, layout.maintY - 120),
         badge: 'ШАГ 1/8 · ДОБРО ПОЖАЛОВАТЬ В ROCK LAB',
         text: 'Ты — руководитель геотехнической лаборатории!\nЗдесь ты вскрываешь керны, готовишь образцы и давишь их под прессом.\nНажми «ДОСКА ЗАКАЗОВ», чтобы взять первый контракт!'
       });
     } else {
       TutorialManager.showSpotlight(this, {
-        hole: { x: width / 2, y: height * 0.585 + 31, w: 348, h: 70 },
-        cardY: 295,
-        badge: 'ОБЗОР 1/4 · ТО ПРИБОРОВ И СОТРУДНИКИ',
-        text: 'Следи за износом пилы, абразива и поверкой на панели ТО.\nНанимай сотрудников в цеху: часть сложных стендов (например, стабилометр)\nтребует допсотрудников в штате, а с ростом штата они помогают с тестами!',
+        hole: { x: width / 2, y: layout.maintY + 38, w: 352, h: 84 },
+        cardY: 265,
+        badge: 'ОБЗОР 1/4 · РАСХОДНИКИ, ИЗНОС И РЕМОНТ',
+        text: 'На простых заказах пила, абразив и поверка тратятся медленно (5–6%),\nно крепкие породы и «Стройки века» изнашивают станки быстрее!\nЦена ТО растёт с уровнем лабы — если денег жалко, жми «🎬» для ремонта за рекламу.',
         nextLabel: 'ДАЛЕЕ: МАГАЗИН, МУЗЫКА И ПЛЕЕР →',
         onNext: () => {
           TutorialManager.showSpotlight(this, {
-            hole: { x: width / 2, y: height * 0.695, w: 348, h: 54 },
-            cardY: 295,
+            hole: { x: width / 2, y: layout.playerY, w: 348, h: 54 },
+            cardY: 265,
             badge: 'ОБЗОР 2/4 · МАГАЗИН, МУЗЫКА И ПЛЕЕР',
             text: 'В «⚙️ МАГАЗИНЕ» открываются стенды, скины, роботы и музыкальные паки.\nВ плеере тап по треку листает песни, а правая кнопка переключает\nповтор одного трека или проигрывание всех треков по кругу!',
             nextLabel: 'ДАЛЕЕ: ВИТРИНА И ЭКСПЕДИЦИИ →',
@@ -324,13 +347,13 @@ export class MenuScene extends Phaser.Scene {
                 cardY: 350,
                 badge: 'ОБЗОР 3/4 · ВИТРИНА И ЭКСПЕДИЦИИ',
                 text: 'Витрина минералов открывается со 2-го уровня лаборатории (купи её в магазине,\nчтобы ставить кристаллы на полку и крутить в 3D).\nБуровые экспедиции открываются после завершения 1-й «Стройки века»!',
-                nextLabel: 'ДАЛЕЕ: ДОСТИЖЕНИЯ И ФИНАЛ →',
+                nextLabel: 'ДАЛЕЕ: РЕПУТАЦИЯ, ТОП И ФИНАЛ →',
                 onNext: () => {
                   TutorialManager.showSpotlight(this, {
-                    hole: { x: width - 92, y: 32, w: 158, h: 42 },
-                    cardY: 290,
-                    badge: 'ОБЗОР 4/4 · ДОСТИЖЕНИЯ И ПОВТОР',
-                    text: 'За достижения (🏆) и рейтинг (🌐 ТОП) начисляются бонусы.\nОбучение можно в любой момент пройти повторно через кнопку «ГИД» вверху!\nЗабирай премию +200 ₽ за прохождение инструктажа!',
+                    hole: { x: width - 140, y: 32, w: 268, h: 44 },
+                    cardY: 270,
+                    badge: 'ОБЗОР 4/4 · РЕПУТАЦИЯ ★ И РЕЙТИНГ ТОП',
+                    text: 'Звёздочки ★ влияют на доход: ниже 5★ штраф −15%, от 25★ бонус +15%!\nА глобальный индекс в «🌐 ТОП» только растёт — за заказы, точность и серию без брака.\nОбучение всегда доступно в «ГИД». Забирай премию +200 ₽!',
                     nextLabel: '🎉 ЗАВЕРШИТЬ И ЗАБРАТЬ +200 ₽!',
                     onNext: () => {
                       TutorialManager.complete(this);
@@ -350,7 +373,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   createGuestBottomPanel(w, h) {
-    const panelY = h * 0.60;
+    const panelY = h - 265;
     const panelW = 356;
     const panelH = 128;
     const cx = w / 2;
@@ -411,7 +434,7 @@ export class MenuScene extends Phaser.Scene {
 
     this.createActionButton(
       w / 2,
-      h - 110,
+      h - 82,
       340,
       54,
       '🏠 ВЕРНУТЬСЯ В СВОЮ ЛАБОРАТОРИЮ',
@@ -482,7 +505,7 @@ export class MenuScene extends Phaser.Scene {
     });
   }
 
-  drawLabRoom(w, h, tier, cfg) {
+  drawLabRoom(w, h, tier, cfg, layout) {
     const g = this.add.graphics();
     const { labLvl, decorLvl, showcaseLvl, themeId, branchesCount, displayedGems, totalGemsCount } = cfg;
     const hasNeon = cfg.hasDecor('neon');
@@ -490,8 +513,8 @@ export class MenuScene extends Phaser.Scene {
     const hasCooler = cfg.hasDecor('cooler');
     const hasPlants = cfg.hasDecor('plants');
 
-    const backWallY = 266;
-    const frontBenchY = h * 0.545;
+    const backWallY = layout.backWallY;
+    const frontBenchY = layout.frontBenchY;
 
     g.fillStyle(tier.wall, 1);
     g.fillRect(0, 64, w, backWallY - 64);
@@ -842,6 +865,87 @@ export class MenuScene extends Phaser.Scene {
     g.fillRect(0, frontBenchY, w, 3);
   }
 
+  openReputationInfoModal() {
+    const { width, height } = this.scale;
+    this.showcaseModalOpen = true;
+    const modal = this.add.container(0, 0).setDepth(70);
+
+    const blocker = this.add.zone(width / 2, height / 2, width, height).setInteractive();
+    const dim = this.add.graphics();
+    dim.fillStyle(0x090d16, 0.92);
+    dim.fillRect(0, 0, width, height);
+
+    const cardW = 368;
+    const cardH = 340;
+    const cx = width / 2;
+    const cy = height / 2;
+
+    const panel = this.add.graphics();
+    panel.fillStyle(0x1e293b, 1);
+    panel.fillRoundedRect(cx - cardW / 2, cy - cardH / 2, cardW, cardH, 16);
+    panel.lineStyle(2.5, 0x38bdf8, 1);
+    panel.strokeRoundedRect(cx - cardW / 2, cy - cardH / 2, cardW, cardH, 16);
+
+    const repInfo = Storage.getReputationTierInfo();
+    const streak = Storage.getPerfectStreak();
+    const globalIdx = Storage.getLabIndexScore();
+
+    const title = this.add.text(cx, cy - 134, `★ РЕПУТАЦИЯ: ${Storage.getReputation()}`, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '18px',
+      fontWeight: '700',
+      color: '#38bdf8'
+    }).setOrigin(0.5);
+
+    const rankBadge = this.add.text(cx, cy - 102, `${repInfo.tierName} (${repInfo.shortTag})`, {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '12px',
+      fontWeight: '700',
+      color: repInfo.colorHex,
+      backgroundColor: '#0f172a',
+      padding: { x: 10, y: 5 }
+    }).setOrigin(0.5);
+
+    const desc = this.add.text(cx, cy - 42, repInfo.desc, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '12px',
+      color: '#e2e8f0',
+      align: 'center',
+      lineSpacing: 4,
+      wordWrap: { width: cardW - 36 }
+    }).setOrigin(0.5);
+
+    const scaleInfo = this.add.text(
+      cx,
+      cy + 42,
+      `Шкала лиг:\n• Ниже 5 ★ — штраф −15% к оплате\n• 5–24 ★ — стандартная оплата 100%\n• 25–49 ★ — бонус +15% · от 50 ★ — +25%\n\n🏆 Глобальный индекс ТОП: ${globalIdx}  |  🔥 Стрик без брака: ${streak}`,
+      {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: '10px',
+        color: '#fde68a',
+        align: 'center',
+        lineSpacing: 4
+      }
+    ).setOrigin(0.5);
+
+    const closeBtn = this.add.text(cx, cy + 132, 'ПОНЯТНО', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '13px',
+      fontWeight: '700',
+      color: '#ffffff',
+      backgroundColor: '#d97706',
+      padding: { x: 26, y: 9 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    closeBtn.on('pointerdown', () => {
+      AudioManager.playClick();
+      modal.destroy();
+      this.showcaseModalOpen = false;
+    });
+
+    modal.add([blocker, dim, panel, title, rankBadge, desc, scaleInfo, closeBtn]);
+  }
+
   async openLeaderboardModal(tier) {
     const { width, height } = this.scale;
     const modalContainer = this.add.container(0, 0).setDepth(68);
@@ -852,7 +956,7 @@ export class MenuScene extends Phaser.Scene {
     dimBg.fillRect(0, 0, width, height);
 
     const boxW = 408;
-    const boxH = 684;
+    const boxH = Math.min(684, height - 80);
     const boxX = width / 2 - boxW / 2;
     const boxY = height / 2 - boxH / 2;
 
@@ -1067,7 +1171,7 @@ export class MenuScene extends Phaser.Scene {
     dimBg.fillRect(0, 0, width, height);
 
     const boxW = 408;
-    const boxH = 680;
+    const boxH = Math.min(680, height - 80);
     const boxX = width / 2 - boxW / 2;
     const boxY = height / 2 - boxH / 2;
 
@@ -1491,11 +1595,18 @@ export class MenuScene extends Phaser.Scene {
       color: '#facc15'
     });
 
-    this.add.text(142, 21, `★ ${Storage.getReputation()}`, {
+    const repInfo = Storage.getReputationTierInfo();
+    const repTxt = this.add.text(140, 21, `★ ${Storage.getReputation()}`, {
       fontFamily: '"JetBrains Mono", monospace',
       fontSize: '14px',
       fontWeight: '700',
-      color: '#38bdf8'
+      color: repInfo.colorHex
+    }).setInteractive({ useHandCursor: true });
+
+    repTxt.on('pointerdown', () => {
+      if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+      AudioManager.playClick();
+      this.openReputationInfoModal();
     });
 
     const makeTopPill = (cx, cy, pillW, pillH, label, fillCol, textCol, onClick) => {
@@ -1583,10 +1694,10 @@ export class MenuScene extends Phaser.Scene {
     });
   }
 
-  createLiveMiniLab(w, h, tier, cfg) {
-    const backFloorY = 286;
-    const midFloorY = 340;
-    const frontBenchY = h * 0.545;
+  createLiveMiniLab(w, h, tier, cfg, layout) {
+    const backFloorY = layout.backWallY + 20;
+    const frontBenchY = layout.frontBenchY;
+    const midFloorY = Math.round((backFloorY + frontBenchY) * 0.48);
 
     const { labLvl, pressLvl, sawLvl, grinderLvl, staffCount } = cfg;
     const hasGoldPress = cfg.hasRnd('rnd_gold_press');
@@ -1934,7 +2045,7 @@ export class MenuScene extends Phaser.Scene {
       });
     }
 
-    const topLaneY = 304;
+    const topLaneY = backFloorY + 18;
     const botLaneY = frontBenchY - 6;
     const leftCorridorX = 62;
     const midLeftCorridorX = 138;
@@ -2239,21 +2350,21 @@ export class MenuScene extends Phaser.Scene {
     this.staffActors.push(actor);
   }
 
-  createMaintenancePanel(w, h) {
-    const panelY = h * 0.585;
+  createMaintenancePanel(w, h, layout) {
+    const panelY = layout.maintY;
     const panelW = 340;
-    const panelH = 62;
+    const panelH = 74;
     const startX = w / 2 - panelW / 2;
 
     if (this.maintContainer) {
       this.maintContainer.destroy();
     }
-    this.maintContainer = this.add.container(0, 0);
+    this.maintContainer = this.add.container(0, 0).setDepth(18);
 
     const items = [
-      { key: 'saw', label: '🪚 Диск пилы', cost: 25 },
-      { key: 'grinder', label: '⚙️ Абразив', cost: 25 },
-      { key: 'calibration', label: '📐 Поверка', cost: 35 }
+      { key: 'saw', label: '🪚 Диск пилы', cost: Storage.getMaintenanceCost('saw') },
+      { key: 'grinder', label: '⚙️ Абразив', cost: Storage.getMaintenanceCost('grinder') },
+      { key: 'calibration', label: '📐 Поверка', cost: Storage.getMaintenanceCost('calibration') }
     ];
 
     const colW = (panelW - 12) / 3;
@@ -2264,7 +2375,7 @@ export class MenuScene extends Phaser.Scene {
       const needsService = pct < 100;
 
       const card = this.add.graphics();
-      card.fillStyle(0x14161b, 0.94);
+      card.fillStyle(0x14161b, 0.95);
       card.fillRoundedRect(x, panelY, colW, panelH, 8);
       card.lineStyle(1.5, isLow ? 0xf59e0b : 0x475569, 0.9);
       card.strokeRoundedRect(x, panelY, colW, panelH, 8);
@@ -2277,50 +2388,82 @@ export class MenuScene extends Phaser.Scene {
       }).setOrigin(0.5);
 
       const pctColor = pct >= 70 ? '#4ade80' : pct >= 40 ? '#facc15' : '#f87171';
-      const t2 = this.add.text(x + colW / 2, panelY + 29, `${pct}%`, {
+      const t2 = this.add.text(x + colW / 2, panelY + 30, `${pct}%`, {
         fontFamily: '"JetBrains Mono", monospace',
         fontSize: '13px',
         fontWeight: '700',
         color: pctColor
       }).setOrigin(0.5);
 
-      const actionLabel = needsService ? `ТО · ${item.cost} ₽` : 'В НОРМЕ';
-      const canPay = needsService && Storage.getMoney() >= item.cost;
-      const t3 = this.add.text(x + colW / 2, panelY + 48, actionLabel, {
-        fontFamily: '"JetBrains Mono", monospace',
-        fontSize: '9px',
-        fontWeight: '700',
-        color: canPay ? '#0f172a' : '#94a3b8',
-        backgroundColor: canPay ? '#facc15' : '#27272a',
-        padding: { x: 6, y: 2 }
-      }).setOrigin(0.5);
+      this.maintContainer.add([card, t1, t2]);
 
-      this.maintContainer.add([card, t1, t2, t3]);
+      if (!needsService) {
+        const okBadge = this.add.text(x + colW / 2, panelY + 54, 'В НОРМЕ', {
+          fontFamily: '"JetBrains Mono", monospace',
+          fontSize: '9px',
+          fontWeight: '700',
+          color: '#94a3b8',
+          backgroundColor: '#27272a',
+          padding: { x: 8, y: 3 }
+        }).setOrigin(0.5);
+        this.maintContainer.add(okBadge);
+      } else {
+        const canPay = Storage.getMoney() >= item.cost;
 
-      if (canPay) {
-        const zone = this.add.zone(x + colW / 2, panelY + panelH / 2, colW, panelH)
-          .setInteractive({ useHandCursor: true });
-        zone.on('pointerdown', () => {
+        // Кнопка оплаты рублями (слева)
+        const payBtn = this.add.text(x + 6, panelY + 54, `${item.cost}₽`, {
+          fontFamily: '"JetBrains Mono", monospace',
+          fontSize: '9px',
+          fontWeight: '700',
+          color: canPay ? '#0f172a' : '#94a3b8',
+          backgroundColor: canPay ? '#facc15' : '#27272a',
+          padding: { x: 6, y: 3 }
+        }).setOrigin(0, 0.5).setInteractive({ useHandCursor: canPay });
+
+        if (canPay) {
+          payBtn.on('pointerdown', () => {
+            if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
+            if (Storage.spendMoney(item.cost)) {
+              Storage.restoreWear(item.key);
+              AudioManager.playLatchSnap();
+              if (this.moneyTxt) this.moneyTxt.setText(`💰 ${Storage.getMoney()} ₽`);
+              this.createMaintenancePanel(w, h, layout);
+            }
+          });
+        }
+
+        // Кнопка восстановления за рекламу (справа)
+        const adBtn = this.add.text(x + colW - 6, panelY + 54, '🎬 +55%', {
+          fontFamily: '"JetBrains Mono", monospace',
+          fontSize: '9px',
+          fontWeight: '700',
+          color: '#0f172a',
+          backgroundColor: '#38bdf8',
+          padding: { x: 5, y: 3 }
+        }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+
+        adBtn.on('pointerdown', () => {
           if (this.showcaseModalOpen || performance.now() < this.inputGuardUntil) return;
-          if (Storage.spendMoney(item.cost)) {
-            Storage.restoreWear(item.key);
-            AudioManager.playLatchSnap();
-            if (this.moneyTxt) this.moneyTxt.setText(`💰 ${Storage.getMoney()} ₽`);
-            this.createMaintenancePanel(w, h);
-          }
+          adBtn.disableInteractive();
+          PlatformSDK.showRewarded(() => {
+            Storage.restoreWearPartial(item.key, 55);
+            AudioManager.playStamp();
+            this.createMaintenancePanel(w, h, layout);
+          });
         });
-        this.maintContainer.add(zone);
+
+        this.maintContainer.add([payBtn, adBtn]);
       }
     });
   }
 
-  createMiniPlayer(w, h, tier) {
+  createMiniPlayer(w, h, tier, layout) {
     const px = w / 2;
-    const py = h * 0.695;
+    const py = layout.playerY;
     const pw = 340;
     const ph = 46;
 
-    const container = this.add.container(px, py);
+    const container = this.add.container(px, py).setDepth(18);
     const bg = this.add.graphics();
     bg.fillStyle(0x14161b, 0.96);
     bg.fillRoundedRect(-pw / 2, -ph / 2, pw, ph, 10);
@@ -2423,6 +2566,7 @@ export class MenuScene extends Phaser.Scene {
 
   update(time, delta) {
     const dt = delta / 1000;
+    const midThresholdY = (this.navNodes[0]?.y + this.navNodes[4]?.y) / 2 || 318;
 
     for (const actor of this.staffActors) {
       if (actor.sprite.activeBubble) {
@@ -2467,7 +2611,7 @@ export class MenuScene extends Phaser.Scene {
         actor.leftArm.y = Math.sin(actor.armPhase) * 2.2;
         actor.rightArm.y = -Math.sin(actor.armPhase) * 2.2;
       }
-      actor.sprite.setDepth(actor.sprite.y <= 318 ? 7 : 12);
+      actor.sprite.setDepth(actor.sprite.y <= midThresholdY ? 7 : 12);
     }
 
     if (!this.eqBars.length) return;
@@ -2488,7 +2632,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   createActionButton(x, y, w, h, label, bgColor, textColor, onClick, fontSize = 17) {
-    const container = this.add.container(x, y);
+    const container = this.add.container(x, y).setDepth(18);
     const bg = this.add.graphics();
     let isPressed = false;
 
