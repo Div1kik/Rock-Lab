@@ -1,0 +1,80 @@
+name: Build All Platforms (APK, AAB, Web ZIP)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Prepare web assets and pack Web ZIP
+        run: |
+          mkdir -p www
+          rsync -av --progress . www \
+            --exclude www \
+            --exclude .git \
+            --exclude .github \
+            --exclude node_modules \
+            --exclude android \
+            --exclude "*.md"
+          cd www && zip -r ../RockLab-Web.zip . && cd ..
+
+      - name: Initialize Capacitor and Android platform
+        run: |
+          if [ ! -f package.json ]; then
+            npm init -y
+          fi
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          if [ ! -f capacitor.config.json ] && [ ! -f capacitor.config.ts ]; then
+            npx cap init "Rock Lab" "com.easydopamine.rocklab" --web-dir=www
+          fi
+          rm -rf android
+          npx cap add android
+          npx cap sync android
+
+      - name: Lock portrait orientation in AndroidManifest
+        run: |
+          sed -i 's/android:name=".MainActivity"/android:name=".MainActivity" android:screenOrientation="portrait"/g' android/app/src/main/AndroidManifest.xml
+
+      - name: Generate release keystore
+        run: |
+          keytool -genkey -v -keystore release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias rocklab -storepass RockLab2026 -keypass RockLab2026 -dname "CN=EasyDopamine, OU=Games, O=EasyDopamine, L=SPB, S=SPB, C=RU"
+
+      - name: Build Signed Release APK and AAB
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease bundleRelease
+          cd ..
+          BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -n 1)
+          $BUILD_TOOLS/zipalign -v -p 4 android/app/build/outputs/apk/release/app-release-unsigned.apk RockLab-aligned.apk
+          $BUILD_TOOLS/apksigner sign --ks release-key.jks --ks-pass pass:RockLab2026 --key-pass pass:RockLab2026 --out RockLab-release.apk RockLab-aligned.apk
+          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 -keystore release-key.jks -storepass RockLab2026 -keypass RockLab2026 android/app/build/outputs/bundle/release/app-release.aab rocklab
+          cp android/app/build/outputs/bundle/release/app-release.aab RockLab-release.aab
+
+      - name: Upload APK, AAB, Web ZIP and Keystore
+        uses: actions/upload-artifact@v4
+        with:
+          name: RockLab-All-Builds
+          path: |
+            RockLab-release.apk
+            RockLab-release.aab
+            RockLab-Web.zip
+            release-key.jks
