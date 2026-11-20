@@ -14,6 +14,7 @@ export class GuideScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.scale;
+    this.safeTop = Math.max(window.__SAFE_TOP__ || 0, 28);
 
     const bg = this.add.graphics();
     bg.fillStyle(0x131926, 1);
@@ -21,11 +22,11 @@ export class GuideScene extends Phaser.Scene {
 
     const header = this.add.graphics();
     header.fillStyle(0x0b101b, 1);
-    header.fillRect(0, 0, width, 58);
+    header.fillRect(0, 0, width, 58 + this.safeTop);
     header.lineStyle(2, 0x38bdf8, 0.35);
-    header.lineBetween(0, 58, width, 58);
+    header.lineBetween(0, 58 + this.safeTop, width, 58 + this.safeTop);
 
-    const backBtn = this.add.text(18, 16, '← НАЗАД', {
+    const backBtn = this.add.text(18, 16 + this.safeTop, '← НАЗАД', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '14px',
       fontWeight: '700',
@@ -39,7 +40,7 @@ export class GuideScene extends Phaser.Scene {
       this.scene.start(this.returnScene);
     });
 
-    this.add.text(width - 18, 19, '📖 МЕТОДЫ И ГОСТЫ', {
+    this.add.text(width - 18, 19 + this.safeTop, '📖 МЕТОДЫ И ГОСТЫ', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '15px',
       fontWeight: '700',
@@ -53,6 +54,7 @@ export class GuideScene extends Phaser.Scene {
   renderView() {
     this.contentContainer.removeAll(true);
     const { width, height } = this.scale;
+    const st = this.safeTop || 0;
 
     // 1. Сетка кнопок выбора методики (3 колонки × 3 ряда)
     const cols = 3;
@@ -64,7 +66,7 @@ export class GuideScene extends Phaser.Scene {
       const col = idx % cols;
       const row = Math.floor(idx / cols);
       const x = 18 + btnW / 2 + col * (btnW + gap);
-      const y = 84 + row * (btnH + 6);
+      const y = 84 + st + row * (btnH + 6);
 
       const isSelected = gItem.key === this.selectedKey;
       const isUnlocked = !gItem.testKey || Storage.isTestUnlocked(gItem.testKey);
@@ -98,7 +100,7 @@ export class GuideScene extends Phaser.Scene {
     const guide = LAB_GUIDES.find((g) => g.key === this.selectedKey) || LAB_GUIDES[0];
     const isUnlocked = !guide.testKey || Storage.isTestUnlocked(guide.testKey);
 
-    const cardY = 192;
+    const cardY = 192 + st;
     const cardH = height - cardY - 18;
     const cardW = width - 36;
 
