@@ -1,5 +1,6 @@
 import { Storage } from '../utils/Storage.js';
 import { AudioManager } from '../utils/AudioManager.js';
+import { PlatformSDK } from '../utils/PlatformSDK.js';
 import { AchievementManager } from '../utils/AchievementManager.js';
 import { TutorialManager } from '../utils/TutorialManager.js';
 import {
@@ -26,6 +27,7 @@ export class ContractsScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.scale;
+    const safeTop = window.__SAFE_TOP__ || 0;
     const labLvl = Storage.getLabLevel();
     const completed = Storage.getState().completedContracts;
 
@@ -33,35 +35,52 @@ export class ContractsScene extends Phaser.Scene {
     bg.fillStyle(0x181e29, 1);
     bg.fillRect(0, 0, width, height);
 
+    const barH = 64 + safeTop;
     const header = this.add.graphics();
     header.fillStyle(0x14161b, 1);
-    header.fillRect(0, 0, width, 64);
+    header.fillRect(0, 0, width, barH);
 
-    const backBtn = this.add.text(20, 18, '← В ЛАБУ', {
+    const contentY = safeTop + 32;
+    const backBtn = this.add.text(16, contentY, '← В ЛАБУ', {
       fontFamily: '"Rubik", sans-serif',
-      fontSize: '15px',
+      fontSize: '14px',
       fontWeight: '700',
       color: '#fde68a',
       backgroundColor: '#27272a',
-      padding: { x: 12, y: 7 }
-    }).setInteractive({ useHandCursor: true });
+      padding: { x: 11, y: 7 }
+    }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
 
     backBtn.on('pointerdown', () => {
       AudioManager.playClick();
       this.scene.start('MenuScene');
     });
 
-    this.balTxt = this.add.text(width - 20, 22, `💰 ${Storage.getMoney()} ₽ · ★ ${Storage.getReputation()}`, {
-      fontFamily: '"JetBrains Mono", monospace',
+    this.energyBadge = this.add.text(width - 150, contentY, '', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '12px',
+      fontWeight: '700',
+      color: '#0f172a',
+      backgroundColor: '#38bdf8',
+      padding: { x: 9, y: 6 }
+    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+
+    this.energyBadge.on('pointerdown', () => {
+      AudioManager.playClick();
+      this.openEnergyRefillModal();
+    });
+
+    this.balTxt = this.add.text(width - 16, contentY, '', {
+      fontFamily: '"Rubik", sans-serif',
       fontSize: '13px',
       fontWeight: '700',
       color: '#facc15'
-    }).setOrigin(1, 0);
+    }).setOrigin(1, 0.5);
 
+    const tabY = barH + 28;
     const gap = 5;
     const tabW = (width - 36 - gap * 2) / 3;
 
-    this.regTabBtn = this.add.text(18 + tabW / 2, 92, '📋 ЗАКАЗЫ', {
+    this.regTabBtn = this.add.text(18 + tabW / 2, tabY, '📋 ЗАКАЗЫ', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '11px',
       fontWeight: '700',
@@ -70,7 +89,7 @@ export class ContractsScene extends Phaser.Scene {
       padding: { x: 2, y: 9 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-    this.megaTabBtn = this.add.text(18 + tabW * 1.5 + gap, 92, '🏗️ СТРОЙКИ ВЕКА', {
+    this.megaTabBtn = this.add.text(18 + tabW * 1.5 + gap, tabY, '🏗️ СТРОЙКИ ВЕКА', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '11px',
       fontWeight: '700',
@@ -79,7 +98,7 @@ export class ContractsScene extends Phaser.Scene {
       padding: { x: 2, y: 9 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-    this.expTabBtn = this.add.text(18 + tabW * 2.5 + gap * 2, 92, '🚁 ЭКСПЕДИЦИИ', {
+    this.expTabBtn = this.add.text(18 + tabW * 2.5 + gap * 2, tabY, '🚁 ЭКСПЕДИЦИИ', {
       fontFamily: '"Rubik", sans-serif',
       fontSize: '11px',
       fontWeight: '700',
@@ -147,16 +166,146 @@ export class ContractsScene extends Phaser.Scene {
       }
       TutorialManager.advanceTo(1);
       TutorialManager.showSpotlight(this, {
-        hole: { x: width / 2, y: 215, w: width - 28, h: 194 },
-        cardY: 430,
+        hole: { x: width / 2, y: barH + 151, w: width - 28, h: 194 },
+        cardY: barH + 366,
         badge: 'ШАГ 2/8 · ДОСКА ЗАКАЗОВ',
         text: `Обрати внимание на «Норму объекта: ≥ ${firstCnt?.reqMpa || 25} МПа».\nНажми «ВЗЯТЬ В РАБОТУ →», чтобы принять пробы в цех!`
       });
     }
   }
 
+  updateTopBadges() {
+    const curE = Storage.getEnergy();
+    const maxE = Storage.getMaxEnergy();
+    this.energyBadge.setText(`⚡ ${curE}/${maxE}`);
+    this.energyBadge.setBackgroundColor(curE < 15 ? '#f87171' : '#38bdf8');
+    this.balTxt.setText(`💰 ${Storage.getMoney()} ₽`);
+  }
+
+  trySpendEnergyAndLaunch(energyCost, onSuccess) {
+    const actualCost = TutorialManager.isActive() ? 0 : energyCost;
+    if (Storage.spendEnergy(actualCost)) {
+      this.updateTopBadges();
+      onSuccess();
+    } else {
+      AudioManager.playClick();
+      this.openEnergyRefillModal(energyCost);
+    }
+  }
+
+  openEnergyRefillModal(neededEnergy = 0) {
+    if (this._energyModalOpen) return;
+    this._energyModalOpen = true;
+    const { width, height } = this.scale;
+    const modal = this.add.container(0, 0).setDepth(90);
+
+    const blocker = this.add.zone(width / 2, height / 2, width, height).setInteractive();
+    const dim = this.add.graphics();
+    dim.fillStyle(0x090d16, 0.92);
+    dim.fillRect(0, 0, width, height);
+
+    const cardW = 364;
+    const cardH = 310;
+    const cx = width / 2;
+    const cy = height / 2;
+
+    const panel = this.add.graphics();
+    panel.fillStyle(0x1e293b, 1);
+    panel.fillRoundedRect(cx - cardW / 2, cy - cardH / 2, cardW, cardH, 16);
+    panel.lineStyle(2.5, 0x38bdf8, 1);
+    panel.strokeRoundedRect(cx - cardW / 2, cy - cardH / 2, cardW, cardH, 16);
+
+    const curE = Storage.getEnergy();
+    const maxE = Storage.getMaxEnergy();
+    const refillCost = Storage.getEnergyRefillCost();
+    const canPay = Storage.getMoney() >= refillCost && curE < maxE;
+
+    const title = this.add.text(cx, cy - 122, `⚡ ЭНЕРГИЯ СМЕНЫ: ${curE}/${maxE}`, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '17px',
+      fontWeight: '700',
+      color: '#38bdf8'
+    }).setOrigin(0.5);
+
+    const infoText = neededEnergy > 0
+      ? `Для этого задания нужно ${neededEnergy} ⚡ (сейчас ${curE} ⚡).\nВосстанавливается сама: +1 ⚡ каждые 2 минуты.`
+      : 'Энергия тратится на приём заказов и экспедиций.\nВосстанавливается сама: +1 ⚡ каждые 2 минуты.';
+
+    const desc = this.add.text(cx, cy - 72, infoText, {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '12px',
+      color: '#e2e8f0',
+      align: 'center',
+      lineSpacing: 4,
+      wordWrap: { width: cardW - 36 }
+    }).setOrigin(0.5);
+
+    const adBtn = this.add.text(cx, cy - 10, '🎬 КОФЕ-БРЕЙК ЗА РЕКЛАМУ (+45 ⚡)', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '13px',
+      fontWeight: '700',
+      color: '#0f172a',
+      backgroundColor: '#4ade80',
+      padding: { x: 16, y: 11 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    adBtn.on('pointerdown', () => {
+      adBtn.disableInteractive();
+      PlatformSDK.showRewarded(() => {
+        Storage.addEnergy(45);
+        AudioManager.playStamp();
+        this.updateTopBadges();
+        this._energyModalOpen = false;
+        modal.destroy();
+      });
+    });
+
+    const coinBtn = this.add.text(
+      cx,
+      cy + 46,
+      curE >= maxE ? '✅ ЗАПАС ЭНЕРГИИ ПОЛОН' : `☕ ЭСПРЕССО-СЕТ: ПОЛНЫЙ БАК (${refillCost} ₽)`,
+      {
+        fontFamily: '"Rubik", sans-serif',
+        fontSize: '12px',
+        fontWeight: '700',
+        color: canPay ? '#0f172a' : '#94a3b8',
+        backgroundColor: canPay ? '#facc15' : '#334155',
+        padding: { x: 16, y: 10 }
+      }
+    ).setOrigin(0.5).setInteractive({ useHandCursor: canPay });
+
+    if (canPay) {
+      coinBtn.on('pointerdown', () => {
+        if (Storage.spendMoney(refillCost)) {
+          Storage.addEnergy(maxE);
+          AudioManager.playLatchSnap();
+          this.updateTopBadges();
+          this._energyModalOpen = false;
+          modal.destroy();
+        }
+      });
+    }
+
+    const closeBtn = this.add.text(cx, cy + 114, 'ЗАКРЫТЬ', {
+      fontFamily: '"Rubik", sans-serif',
+      fontSize: '12px',
+      fontWeight: '700',
+      color: '#ffffff',
+      backgroundColor: '#475569',
+      padding: { x: 24, y: 8 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    closeBtn.on('pointerdown', () => {
+      AudioManager.playClick();
+      this._energyModalOpen = false;
+      modal.destroy();
+    });
+
+    modal.add([blocker, dim, panel, title, desc, adBtn, coinBtn, closeBtn]);
+  }
+
   refreshBoard() {
-    this.balTxt.setText(`💰 ${Storage.getMoney()} ₽ · ★ ${Storage.getReputation()}`);
+    this.updateTopBadges();
 
     this.regTabBtn.setColor(this.mode === 'regular' ? '#1c1917' : '#e2e8f0');
     this.regTabBtn.setBackgroundColor(this.mode === 'regular' ? '#facc15' : '#292524');
@@ -181,21 +330,24 @@ export class ContractsScene extends Phaser.Scene {
   renderExpeditions() {
     this.cardsContainer.removeAll(true);
     const { width } = this.scale;
+    const safeTop = window.__SAFE_TOP__ || 0;
+    const startTop = 122 + safeTop;
     const money = Storage.getMoney();
     const hasCompletedMega = Storage.getCompletedMegasCount() >= 1;
+    const expEnergyCost = 30;
 
     if (!hasCompletedMega) {
       const lockCard = this.add.graphics();
       lockCard.fillStyle(0x1e293b, 1);
-      lockCard.fillRoundedRect(24, 180, width - 48, 250, 16);
+      lockCard.fillRoundedRect(24, startTop + 58, width - 48, 250, 16);
       lockCard.lineStyle(2, 0xfacc15, 0.9);
-      lockCard.strokeRoundedRect(24, 180, width - 48, 250, 16);
+      lockCard.strokeRoundedRect(24, startTop + 58, width - 48, 250, 16);
 
-      const lockIcon = this.add.text(width / 2, 232, '🔒 🚁', {
+      const lockIcon = this.add.text(width / 2, startTop + 110, '🔒 🚁', {
         fontSize: '36px'
       }).setOrigin(0.5);
 
-      const lockTitle = this.add.text(width / 2, 282, 'БУРОВЫЕ ЭКСПЕДИЦИИ ЗАКРЫТЫ', {
+      const lockTitle = this.add.text(width / 2, startTop + 160, 'БУРОВЫЕ ЭКСПЕДИЦИИ ЗАКРЫТЫ', {
         fontFamily: '"Rubik", sans-serif',
         fontSize: '16px',
         fontWeight: '700',
@@ -204,7 +356,7 @@ export class ContractsScene extends Phaser.Scene {
 
       const lockDesc = this.add.text(
         width / 2,
-        345,
+        startTop + 223,
         'Чтобы финансировать собственные буровые партии в Арктику и Якутию,\nсначала завершите полностью хотя бы 1 «Стройку века»!',
         {
           fontFamily: '"Rubik", sans-serif',
@@ -221,7 +373,7 @@ export class ContractsScene extends Phaser.Scene {
     }
 
     EXPEDITIONS_CATALOG.forEach((exp, idx) => {
-      const y = 122 + idx * 198;
+      const y = startTop + idx * 198;
       const cardW = width - 36;
       const cardH = 186;
       const x = 18;
@@ -247,8 +399,8 @@ export class ContractsScene extends Phaser.Scene {
         y + 15,
         isReady ? `⏱️ Раз в ${exp.cooldownDays} дн.` : `⏳ Через ${daysLeft} дн.`,
         {
-          fontFamily: '"JetBrains Mono", monospace',
-          fontSize: '10px',
+          fontFamily: '"Rubik", sans-serif',
+          fontSize: '11px',
           fontWeight: '700',
           color: isReady ? '#38bdf8' : '#f87171'
         }
@@ -271,10 +423,10 @@ export class ContractsScene extends Phaser.Scene {
       const lootTxt = this.add.text(
         x + 14,
         y + 102,
-        `Награда за анализ: +${exp.payout} ₽  ★+${exp.rep}  |  💎 Гарант. редкий образец`,
+        `Награда: +${exp.payout} ₽  ★+${exp.rep}  |  💎 Редкий образец`,
         {
-          fontFamily: '"JetBrains Mono", monospace',
-          fontSize: '10px',
+          fontFamily: '"Rubik", sans-serif',
+          fontSize: '11px',
           fontWeight: '700',
           color: '#facc15'
         }
@@ -289,13 +441,13 @@ export class ContractsScene extends Phaser.Scene {
       btnBg.fillStyle(canAfford ? 0x059669 : 0x334155, 1);
       btnBg.fillRoundedRect(btnX, btnY, btnW, btnH, 8);
 
-      let btnText = `🚁 СНАРЯДИТЬ ПАРТИЮ (-${exp.cost} ₽)`;
-      if (!isReady) btnText = `⏳ БУРОВАЯ НА ТЕХОБСЛУЖИВАНИИ (ЕЩЁ ${daysLeft} ЗАКАЗ.)`;
+      let btnText = `🚁 СНАРЯДИТЬ (-${exp.cost} ₽ · ⚡ ${expEnergyCost})`;
+      if (!isReady) btnText = `⏳ БУРОВАЯ НА ТО (ЕЩЁ ${daysLeft} ЗАКАЗ.)`;
       else if (!canAfford) btnText = `НЕДОСТАТОЧНО СРЕДСТВ (${exp.cost} ₽)`;
 
       const btnLabel = this.add.text(btnX + btnW / 2, btnY + btnH / 2, btnText, {
         fontFamily: '"Rubik", sans-serif',
-        fontSize: '11px',
+        fontSize: '12px',
         fontWeight: '700',
         color: canAfford ? '#ffffff' : '#94a3b8'
       }).setOrigin(0.5);
@@ -307,14 +459,16 @@ export class ContractsScene extends Phaser.Scene {
           .setInteractive({ useHandCursor: true });
 
         hitZone.on('pointerdown', () => {
-          if (Storage.spendMoney(exp.cost)) {
-            Storage.markExpeditionLaunched(exp.id);
-            const contract = generateExpeditionContract(exp.id);
-            AudioManager.playStamp();
-            AchievementManager.unlock(this, 'polar_driller');
-            Storage.setActiveContract(contract);
-            this.scene.start('UnpackScene', { contract });
-          }
+          this.trySpendEnergyAndLaunch(expEnergyCost, () => {
+            if (Storage.spendMoney(exp.cost)) {
+              Storage.markExpeditionLaunched(exp.id);
+              const contract = generateExpeditionContract(exp.id);
+              AudioManager.playStamp();
+              AchievementManager.unlock(this, 'polar_driller');
+              Storage.setActiveContract(contract);
+              this.scene.start('UnpackScene', { contract });
+            }
+          });
         });
 
         this.cardsContainer.add(hitZone);
@@ -325,11 +479,14 @@ export class ContractsScene extends Phaser.Scene {
   renderMegaProjects() {
     this.cardsContainer.removeAll(true);
     const { width } = this.scale;
+    const safeTop = window.__SAFE_TOP__ || 0;
+    const startTop = 122 + safeTop;
     const labLvl = Storage.getLabLevel();
     const staffLvl = Storage.getPerkLevel('assistant');
+    const megaEnergyCost = 25;
 
     MEGA_PROJECTS.forEach((proj, idx) => {
-      const y = 122 + idx * 158;
+      const y = startTop + idx * 158;
       const cardW = width - 36;
       const cardH = 148;
       const x = 18;
@@ -355,7 +512,7 @@ export class ContractsScene extends Phaser.Scene {
       });
 
       const rewardTxt = this.add.text(x + cardW - 14, y + 14, `🏆 +${proj.finalBonus} ₽`, {
-        fontFamily: '"JetBrains Mono", monospace',
+        fontFamily: '"Rubik", sans-serif',
         fontSize: '12px',
         fontWeight: '700',
         color: '#facc15'
@@ -389,12 +546,12 @@ export class ContractsScene extends Phaser.Scene {
 
       const infoTxt = this.add.text(x + 14, y + 76, testsStr, {
         fontFamily: '"Rubik", sans-serif',
-        fontSize: '10px',
+        fontSize: '11px',
         color: '#cbd5e1',
         wordWrap: { width: cardW - 28 }
       });
 
-      let btnText = `НАЧАТЬ ЭТАП ${curStageIdx + 1}/${totalStages} (+${proj.stageReward} ₽)`;
+      let btnText = `ЭТАП ${curStageIdx + 1}/${totalStages} (+${proj.stageReward} ₽ · ⚡ ${megaEnergyCost})`;
       if (isDone) btnText = '🏆 МЕГА-ПРОЕКТ ЗАВЕРШЁН';
       else if (!labOk) btnText = `НУЖНА ЛАБА Ур. ${proj.reqLab}`;
       else if (!staffOk) btnText = `НУЖЕН ШТАТ Ур. ${proj.reqStaff}`;
@@ -422,11 +579,13 @@ export class ContractsScene extends Phaser.Scene {
           .setInteractive({ useHandCursor: true });
 
         hitZone.on('pointerdown', () => {
-          const contract = generateMegaStageContract(proj.id, curStageIdx);
-          if (!contract) return;
-          AudioManager.playStamp();
-          Storage.setActiveContract(contract);
-          this.scene.start('UnpackScene', { contract });
+          this.trySpendEnergyAndLaunch(megaEnergyCost, () => {
+            const contract = generateMegaStageContract(proj.id, curStageIdx);
+            if (!contract) return;
+            AudioManager.playStamp();
+            Storage.setActiveContract(contract);
+            this.scene.start('UnpackScene', { contract });
+          });
         });
 
         this.cardsContainer.add(hitZone);
@@ -437,9 +596,12 @@ export class ContractsScene extends Phaser.Scene {
   renderCards() {
     this.cardsContainer.removeAll(true);
     const { width } = this.scale;
+    const safeTop = window.__SAFE_TOP__ || 0;
+    const startTop = 122 + safeTop;
+    const regEnergyCost = TutorialManager.isActive() ? 0 : 15;
 
     this.contracts.forEach((cnt, idx) => {
-      const y = 122 + idx * 198;
+      const y = startTop + idx * 198;
       const cardW = width - 36;
       const cardH = 186;
       const x = 18;
@@ -466,7 +628,7 @@ export class ContractsScene extends Phaser.Scene {
       });
 
       const rewardText = this.add.text(x + cardW - 14, y + 20, `+${cnt.reward} ₽  ★+${cnt.repReward}`, {
-        fontFamily: '"JetBrains Mono", monospace',
+        fontFamily: '"Rubik", sans-serif',
         fontSize: '13px',
         fontWeight: '700',
         color: '#facc15'
@@ -495,8 +657,8 @@ export class ContractsScene extends Phaser.Scene {
         y + 92,
         `Норма объекта: ≥ ${cnt.reqMpa} МПа  |  Ящиков: ${cnt.boxesCount} шт.`,
         {
-          fontFamily: '"JetBrains Mono", monospace',
-          fontSize: '11px',
+          fontFamily: '"Rubik", sans-serif',
+          fontSize: '12px',
           fontWeight: '700',
           color: '#b45309'
         }
@@ -511,7 +673,7 @@ export class ContractsScene extends Phaser.Scene {
         wordWrap: { width: cardW - 28 }
       });
 
-      const btnW = 190;
+      const btnW = 216;
       const btnH = 36;
       const btnX = x + cardW - btnW - 12;
       const btnY = y + cardH - btnH - 10;
@@ -520,9 +682,13 @@ export class ContractsScene extends Phaser.Scene {
       btnBg.fillStyle(isAudit ? 0x1d4ed8 : 0x15803d, 1);
       btnBg.fillRoundedRect(btnX, btnY, btnW, btnH, 8);
 
-      const btnLabel = this.add.text(btnX + btnW / 2, btnY + btnH / 2, isAudit ? 'ПРОЙТИ АУДИТ →' : 'ВЗЯТЬ В РАБОТУ →', {
+      const btnText = isAudit
+        ? `ПРОЙТИ АУДИТ (⚡ ${regEnergyCost}) →`
+        : `ВЗЯТЬ В РАБОТУ (⚡ ${regEnergyCost}) →`;
+
+      const btnLabel = this.add.text(btnX + btnW / 2, btnY + btnH / 2, btnText, {
         fontFamily: '"Rubik", sans-serif',
-        fontSize: '13px',
+        fontSize: '12px',
         fontWeight: '700',
         color: '#ffffff'
       }).setOrigin(0.5);
@@ -531,12 +697,14 @@ export class ContractsScene extends Phaser.Scene {
         .setInteractive({ useHandCursor: true });
 
       hitZone.on('pointerdown', () => {
-        AudioManager.playStamp();
-        if (cnt.isTender) {
-          Storage.clearPendingTender();
-        }
-        Storage.setActiveContract(cnt);
-        this.scene.start('UnpackScene', { contract: cnt });
+        this.trySpendEnergyAndLaunch(regEnergyCost, () => {
+          AudioManager.playStamp();
+          if (cnt.isTender) {
+            Storage.clearPendingTender();
+          }
+          Storage.setActiveContract(cnt);
+          this.scene.start('UnpackScene', { contract: cnt });
+        });
       });
 
       this.cardsContainer.add([
