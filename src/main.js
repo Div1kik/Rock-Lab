@@ -21,6 +21,14 @@ Phaser.GameObjects.GameObjectFactory.prototype.text = function (x, y, text, styl
   return txtObj;
 };
 
+const computeLogicalHeight = () => {
+  const container = document.getElementById('game-container');
+  const cw = container?.clientWidth || window.innerWidth || 480;
+  const ch = container?.clientHeight || window.innerHeight || 800;
+  const aspect = ch / Math.max(1, cw);
+  return Math.round(Phaser.Math.Clamp(480 * aspect, 760, 1120));
+};
+
 const initGame = async () => {
   await PlatformSDK.init();
 
@@ -28,7 +36,7 @@ const initGame = async () => {
     type: Phaser.AUTO,
     parent: 'game-container',
     width: 480,
-    height: 800,
+    height: computeLogicalHeight(),
     backgroundColor: '#161412',
     pixelArt: false,
     antialias: true,
@@ -50,7 +58,14 @@ const initGame = async () => {
     ]
   };
 
-  new Phaser.Game(config);
+  const game = new Phaser.Game(config);
+
+  window.addEventListener('resize', () => {
+    const newH = computeLogicalHeight();
+    if (Math.abs(game.scale.height - newH) > 4) {
+      game.scale.resize(480, newH);
+    }
+  });
 };
 
 initGame();
